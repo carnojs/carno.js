@@ -9,7 +9,12 @@ import {
 } from './driver.interface';
 import { Client } from 'pg'
 
+/**
+ * @deprecated Use BunPgDriver instead. This driver will be removed in a future version.
+ * The BunPgDriver uses Bun's native SQL support for better performance and features.
+ */
 export class PgDriver implements DriverInterface {
+  readonly dbType = 'postgres' as const;
   connectionString: string;
 
   private client: Client;
@@ -75,7 +80,7 @@ export class PgDriver implements DriverInterface {
     } else {
       sql += `ALTER TABLE "${schema}"."${tableName}" ADD COLUMN "${colName}" ${colDiff.colType}${(colDiff.colLength ? `(${colDiff.colLength})` : '')}`
     }
-    if (!colDiff.colChanges?.nullable) {
+    if (!colDiff.colChang-es?.nullable) {
       sql += ' NOT NULL';
     }
     if (colDiff.colChanges?.primary) {
@@ -130,16 +135,40 @@ export class PgDriver implements DriverInterface {
     return `DROP TYPE IF EXISTS "${param.name}";`;
   }
 
+  /**
+   * @deprecated Use transaction() method instead
+   */
   async startTransaction(): Promise<void> {
     await this.client.query('BEGIN;');
   }
 
+  /**
+   * @deprecated Use transaction() method instead
+   */
   async commitTransaction(): Promise<void> {
     await this.client.query('COMMIT;');
   }
 
+  /**
+   * @deprecated Use transaction() method instead
+   */
   async rollbackTransaction(): Promise<void> {
     await this.client.query('ROLLBACK;');
+  }
+
+  async transaction<T>(callback: (tx: any) => Promise<T>): Promise<T> {
+    await this.startTransaction();
+
+    try {
+      const result = await callback(this.client);
+      await this.commitTransaction();
+
+      return result;
+    } catch (error) {
+      await this.rollbackTransaction();
+
+      throw error;
+    }
   }
 
   async executeStatement(statement: Statement<any>): Promise<{ query: any, startTime: number, sql: string }>{

@@ -408,30 +408,32 @@ export class SqlBuilder<T> {
     this.logger.debug(`SQL: ${result.sql} [${Date.now() - result.startTime}ms]`);
   }
 
+  /**
+   * @deprecated Use inTransaction() instead
+   */
   startTransaction(): Promise<void> {
-    return this.driver.startTransaction();
+    throw new Error('startTransaction() is deprecated. Use inTransaction() instead.');
   }
 
+  /**
+   * @deprecated Use inTransaction() instead
+   */
   commit(): Promise<void> {
-    return this.driver.commitTransaction();
+    throw new Error('commit() is deprecated. Use inTransaction() instead.');
   }
 
+  /**
+   * @deprecated Use inTransaction() instead
+   */
   rollback(): Promise<void> {
-    return this.driver.rollbackTransaction();
+    throw new Error('rollback() is deprecated. Use inTransaction() instead.');
   }
 
-  // TODO: transform transaction queries into just 1 query
   async inTransaction<T>(callback: (builder: SqlBuilder<T>) => Promise<T>): Promise<T> {
-    await this.startTransaction();
-    try {
+    return await this.driver.transaction(async (tx) => {
       // @ts-ignore
-      const result = await callback(this);
-      await this.commit();
-      return result;
-    } catch (e) {
-      await this.rollback();
-      throw e;
-    }
+      return await callback(this);
+    });
   }
 
   private objectToStringMap(obj: any, parentKey: string = ''): string[] {

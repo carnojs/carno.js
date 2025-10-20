@@ -1,10 +1,10 @@
 import {EntityStorage} from 'packages/orm/src/domain/entities';
 import {LoggerService} from '@cheetah.js/core';
 import {spyOn} from 'bun:test';
-import {Orm, OrmService, PgDriver} from "../src";
+import {Orm, OrmService, BunPgDriver} from "../src";
 
 const loggerInstance = new LoggerService({applicationConfig: {logger: { level: 'info'}}} as any)
-export let app: Orm<PgDriver>
+export let app: Orm<BunPgDriver>
 export const mockLogger = spyOn(loggerInstance, 'debug')
 
 export async function startDatabase(entityFile: string | undefined = undefined, logger: LoggerService = loggerInstance) {
@@ -16,7 +16,7 @@ export async function startDatabase(entityFile: string | undefined = undefined, 
     database: 'postgres',
     username: 'postgres',
     password: 'postgres',
-    driver: PgDriver,
+    driver: BunPgDriver,
   })
 }
 
@@ -32,5 +32,8 @@ export async function execute(sql: string) {
       console.log("Database not initialized. Connection probably failed in startDatabase()")
       throw new Error('Database not initialized. Connection probably failed in startDatabase()');
   }
-  return await app.driverInstance.executeSql(sql);
+
+  const result = await app.driverInstance.executeSql(sql);
+
+  return { rows: Array.isArray(result) ? result : [] };
 }

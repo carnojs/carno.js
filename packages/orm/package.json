@@ -30,18 +30,10 @@
     "url": "git+ssh://git@github.com:mlusca/cheetah.js.git"
   },
   "devDependencies": {
-    "@types/pg": "^8.10.9",
-    "@types/uuid": "^9.0.6",
-    "pg": "^8.11.3"
+    "@types/uuid": "^9.0.6"
   },
   "peerDependencies": {
-    "@cheetah.js/core": "^0.1.35",
-    "pg": "^8.11.3"
-  },
-  "peerDependenciesMeta": {
-    "pg": {
-      "optional": true
-    }
+    "@cheetah.js/core": "^0.1.35"
   },
   "author": "",
   "license": "MIT",

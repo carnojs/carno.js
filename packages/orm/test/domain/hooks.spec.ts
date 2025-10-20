@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from 'bun:test';
-import { execute, mockLogger, purgeDatabase, startDatabase } from '../node-database';
+import { app, execute, mockLogger, purgeDatabase, startDatabase } from '../node-database';
 import {
   AfterCreate, AfterUpdate,
   BaseEntity,
@@ -23,6 +23,7 @@ describe('hooks', () => {
 
   afterEach(async () => {
     await purgeDatabase();
+    await app?.disconnect();
     (mockLogger as jest.Mock).mockClear();
   })
 

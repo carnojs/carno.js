@@ -102,6 +102,7 @@ describe('Creation, update and deletion of entities', () => {
 
   afterEach(async () => {
     await purgeDatabase();
+    await app?.disconnect();
     (mockLogger as jest.Mock).mockClear();
   })
 

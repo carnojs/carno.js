@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from 'bun:test';
-import { execute, mockLogger, purgeDatabase, startDatabase } from '../node-database';
+import { app, execute, mockLogger, purgeDatabase, startDatabase } from '../node-database';
 import { BaseEntity, Entity, PrimaryKey, Property } from '../../src';
 
 describe('serialize', () => {
@@ -10,6 +10,7 @@ describe('serialize', () => {
 
   afterEach(async () => {
     await purgeDatabase();
+    await app?.disconnect();
     (mockLogger as jest.Mock).mockClear();
   })
 

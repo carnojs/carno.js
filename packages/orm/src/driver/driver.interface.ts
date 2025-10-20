@@ -5,6 +5,8 @@ import { ValueObject } from '../common/value-object';
 
 export interface DriverInterface {
   connectionString: string;
+  readonly dbType: 'postgres' | 'mysql';
+
   executeStatement(statement: Statement<any>): Promise<{ query: any, startTime: number, sql: string }>;
   connect(): Promise<void>;
   disconnect(): Promise<void>;
@@ -34,9 +36,8 @@ export interface DriverInterface {
   getAlterTableDropNotNullInstruction(schema: string | undefined, tableName: string, colName: string, colDiff: ColDiff): string;
   getAlterTableEnumInstruction(schema: string, tableName: string, colName: string, colDiff: ColDiff): string;
   getDropTypeEnumInstruction(param: {name: string}, schema: string | undefined, tableName: string): string;
-  startTransaction(): Promise<void>;
-  commitTransaction(): Promise<void>;
-  rollbackTransaction(): Promise<void>;
+
+  transaction<T>(callback: (tx: any) => Promise<T>): Promise<T>;
 }
 
 // @ts-ignore

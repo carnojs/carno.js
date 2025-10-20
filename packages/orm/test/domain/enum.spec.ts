@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from 'bun:test';
-import { execute, mockLogger, purgeDatabase, startDatabase } from '../node-database';
+import { app, execute, mockLogger, purgeDatabase, startDatabase } from '../node-database';
 import { BaseEntity, Entity, PrimaryKey } from '../../src';
 import { Enum } from '../../src/decorators/enum.decorator';
 
@@ -12,6 +12,7 @@ describe('entity with enum property', () => {
 
   afterEach(async () => {
     await purgeDatabase();
+    await app?.disconnect();
     (mockLogger as jest.Mock).mockClear();
   })
 

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from 'bun:test';
 import { BaseEntity, Entity, ManyToOne, OneToMany, PrimaryKey, Property } from '../../src';
-import { execute, mockLogger, purgeDatabase, startDatabase } from '../node-database';
+import { app, execute, mockLogger, purgeDatabase, startDatabase } from '../node-database';
 
 describe('Relationship entities', () => {
 
@@ -13,6 +13,7 @@ describe('Relationship entities', () => {
 
   afterEach(async () => {
     await purgeDatabase();
+    await app?.disconnect();
     (mockLogger as jest.Mock).mockClear();
   })
 
