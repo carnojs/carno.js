@@ -29,7 +29,8 @@ export async function purgeDatabase(schema: string = 'public') {
 
 export async function execute(sql: string) {
   if (!app?.driverInstance) {
-    throw new Error('Database not initialized. Connection probably failed in startDatabase()');
+      console.log("Database not initialized. Connection probably failed in startDatabase()")
+      throw new Error('Database not initialized. Connection probably failed in startDatabase()');
   }
   return await app.driverInstance.executeSql(sql);
 }

@@ -5,10 +5,16 @@
     "packages/*"
   ],
   "license": "MIT",
+  "scripts": {
+    "pretest": "docker-compose up -d",
+    "test": "bun test",
+    "posttest": "docker-compose down"
+  },
   "devDependencies": {
     "@types/node": "^20.9.1",
     "bun-types": "latest",
-    "lerna": "^7.4.2"
+    "lerna": "^7.4.2",
+    "typescript": "^5.9.3"
   },
   "repository": {
     "type": "git",
