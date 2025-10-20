@@ -22,7 +22,8 @@
     "commander": "^11.1.0",
     "reflect-metadata": "^0.1.13",
     "ts-morph": "^20.0.0",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "globby": "^10.0.2"
   },
   "repository": {
     "type": "git",

@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
-    "module": "commonjs",
+    "module": "ESNext",
     "target": "ES2021",
+    "moduleResolution": "bundler",
     //        "lib": ["es2022"],
     "declaration": true,
     "sourceMap": true,

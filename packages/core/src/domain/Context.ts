@@ -1,4 +1,4 @@
-import { Serve } from 'bun';
+import { Server } from 'bun';
 import { Injectable } from '../commons/decorators/Injectable.decorator';
 import { ProviderScope } from './provider-scope';
 
@@ -16,7 +16,7 @@ export class Context {
   private resultStatus: number;
   private constructor() {}
 
-  static async createFromRequest(url: any, request: Request, server: Serve) {
+  static async createFromRequest(url: any, request: Request, server: Server<any>) {
     const context = new Context();
     if (request.method === 'GET') {
       context.setQuery(url);

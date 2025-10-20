@@ -1,5 +1,5 @@
-import { PgDriver } from '@cheetah.js/orm';
-import { ConnectionSettings } from './packages/orm/src/driver/driver.interface';
+import { PgDriver } from './packages/orm/src';
+import { ConnectionSettings } from './packages/orm/src';
 
 const config: ConnectionSettings = {
   host: 'localhost',

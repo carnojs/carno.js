@@ -1,8 +1,7 @@
-
-import { Orm, OrmService, PgDriver } from '@cheetah.js/orm';
-import { EntityStorage } from 'packages/orm/src/domain/entities';
-import { LoggerService } from '@cheetah.js/core';
-import { spyOn } from 'bun:test';
+import {EntityStorage} from 'packages/orm/src/domain/entities';
+import {LoggerService} from '@cheetah.js/core';
+import {spyOn} from 'bun:test';
+import {Orm, OrmService, PgDriver} from "../src";
 
 const loggerInstance = new LoggerService({applicationConfig: {logger: { level: 'info'}}} as any)
 export let app: Orm<PgDriver>
@@ -22,9 +21,15 @@ export async function startDatabase(entityFile: string | undefined = undefined, 
 }
 
 export async function purgeDatabase(schema: string = 'public') {
+  if (!app?.driverInstance) {
+    throw new Error('Database not initialized. Connection probably failed in startDatabase()');
+  }
   await app.driverInstance.executeSql(`DROP SCHEMA IF EXISTS ${schema} CASCADE; CREATE SCHEMA ${schema};`);
 }
 
 export async function execute(sql: string) {
+  if (!app?.driverInstance) {
+    throw new Error('Database not initialized. Connection probably failed in startDatabase()');
+  }
   return await app.driverInstance.executeSql(sql);
 }

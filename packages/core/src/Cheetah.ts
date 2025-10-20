@@ -28,9 +28,9 @@ const parseUrl = require("parseurl-fast");
 export class Cheetah {
   router: Memoirist<TokenRouteWithProvider> = new Memoirist();
   private injector = createInjector();
-  private fetch = (request: Request, server: Server) =>
+  private fetch = (request: Request, server: Server<any>) =>
     this.fetcher(request, server);
-  private server: Server;
+  private server: Server<any>;
 
   constructor(public config: ApplicationConfig = {}) {
     this.injector.callHook(EventType.OnApplicationBoot, {});
@@ -109,7 +109,7 @@ export class Cheetah {
     console.log(`Server running on port ${port}`);
   }
 
-  private async fetcher(request: Request, server: Server): Promise<Response> {
+  private async fetcher(request: Request, server: Server<any>): Promise<Response> {
     const urlParsed = parseUrl(request);
 
     const context = await Context.createFromRequest(urlParsed, request, server);

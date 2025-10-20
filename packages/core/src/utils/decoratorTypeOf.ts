@@ -19,7 +19,7 @@ export function decoratorTypeOf(args: any[]): DecoratorTypes {
     };
 
     if (typeof descriptor === "number") {
-        return propertyKey ? staticType("parameter") : "parameter.constructor";
+        return propertyKey ? staticType("parameter") : DecoratorTypes.PARAM_CTOR;
     }
 
     if (descriptor && descriptor.value) {

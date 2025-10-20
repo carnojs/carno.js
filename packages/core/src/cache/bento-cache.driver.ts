@@ -22,22 +22,22 @@ export class BentoCacheDriver extends CachePort {
   }
 
   set(key: string, value: any, ttl?: number): Promise<boolean> {
-    return this.cache.set(key, value, {ttl: ttl ?? '1h'})
+    return this.cache.set({key, value, ttl: ttl ?? '1h'})
   }
 
   get(key: string): Promise<any> {
-    return this.cache.get(key)
+    return this.cache.get({key})
   }
 
   del(key: string): Promise<boolean> {
-    return this.cache.delete(key)
+    return this.cache.delete({key})
   }
 
   has(key: string): Promise<boolean> {
-    return this.cache.has(key)
+    return this.cache.has({key})
   }
 
   getOrSet(key: string, cb: () => Promise<any>, ttl?: number): Promise<any> {
-    return this.cache.getOrSet(key, cb, {ttl: ttl ?? '1h'})
+    return this.cache.getOrSet({key, factory: cb, ttl: ttl ?? '1h'})
   }
 }

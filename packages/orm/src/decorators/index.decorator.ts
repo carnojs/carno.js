@@ -1,4 +1,4 @@
-import { Metadata } from '@cheetah.js/core';
+import {Metadata} from "@cheetah.js/core";
 
 export function Index<T>(options?: { properties: (keyof T)[] }): PropertyDecorator {
   return (target: any, propertyKey: symbol | string) => {
