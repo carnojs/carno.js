@@ -117,7 +117,7 @@ export type Statement<T> = {
   table?: string;
   alias?: string;
   customSchema?: string;
-  columns?: Array<keyof T>;
+  columns?: string[];
   join?: JoinStatement<T>[];
   selectJoin?: Statement<T>[];
   strategy?: 'select' | 'joined';
