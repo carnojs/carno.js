@@ -285,20 +285,20 @@ export class SqlBuilder<T> {
   }
 
   private objectToStringMap(obj: any, parentKey: string = ''): string[] {
-    let result: string[] = [];
+    return Object.keys(obj)
+      .filter(key => obj.hasOwnProperty(key))
+      .flatMap(key => this.mapObjectKey(obj, key, parentKey));
+  }
 
-    for (let key in obj) {
-      if (obj.hasOwnProperty(key)) {
-        let fullKey = parentKey ? `${parentKey}.${key}` : key;
-        if (typeof obj[key] === 'object' && obj[key] !== null) {
-          result = result.concat(this.objectToStringMap(obj[key], fullKey));
-        } else {
-          result.push(`${this.columnManager.discoverAlias(fullKey, true)} ${obj[key]}`);
-        }
-      }
-    }
+  private mapObjectKey(obj: any, key: string, parentKey: string): string[] {
+    const fullKey = parentKey ? `${parentKey}.${key}` : key;
+    return this.isNestedObject(obj[key])
+      ? this.objectToStringMap(obj[key], fullKey)
+      : [`${this.columnManager.discoverAlias(fullKey, true)} ${obj[key]}`];
+  }
 
-    return result;
+  private isNestedObject(value: any): boolean {
+    return typeof value === 'object' && value !== null;
   }
 
   private getTableName() {
@@ -335,82 +335,108 @@ export class SqlBuilder<T> {
    * @returns {string} - The alias for the table name.
    */
   private getAlias(tableName: string): string {
-    const alias = tableName.split('').shift() || '';
-
-    let counter = 1;
-    let uniqueAlias = `${alias}${counter}`;
-
-    while (this.aliases.has(uniqueAlias)) {
-      counter++;
-      uniqueAlias = `${alias}${counter}`;
-    }
-
+    const baseAlias = tableName.split('').shift() || '';
+    const uniqueAlias = this.generateUniqueAlias(baseAlias);
     this.aliases.add(uniqueAlias);
     return uniqueAlias;
   }
 
-  private withDefaultValues(values: any, entityOptions: Options) {
-    const property = Object.entries(entityOptions.properties).filter(([_, value]) => value.options.onInsert);
-    const defaultProperties = Object.entries(entityOptions.properties).filter(([_, value]) => value.options.default);
+  private generateUniqueAlias(baseAlias: string): string {
+    let counter = 1;
+    let candidate = `${baseAlias}${counter}`;
 
-    for (const [key, property] of defaultProperties) {
-      if (typeof values[key] === 'undefined') {
-        if (typeof property.options.default === 'function') {
-          values[key] = property.options.default();
-        } else {
-          values[key] = property.options.default;
-        }
-      }
+    while (this.aliases.has(candidate)) {
+      counter++;
+      candidate = `${baseAlias}${counter}`;
     }
 
-    property.forEach(([key, property]) => {
-      values[key] = property.options.onInsert!();
-      this.updatedColumns.push(`${this.statements.alias}."${key}" as "${this.statements.alias}_${key}"`)
-    });
+    return candidate;
+  }
 
+  private withDefaultValues(values: any, entityOptions: Options) {
+    this.applyDefaultProperties(values, entityOptions);
+    this.applyOnInsertProperties(values, entityOptions);
     return values;
   }
 
+  private applyDefaultProperties(values: any, entityOptions: Options): void {
+    const defaultProperties = Object.entries(entityOptions.properties).filter(([_, value]) => value.options.default);
+
+    for (const [key, property] of defaultProperties) {
+      this.setDefaultValue(values, key, property);
+    }
+  }
+
+  private setDefaultValue(values: any, key: string, property: any): void {
+    if (typeof values[key] !== 'undefined') return;
+
+    values[key] = typeof property.options.default === 'function'
+      ? property.options.default()
+      : property.options.default;
+  }
+
+  private applyOnInsertProperties(values: any, entityOptions: Options): void {
+    const properties = Object.entries(entityOptions.properties).filter(([_, value]) => value.options.onInsert);
+    properties.forEach(([key, property]) => this.applyOnInsert(values, key, property));
+  }
+
+  private applyOnInsert(values: any, key: string, property: any): void {
+    values[key] = property.options.onInsert!();
+    this.updatedColumns.push(`${this.statements.alias}."${key}" as "${this.statements.alias}_${key}"`);
+  }
+
   private withUpdatedValues(values: any, entityOptions: Options) {
-    const property = Object.entries(entityOptions.properties).filter(([_, value]) => value.options.onUpdate);
-
-    property.forEach(([key, property]) => {
-      values[property.options.columnName] = property.options.onUpdate!();
-      this.updatedColumns.push(`${this.statements.alias}."${property.options.columnName}" as "${this.statements.alias}_${property.options.columnName}"`)
-    });
-
+    const properties = Object.entries(entityOptions.properties).filter(([_, value]) => value.options.onUpdate);
+    properties.forEach(([key, property]) => this.applyOnUpdate(values, property));
     return values;
+  }
+
+  private applyOnUpdate(values: any, property: any): void {
+    const columnName = property.options.columnName;
+    values[columnName] = property.options.onUpdate!();
+    this.updatedColumns.push(`${this.statements.alias}."${columnName}" as "${this.statements.alias}_${columnName}"`);
   }
 
   public callHook(type: string, model?: any) {
     const hooks = this.statements.hooks?.filter(hook => hook.type === type) || [];
     const instance = model || this.statements.instance;
+    hooks.forEach(hook => this.executeHook(hook, instance, !model));
+  }
 
-    for (const hook of hooks) {
-      instance[hook.propertyName]()
-
-      if (!model) {
-        this.reflectToValues();
-      }
-    }
+  private executeHook(hook: any, instance: any, shouldReflect: boolean): void {
+    instance[hook.propertyName]();
+    if (shouldReflect) this.reflectToValues();
   }
 
   private reflectToValues() {
     for (const key in this.statements.instance as any) {
-      if (key.startsWith('$')) {
-        continue;
-      }
-      if (key.startsWith('_')) {
-        continue;
-      }
-      if (this.entity.properties[key]) {
-        this.statements.values[this.entity.properties[key].options.columnName] = this.statements.instance[key];
-        continue;
-      }
-      const rel = this.entity.relations.find(rel => rel.propertyKey === key)
-      if (rel) {
-        this.statements.values[rel.columnName] = this.statements.instance[key];
-      }
+      if (this.shouldSkipKey(key)) continue;
+      this.reflectKey(key);
+    }
+  }
+
+  private shouldSkipKey(key: string): boolean {
+    return key.startsWith('$') || key.startsWith('_');
+  }
+
+  private reflectKey(key: string): void {
+    if (this.entity.properties[key]) {
+      this.reflectProperty(key);
+      return;
+    }
+
+    this.reflectRelation(key);
+  }
+
+  private reflectProperty(key: string): void {
+    const columnName = this.entity.properties[key].options.columnName;
+    this.statements.values[columnName] = this.statements.instance[key];
+  }
+
+  private reflectRelation(key: string): void {
+    const rel = this.entity.relations.find(rel => rel.propertyKey === key);
+    if (rel) {
+      this.statements.values[rel.columnName] = this.statements.instance[key];
     }
   }
 }

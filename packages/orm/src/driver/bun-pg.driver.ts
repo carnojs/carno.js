@@ -21,6 +21,51 @@ export class BunPgDriver extends BunDriverBase implements DriverInterface {
     return 'postgres';
   }
 
+  protected getIdentifierQuote(): string {
+    return '"';
+  }
+
+  protected buildAutoIncrementType(colDiff: ColDiff): string {
+    return 'SERIAL';
+  }
+
+  protected buildEnumType(
+    schema: string | undefined,
+    tableName: string,
+    colDiff: ColDiff
+  ): { beforeSql: string; columnType: string } {
+    const enumName = `${schema}_${tableName}_${colDiff.colName}_enum`;
+    const enumValues = colDiff.colChanges!.enumItems!
+      .map((item) => `'${item}'`)
+      .join(', ');
+
+    const beforeSql = `CREATE TYPE "${enumName}" AS ENUM (${enumValues});`;
+    const columnType = `"${enumName}"`;
+
+    return { beforeSql, columnType };
+  }
+
+  protected appendReturningClause(
+    sql: string,
+    statement: Statement<any>
+  ): string {
+    const cols = statement.columns!.join(', ').replaceAll(`${statement.alias}.`, '');
+    return `${sql} RETURNING ${cols}`;
+  }
+
+  protected async handleInsertReturn(
+    statement: Statement<any>,
+    result: any,
+    sql: string,
+    startTime: number
+  ): Promise<{ query: any; startTime: number; sql: string }> {
+    return {
+      query: { rows: Array.isArray(result) ? result : [] },
+      startTime,
+      sql,
+    };
+  }
+
   getCreateTableInstruction(
     schema: string | undefined,
     tableName: string,
@@ -222,61 +267,6 @@ export class BunPgDriver extends BunDriverBase implements DriverInterface {
     return `DROP TYPE IF EXISTS "${param.name}";`;
   }
 
-  async executeStatement(
-    statement: Statement<any>
-  ): Promise<{ query: any; startTime: number; sql: string }> {
-    let { statement: statementType, table, columns, where, limit, alias } = statement;
-    let sql = '';
-
-    switch (statementType) {
-      case 'select':
-        sql = `SELECT ${columns ? columns.join(', ') : '*'} FROM ${table} ${alias}`;
-        break;
-
-      case 'insert':
-        const fields = Object.keys(statement.values)
-          .map((v) => `"${v}"`)
-          .join(', ');
-        const values = Object.values(statement.values)
-          .map((value) => this.toDatabaseValue(value))
-          .join(', ');
-
-        sql = `INSERT INTO ${table} (${fields}) VALUES (${values}) RETURNING ${statement.columns!.join(', ').replaceAll(`${alias}.`, '')}`;
-        break;
-
-      case 'update':
-        sql = `UPDATE ${table} as ${alias} SET ${Object.entries(statement.values)
-          .map(([key, value]) => `${key} = ${this.toDatabaseValue(value)}`)
-          .join(', ')}`;
-        break;
-
-      case 'delete':
-        break;
-    }
-
-    if (statement.join) {
-      statement.join.forEach((join) => {
-        sql += ` ${join.type} JOIN ${join.joinSchema}.${join.joinTable} ${join.joinAlias} ON ${join.on}`;
-      });
-    }
-
-    if (statementType !== 'insert') {
-      sql += this.buildWhereClause(where);
-      sql += this.buildOrderByClause(statement.orderBy);
-      sql += this.buildOffsetClause(statement.offset);
-      sql += this.buildLimitClause(limit);
-    }
-
-    const startTime = Date.now();
-    const result = await this.sql.unsafe(sql);
-
-    return {
-      query: { rows: Array.isArray(result) ? result : [] },
-      startTime,
-      sql,
-    };
-  }
-
   async snapshot(
     tableName: string,
     options: any
@@ -325,7 +315,11 @@ export class BunPgDriver extends BunDriverBase implements DriverInterface {
               c.consDef.includes(row.column_name)
           ),
           type: row.data_type,
-          foreignKeys: this.getForeignKeys(constraints, row),
+          foreignKeys: this.getForeignKeysFromConstraints(
+            constraints,
+            row,
+            'column_name'
+          ),
           isEnum: row.data_type === 'USER-DEFINED',
           enumItems:
             row.data_type === 'USER-DEFINED'
@@ -337,27 +331,6 @@ export class BunPgDriver extends BunDriverBase implements DriverInterface {
         };
       }),
     };
-  }
-
-  private getForeignKeys(constraints: SnapshotConstraintInfo[], row: any) {
-    return constraints
-      .filter(
-        (c) =>
-          c.type === 'FOREIGN KEY' &&
-          c.consDef.match(new RegExp(`FOREIGN KEY \\("${row.column_name}"\\)`))
-      )
-      .map((c) => {
-        const filter = c.consDef.match(/REFERENCES\s+"([^"]+)"\s*\(([^)]+)\)/);
-
-        if (!filter) {
-          throw new Error('Invalid constraint definition');
-        }
-
-        return {
-          referencedColumnName: filter[2].split(',')[0].trim(),
-          referencedTableName: filter[1],
-        };
-      });
   }
 
   async index(

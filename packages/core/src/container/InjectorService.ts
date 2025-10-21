@@ -1,43 +1,32 @@
-import { plainToInstance } from "class-transformer";
-import { validateSync } from "class-validator";
 import { ApplicationConfig } from "../Cheetah";
 import { Injectable } from "../commons/decorators/Injectable.decorator";
+import { registerProvider } from "../commons";
 import {
   GlobalProvider,
   TokenProvider,
 } from "../commons/registries/ProviderControl";
-import {
-  CONTROLLER_EVENTS,
-  CONTROLLER_MIDDLEWARES,
-  CONTROLLER_ROUTES,
-  ROUTE_MIDDLEWARES,
-} from "../constants";
+import { CONTROLLER_EVENTS } from "../constants";
 import { DefaultRoutesCheetah } from "../default-routes-cheetah";
-import { HttpMethod } from "../domain";
 import { Context } from "../domain/Context";
 import { LocalsContainer } from "../domain/LocalsContainer";
 import { Metadata } from "../domain/Metadata";
 import { Provider } from "../domain/provider";
 import { ProviderScope } from "../domain/provider-scope";
-import { ProviderType } from "../domain/provider-type";
 import { EventType, OnEvent } from "../events/on-event";
-import { HttpException } from "../exceptions/HttpException";
 import Memoirist from "../route/memoirist";
 import { LoggerService } from "../services/logger.service";
-import { getClassOrSymbol } from "../utils/getClassOrSymbol";
-import { getMethodArgTypes } from "../utils/getMethodArgTypes";
-import { isClassValidator } from "../utils/isClassValidator";
+import { CachePort } from "../cache/cache.port";
 import { isPrimitiveType } from "../utils/isPrimitiveType";
-import { isRequestScope } from '../utils/isRequestScope';
 import { nameOf } from "../utils/nameOf";
 import {
   ContainerConfiguration,
   TokenRouteWithProvider,
 } from "./ContainerConfiguration";
 import { Container } from "./container";
-import { registerProvider } from "../commons";
-import { MiddlewareRes } from './middleware.resolver';
-import { CachePort } from '../cache/cache.port';
+import { MiddlewareRes } from "./middleware.resolver";
+import { RouteResolver } from "./RouteResolver";
+import { DependencyResolver } from "./DependencyResolver";
+import { MethodInvoker } from "./MethodInvoker";
 
 @Injectable()
 export class InjectorService {
@@ -45,10 +34,9 @@ export class InjectorService {
   container: Container = new Container();
   applicationConfig: ApplicationConfig = {};
   router: Memoirist<TokenRouteWithProvider>;
-  private historyMethods: WeakMap<
-    any,
-    { [key: string]: { args: any; params: any } }
-  > = new Map();
+  private routeResolver: RouteResolver;
+  private dependencyResolver: DependencyResolver;
+  private methodInvoker: MethodInvoker;
 
   loadModule(
     container: Container,
@@ -58,173 +46,18 @@ export class InjectorService {
     this.container = container;
     this.router = router;
     this.applicationConfig = applicationConfig;
+
+    this.initializeResolvers();
     this.removeUnknownProviders();
     this.saveInjector();
-    this.resolveControllers();
+    this.routeResolver.resolveControllers();
     this.callHook(EventType.OnApplicationInit);
   }
 
-  private resolveControllers() {
-    if (!this.settings) return {};
-    const controllers = GlobalProvider.getByType(
-      ProviderType.CONTROLLER
-    ).filter((controller) => !controller.isChild());
-
-    let hydrateRoute: Map<string, TokenRouteWithProvider[]> = new Map();
-    for (const controller of controllers) {
-      let routes = Metadata.get(CONTROLLER_ROUTES, controller.token);
-
-      const controllerMiddleware =
-        Metadata.get(CONTROLLER_MIDDLEWARES, controller.token) || [];
-      if (routes.length === 0) continue;
-
-      if (controller.path) {
-        routes = routes.map((route: any) => {
-          route.path = `${controller.path}${route.path}`;
-          if (route.path.endsWith("/")) {
-            route.path = route.path.slice(0, -1);
-          }
-
-          if (!route.path.startsWith("/")) {
-            route.path = `/${route.path}`;
-          }
-          return route;
-        });
-      }
-
-      // @ts-ignore
-      for (const method of Object.keys(HttpMethod).map(
-        (key) => HttpMethod[key]
-      )) {
-        if (!routes.some((route: any) => route.method.toLowerCase() === method))
-          continue;
-
-        hydrateRoute.set(method, [
-          ...(hydrateRoute.get(method) || []),
-          ...routes
-            .filter((route: any) => route.method.toLowerCase() === method)
-            .map((route: any) => ({
-              ...route,
-              provider: controller.token,
-              route,
-              middlewares: [
-                ...controllerMiddleware,
-                ...(Metadata.get(
-                  ROUTE_MIDDLEWARES,
-                  controller.token,
-                  route.methodName
-                ) || []),
-              ],
-            })),
-        ]);
-      }
-
-      if (controller.children) {
-        const childrenRoutes = this.resolveChildrenRoutes(
-          controller.path ?? "",
-          controller.children,
-          controllerMiddleware
-        );
-        childrenRoutes.forEach((route) => {
-          hydrateRoute.set(route.method.toLowerCase(), [
-            ...(hydrateRoute.get(route.method.toLowerCase()) || []),
-            route,
-          ]);
-        });
-      }
-    }
-    hydrateRoute.forEach((method) => {
-      method.forEach((route) =>
-        this.router.add(route.method.toLowerCase(), route.path, route)
-      );
-    });
-  }
-
-  private resolveChildrenRoutes(
-    parentPath: string,
-    children: Provider[],
-    parentMiddlewares: any[]
-  ): TokenRouteWithProvider[] {
-    let childrenRoutes: any[] = [];
-
-    for (const childController of children) {
-      let controller = GlobalProvider.get(childController);
-      if (!controller)
-        throw new Error(
-          `Child ${childController} not is an controller. Please, check the providers configuration.`
-        );
-      let childRoutes = Metadata.get(CONTROLLER_ROUTES, controller.token);
-      const childMiddlewares =
-        Metadata.get(CONTROLLER_MIDDLEWARES, controller.token) || [];
-
-      if (childRoutes.length === 0) continue;
-
-      if (parentPath) {
-        childRoutes = childRoutes.map((route: any) => {
-          let controllerPath = controller?.path ?? "";
-
-          if (controllerPath.endsWith("/")) {
-            controllerPath = controller!.path!.slice(0, -1);
-          }
-          if (!controllerPath.startsWith("/")) {
-            controllerPath = `/${controller!.path}`;
-          }
-
-          route.path = `${parentPath}${controllerPath ?? ""}${route.path}`;
-          if (route.path.endsWith("/")) {
-            route.path = route.path.slice(0, -1);
-          }
-          if (!route.path.startsWith("/")) {
-            route.path = `/${route.path}`;
-          }
-          return route;
-        });
-      }
-      // @ts-ignore
-      for (const method of Object.keys(HttpMethod).map(
-        (key) => HttpMethod[key]
-      )) {
-        if (
-          !childRoutes.some(
-            (route: any) => route.method.toLowerCase() === method
-          )
-        )
-          continue;
-
-        childrenRoutes = [
-          ...childrenRoutes,
-          ...childRoutes
-            .filter((route: any) => route.method.toLowerCase() === method)
-            .map((route: any) => ({
-              ...route,
-              provider: controller!.token,
-              route,
-              middlewares: [
-                ...parentMiddlewares,
-                ...childMiddlewares,
-                ...(Metadata.get(
-                  ROUTE_MIDDLEWARES,
-                  controller!.token,
-                  route.methodName
-                ) || []),
-              ],
-            })),
-        ];
-      }
-
-      if (controller.children) {
-        childrenRoutes = [
-          ...childrenRoutes,
-          ...this.resolveChildrenRoutes(
-            controller.path!,
-            controller.children,
-            childMiddlewares
-          ),
-        ];
-      }
-    }
-
-    return childrenRoutes;
+  private initializeResolvers(): void {
+    this.routeResolver = new RouteResolver(this.router);
+    this.dependencyResolver = new DependencyResolver(this.container);
+    this.methodInvoker = new MethodInvoker(this.applicationConfig);
   }
 
   private ensureProvider(token: TokenProvider): Provider | undefined {
@@ -239,170 +72,51 @@ export class InjectorService {
     return this.ensureProvider(token);
   }
 
-  /**
-   * Invoke the class and inject all services that required by the class constructor.
-   *
-   * #### Example
-   *
-   *
-   * @param token The injectable class to invoke. Class parameters are injected according constructor signature.
-   * @param locals  Optional object. If preset then any argument Class are read from this object first, before the `InjectorService` is consulted.
-   * @param options
-   * @returns The class constructed.
-   */
   public invoke(
     token: TokenProvider,
-    locals?: LocalsContainer,
-    options: any = {}
+    locals: LocalsContainer = new LocalsContainer()
   ): any {
-    if (locals && locals.has(token)) {
+    if (locals.has(token)) {
       return locals.get(token);
     }
 
-    if (isPrimitiveType(token)) return token;
+    if (isPrimitiveType(token)) {
+      return token;
+    }
 
     const provider = this.ensureProvider(token);
-    if (!provider) throw new Error(`Provider not found for: ${nameOf(token)}`);
-
-    return this.resolve(provider, locals);
-  }
-
-  protected resolve(
-    provider: Provider,
-    locals: LocalsContainer = new LocalsContainer()
-  ) {
-    if (provider.instance) return provider.instance;
-    let scope = this.scopeOf(provider);
-
-    if (!provider.useClass && !provider.useValue)
-      throw new Error("Provider not found.");
-
-    const deps = this.getConstructorDependencies(provider.useClass);
-
-    let construct: (deps: TokenProvider[]) => any;
-    if (provider.useValue)
-      construct = (deps: TokenProvider[]) => provider.useValue;
-    else construct = (deps: TokenProvider[]) => new provider.useClass(...deps);
-
-    let instance: any;
-
-    // Se algum dos deps for REQUEST, o escopo do provider será REQUEST também
-    // @ts-ignore
-    if (isRequestScope(provider, deps, this)) {
-      scope = ProviderScope.REQUEST;
-    }
-    let services = [];
-    if (!provider.useValue)
-      services = deps
-        .filter((t) => !isPrimitiveType(t))
-        .map((token) => this.invoke(getClassOrSymbol(token), locals));
-    instance = construct(services);
-
-    switch (scope) {
-      case ProviderScope.SINGLETON:
-        provider.instance = instance;
-        this.container.addProvider(provider.token, provider);
-        break;
-      case ProviderScope.REQUEST:
-        const clone = provider.clone();
-        clone.instance = instance;
-        locals.set(clone.token, clone);
-        break;
+    if (!provider) {
+      throw new Error(`Provider not found for: ${nameOf(token)}`);
     }
 
-    return instance;
+    return this.dependencyResolver.resolve(
+      provider,
+      locals,
+      (t, l) => this.invoke(t, l)
+    );
   }
 
   async invokeRoute(
     route: TokenRouteWithProvider,
     context: Context,
     locals: LocalsContainer
-  ) {
+  ): Promise<any> {
     await MiddlewareRes.resolveMiddlewares(route, this, locals);
 
-    return this.invokeMethod(
+    return this.methodInvoker.invoke(
       route.provider.instance,
       route.methodName,
       locals,
-      context
+      context,
+      (t, l) => this.invoke(t, l)
     );
-  }
-
-  async invokeMethod(
-    instance: any,
-    methodName: string,
-    locals: LocalsContainer,
-    context: Context
-  ) {
-    const cachedMethod = this.historyMethods.get(instance);
-    let methodInfo;
-
-    if (cachedMethod && cachedMethod[methodName]) {
-      methodInfo = cachedMethod[methodName];
-    } else {
-      methodInfo = this.cacheMethodInfo(instance, methodName);
-    }
-
-    const { args, params } = methodInfo;
-    const services = [];
-
-    for (let index = 0; index < args.length; index++) {
-      const token = args[index];
-
-      if (params[index]) {
-        const param = params[index];
-
-        if (isClassValidator(token)) {
-          const obj = plainToInstance(token, param.fun(context, param.param));
-          const errors = validateSync(obj, this.applicationConfig.validation);
-          if (errors.length > 0) {
-            throw new HttpException(errors, 400);
-          }
-
-          services.push(obj);
-        } else {
-          services.push(param.fun(context, param.param));
-        }
-      } else {
-        services.push(this.invoke(getClassOrSymbol(token), locals));
-      }
-    }
-
-    return instance[methodName](...services);
-  }
-
-  private cacheMethodInfo(instance: any, methodName: string) {
-    const args = getMethodArgTypes(instance, methodName);
-    const params = Metadata.getParamDecoratorFunc(instance, methodName);
-    const methodInfo = { args, params };
-    const cachedMethod: { [key: string]: { args: any; params: any } } =
-      this.historyMethods.get(instance) || {};
-
-    cachedMethod[methodName] = methodInfo;
-    this.historyMethods.set(instance, cachedMethod);
-
-    return methodInfo;
   }
 
   scopeOf(provider: Provider): ProviderScope | undefined {
     return provider.scope || ProviderScope.SINGLETON;
   }
 
-  getConstructorDependencies(
-    target: TokenProvider,
-    propertyKey?: string | symbol | undefined
-  ): TokenProvider[] {
-    return (
-      Metadata.getOwn(
-        "override:ctor:design:paramtypes",
-        target,
-        propertyKey
-      ) || [...Metadata.getParamTypes(target, propertyKey)] ||
-      []
-    );
-  }
-
-  public callHook(event: EventType, data: any = null) {
+  public callHook(event: EventType, data: any = null): void {
     const hooks: OnEvent[] | undefined = Metadata.get(
       CONTROLLER_EVENTS,
       Reflect

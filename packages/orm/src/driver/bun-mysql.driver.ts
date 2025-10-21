@@ -21,6 +21,76 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     return 'mysql';
   }
 
+  protected getIdentifierQuote(): string {
+    return '`';
+  }
+
+  protected buildAutoIncrementType(colDiff: ColDiff): string {
+    return 'INT AUTO_INCREMENT';
+  }
+
+  protected buildEnumType(
+    schema: string | undefined,
+    tableName: string,
+    colDiff: ColDiff
+  ): { beforeSql: string; columnType: string } {
+    const enumValues = colDiff.colChanges!.enumItems!
+      .map((item) => `'${item}'`)
+      .join(', ');
+
+    return {
+      beforeSql: '',
+      columnType: `ENUM(${enumValues})`,
+    };
+  }
+
+  protected appendReturningClause(
+    sql: string,
+    statement: Statement<any>
+  ): string {
+    return sql;
+  }
+
+  protected async handleInsertReturn(
+    statement: Statement<any>,
+    result: any,
+    sql: string,
+    startTime: number
+  ): Promise<{ query: any; startTime: number; sql: string }> {
+    if (!statement.columns) {
+      return {
+        query: { rows: Array.isArray(result) ? result : [] },
+        startTime,
+        sql,
+      };
+    }
+
+    const insertId = result.lastInsertRowid;
+    const cols = statement.columns.join(', ').replaceAll(`${statement.alias}.`, '');
+    const selectSql = `SELECT ${cols} FROM ${statement.table} WHERE id = ${insertId}`;
+    const selectResult = await this.sql.unsafe(selectSql);
+
+    return {
+      query: { rows: Array.isArray(selectResult) ? selectResult : [] },
+      startTime,
+      sql,
+    };
+  }
+
+  protected buildLimitAndOffsetClause(statement: Statement<any>): string {
+    const { offset, limit } = statement;
+
+    if (offset && limit) {
+      return ` LIMIT ${offset}, ${limit}`;
+    }
+
+    if (limit) {
+      return this.buildLimitClause(limit);
+    }
+
+    return '';
+  }
+
   getCreateTableInstruction(
     schema: string | undefined,
     tableName: string,
@@ -231,77 +301,6 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     return '';
   }
 
-  async executeStatement(
-    statement: Statement<any>
-  ): Promise<{ query: any; startTime: number; sql: string }> {
-    let { statement: statementType, table, columns, where, limit, alias } = statement;
-    let sql = '';
-
-    switch (statementType) {
-      case 'select':
-        sql = `SELECT ${columns ? columns.join(', ') : '*'} FROM ${table} ${alias}`;
-        break;
-
-      case 'insert':
-        const fields = Object.keys(statement.values)
-          .map((v) => `\`${v}\``)
-          .join(', ');
-        const values = Object.values(statement.values)
-          .map((value) => this.toDatabaseValue(value))
-          .join(', ');
-
-        sql = `INSERT INTO ${table} (${fields}) VALUES (${values})`;
-        break;
-
-      case 'update':
-        sql = `UPDATE ${table} as ${alias} SET ${Object.entries(statement.values)
-          .map(([key, value]) => `${key} = ${this.toDatabaseValue(value)}`)
-          .join(', ')}`;
-        break;
-
-      case 'delete':
-        break;
-    }
-
-    if (statement.join) {
-      statement.join.forEach((join) => {
-        sql += ` ${join.type} JOIN ${join.joinSchema}.${join.joinTable} ${join.joinAlias} ON ${join.on}`;
-      });
-    }
-
-    if (statementType !== 'insert') {
-      sql += this.buildWhereClause(where);
-      sql += this.buildOrderByClause(statement.orderBy);
-
-      if (statement.offset && limit) {
-        sql += ` LIMIT ${statement.offset}, ${limit}`;
-      } else if (limit) {
-        sql += this.buildLimitClause(limit);
-      }
-    }
-
-    const startTime = Date.now();
-    const result = await this.sql.unsafe(sql);
-
-    if (statementType === 'insert' && statement.columns) {
-      const insertId = result.lastInsertRowid;
-      const selectSql = `SELECT ${statement.columns.join(', ').replaceAll(`${alias}.`, '')} FROM ${table} WHERE id = ${insertId}`;
-      const insertResult = await this.sql.unsafe(selectSql);
-
-      return {
-        query: { rows: Array.isArray(insertResult) ? insertResult : [] },
-        startTime,
-        sql,
-      };
-    }
-
-    return {
-      query: { rows: Array.isArray(result) ? result : [] },
-      startTime,
-      sql,
-    };
-  }
-
   async snapshot(
     tableName: string,
     options: any
@@ -334,7 +333,11 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
           primary: row.COLUMN_KEY === 'PRI',
           unique: row.COLUMN_KEY === 'UNI' || row.COLUMN_KEY === 'PRI',
           type: row.DATA_TYPE,
-          foreignKeys: this.getForeignKeys(constraints, row),
+          foreignKeys: this.getForeignKeysFromConstraints(
+            constraints,
+            row,
+            'COLUMN_NAME'
+          ),
           isEnum: row.DATA_TYPE === 'enum',
           enumItems: row.DATA_TYPE === 'enum' ? this.parseEnumValues(row.COLUMN_TYPE) : undefined,
           precision: row.NUMERIC_PRECISION,
@@ -353,23 +356,6 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     }
 
     return match[1].split(',').map((v) => v.trim().replace(/'/g, ''));
-  }
-
-  private getForeignKeys(constraints: SnapshotConstraintInfo[], row: any) {
-    return constraints
-      .filter((c) => c.type === 'FOREIGN KEY' && c.consDef.includes(row.COLUMN_NAME))
-      .map((c) => {
-        const filter = c.consDef.match(/REFERENCES\s+`([^`]+)`\s*\(([^)]+)\)/);
-
-        if (!filter) {
-          throw new Error('Invalid constraint definition');
-        }
-
-        return {
-          referencedColumnName: filter[2].split(',')[0].trim().replace(/`/g, ''),
-          referencedTableName: filter[1],
-        };
-      });
   }
 
   async index(
