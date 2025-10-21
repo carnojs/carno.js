@@ -50,7 +50,7 @@ export function Property(options?: PropertyOptions): PropertyDecorator {
         const propType = Metadata.getType(target, propertyKey);
         const length = (options && options.length) || getDefaultLength(propType?.name);
 
-        if (isObject(propType) ) {
+        if (isObject(propType) && options.dbType !== "enum") {
             throw new Error(`Property ${String(propertyKey)} has unknown type`);
         }
 
