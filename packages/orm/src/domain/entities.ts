@@ -99,28 +99,30 @@ export class EntityStorage {
     // @ts-ignore
     let relations: ColumnsInfo[] =
       values.relations &&
-      values.relations.map((relation) => {
-        const type = this.getFkType(relation);
+      values.relations
+        .filter((relation) => relation.relation === 'many-to-one')
+        .map((relation) => {
+          const type = this.getFkType(relation);
 
-        return {
-          name: relation.columnName as string,
-          type,
-          nullable: relation.nullable,
-          unique: relation.unique,
-          length: relation.length || getDefaultLength(type),
-          default: relation.default,
-          autoIncrement: relation.autoIncrement,
-          primary: relation.isPrimary,
-          precision: relation.precision,
-          scale: relation.scale,
-          foreignKeys: [
-            {
-              referencedColumnName: this.getFkKey(relation),
-              referencedTableName: this.get(relation.entity() as any)!.tableName,
-            },
-          ],
-        };
-      });
+          return {
+            name: relation.columnName as string,
+            type,
+            nullable: relation.nullable,
+            unique: relation.unique,
+            length: relation.length || getDefaultLength(type),
+            default: relation.default,
+            autoIncrement: relation.autoIncrement,
+            primary: relation.isPrimary,
+            precision: relation.precision,
+            scale: relation.scale,
+            foreignKeys: [
+              {
+                referencedColumnName: this.getFkKey(relation),
+                referencedTableName: this.get(relation.entity() as any)!.tableName,
+              },
+            ],
+          };
+        });
 
     if (!relations) {
       relations = [];
