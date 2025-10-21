@@ -43,40 +43,40 @@ export type PropertyOptions = {
 export type Prop = { propertyKey: any; options: PropertyOptions | undefined };
 
 export function Property(options?: PropertyOptions): PropertyDecorator {
-  return (target, propertyKey) => {
-    const properties: Prop[] = Metadata.get(PROPERTIES, target.constructor) || [];
-    const type = Metadata.getType(target, propertyKey);
-    const length = (options && options.length) || getDefaultLength(type.name);
+    return (target, propertyKey) => {
+        const properties: Prop[] = Metadata.get(PROPERTIES, target.constructor) || [];
 
-    options = { length, ...options };
-    options["columnName"] = options?.columnName || toSnakeCase(propertyKey as string);
+        // 1) Resolva o tipo logo no início
+        const propType = Metadata.getType(target, propertyKey);
+        const length = (options && options.length) || getDefaultLength(propType?.name);
 
-    if (extendsFrom(ValueObject, type.prototype)) {
-      let instance = new type(null, true).getDatabaseValues();
-      options["length"] = instance.max;
-      options["precision"] = instance.precision;
-      options["scale"] = instance.scale;
-      instance = null; // Garbage collector
-    }
+        options = { length, ...options };
+        options["columnName"] = options?.columnName || toSnakeCase(propertyKey as string);
 
-    properties.push({ propertyKey, options });
-    Metadata.set(PROPERTIES, properties, target.constructor);
+        if (propType && extendsFrom(ValueObject, propType.prototype)) {
+            let instance = new propType(null, true).getDatabaseValues();
+            options["length"] = instance.max;
+            options["precision"] = instance.precision;
+            options["scale"] = instance.scale;
+            instance = null; // Garbage collector
+        }
 
-    if (options.isPrimary) {
-      const indexes: { name: string; properties: string[] }[] = Metadata.get("indexes", target.constructor) || [];
-      indexes.push({ name: `[TABLE]_pkey`, properties: [propertyKey as string] });
-      Metadata.set("indexes", indexes, target.constructor);
-    }
+        properties.push({ propertyKey, options });
+        Metadata.set(PROPERTIES, properties, target.constructor);
 
-    if (options.index) {
-      Index({ properties: [propertyKey as string] })(target, propertyKey);
-    }
+        if (options.isPrimary) {
+            const indexes: { name: string; properties: string[] }[] = Metadata.get("indexes", target.constructor) || [];
+            indexes.push({ name: `[TABLE]_pkey`, properties: [propertyKey as string] });
+            Metadata.set("indexes", indexes, target.constructor);
+        }
 
-    properties.forEach((property: Prop) => {
-      const types = Metadata.get(PROPERTIES_METADATA, target.constructor) || {};
-      const type = Metadata.getType(target, property.propertyKey);
-      types[property.propertyKey] = { type, options: property.options };
-      Metadata.set(PROPERTIES_METADATA, types, target.constructor);
-    });
-  };
+        if (options.index) {
+            Index({ properties: [propertyKey as string] })(target, propertyKey);
+        }
+
+        // 2) Atualize PROPERTIES_METADATA apenas para esta propriedade
+        const types = Metadata.get(PROPERTIES_METADATA, target.constructor) || {};
+        types[propertyKey as string] = { type: propType, options };
+        Metadata.set(PROPERTIES_METADATA, types, target.constructor);
+    };
 }
