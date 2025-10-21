@@ -2,13 +2,13 @@ import { copyFileSync } from 'fs'
 
 await Bun.build({
   entrypoints: ['./src/index.ts'],
-  outdir: './dist/bun',
-  minify: false,
-  target: 'bun',
-  format: 'esm',
+  outdir: './dist',
+  minify: true,
+  target: "node",
+  format: 'cjs',
   sourcemap: 'external',
 })
 
-copyFileSync('dist/index.d.ts', 'dist/bun/index.d.ts')
+//copyFileSync('dist/index.d.ts', 'dist/bun/index.d.ts')
 
 export {}

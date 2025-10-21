@@ -2,11 +2,13 @@
   "name": "@cheetah.js/schedule",
   "version": "0.1.46",
   "description": "Schedule module for Cheetah framework (Bun) ⏰",
+  "type": "commonjs",
   "main": "dist/index.js",
-  "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "compile": "rm -rf ./dist tsconfig.tsbuildinfo && tsc --build --force"
+    "compile": "rm -rf ./dist tsconfig.tsbuildinfo && tsc --build --force",
+    "build": "tsc --build --force",
+    "prepublishOnly": "bun run build"
   },
   "dependencies": {
     "cron": "3.1.6",
@@ -18,11 +20,8 @@
   "exports": {
     "./package.json": "./package.json",
     ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      },
-      "require": "./dist/index.js"
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
   "peerDependencies": {

@@ -2,9 +2,13 @@
   "name": "@cheetah.js/swagger",
   "version": "0.1.46",
   "description": "Generate automatically swagger.json from your cheetah.js project",
-  "main": "src/index.ts",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "compile": "rm -rf ./dist tsconfig.tsbuildinfo && tsc --build --force && bun run build.ts"
+    "compile": "rm -rf ./dist tsconfig.tsbuildinfo && tsc --build --force",
+    "build": "tsc --build --force",
+    "prepublishOnly": "bun run build"
   },
   "dependencies": {
     "openapi-types": "^12.1.3",
@@ -13,6 +17,13 @@
   "devDependencies": {
     "@apidevtools/swagger-parser": "^10.1.0",
     "@types/swagger-ui": "^3.52.2"
+  },
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
   },
   "repository": {
     "type": "git",

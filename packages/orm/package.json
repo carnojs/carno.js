@@ -2,21 +2,20 @@
   "name": "@cheetah.js/orm",
   "version": "0.1.47",
   "description": "A simple ORM for Cheetah.js",
+  "type": "commonjs",
   "main": "dist/index.js",
-  "module": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
     "./package.json": "./package.json",
     ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      },
-      "require": "./dist/index.js"
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
     }
   },
   "scripts": {
-    "compile": "rm -rf ./dist tsconfig.tsbuildinfo && tsc --build --force && bun run build.ts"
+    "compile": "rm -rf ./dist tsconfig.tsbuildinfo && tsc --build --force",
+    "build": "tsc --build --force",
+    "prepublishOnly": "bun run build"
   },
   "dependencies": {
     "commander": "^11.1.0",
