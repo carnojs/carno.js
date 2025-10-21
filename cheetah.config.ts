@@ -1,5 +1,4 @@
-import { PgDriver } from './packages/orm/src';
-import { ConnectionSettings } from './packages/orm/src';
+import {BunPgDriver, ConnectionSettings} from './packages/orm/src';
 
 const config: ConnectionSettings = {
   host: 'localhost',
@@ -7,8 +6,8 @@ const config: ConnectionSettings = {
   database: 'postgres',
   username: 'postgres',
   password: 'postgres',
-  //@ts-ignore
-  driver: PgDriver,
+    //@ts-ignore
+  driver: BunPgDriver,
   migrationPath: '/packages/orm/test/migration'
 };
 

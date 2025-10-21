@@ -49,7 +49,7 @@ export type SnapshotConstraintInfo = {
   type: string;
 }
 
-export interface ConnectionSettings<T extends DriverInterface = DriverInterface> {
+export interface ConnectionSettings<T extends Partial<DriverInterface> = Partial<DriverInterface>> {
   host?: string;
   port?: number;
   username?: string;
