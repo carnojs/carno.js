@@ -49,7 +49,7 @@ export type SnapshotConstraintInfo = {
   type: string;
 }
 
-export interface ConnectionSettings<T extends Partial<DriverInterface> = Partial<DriverInterface>> {
+export interface ConnectionSettings<T extends DriverInterface = DriverInterface> {
   host?: string;
   port?: number;
   username?: string;
@@ -57,7 +57,7 @@ export interface ConnectionSettings<T extends Partial<DriverInterface> = Partial
   database?: string;
   connectionString?: string;
   ssl?: boolean;
-  driver: T;
+  driver: new (options: ConnectionSettings<T>) => T;
   entities?: Function[] | string;
   migrationPath?: string;
 }

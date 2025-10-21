@@ -6,7 +6,6 @@ const config: ConnectionSettings = {
   database: 'postgres',
   username: 'postgres',
   password: 'postgres',
-    //@ts-ignore
   driver: BunPgDriver,
   migrationPath: '/packages/orm/test/migration'
 };
