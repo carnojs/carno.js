@@ -1,0 +1,313 @@
+import { Statement, Relationship, FilterQuery, DriverInterface } from '../driver/driver.interface';
+import { EntityStorage, Options } from '../domain/entities';
+import { SqlConditionBuilder } from './sql-condition-builder';
+import { SqlColumnManager } from './sql-column-manager';
+import { ModelTransformer } from './model-transformer';
+import { LoggerService } from '@cheetah.js/core';
+
+export class SqlJoinManager<T> {
+  constructor(
+    private entityStorage: EntityStorage,
+    private statements: Statement<T>,
+    private entity: Options,
+    private model: new () => T,
+    private driver: DriverInterface,
+    private logger: LoggerService,
+    private conditionBuilder: SqlConditionBuilder<T>,
+    private columnManager: SqlColumnManager,
+    private modelTransformer: ModelTransformer,
+    private getOriginalColumnsCallback: () => string[],
+    private getAliasCallback: (tableName: string) => string,
+  ) {}
+
+  addJoinForRelationshipPath(relationshipPath: string): void {
+    const relationshipNames = relationshipPath.split('.');
+    let currentEntity = this.entity;
+    let currentAlias = this.statements.alias!;
+    let statement = this.statements.strategy === 'joined' ? this.statements.join : this.statements.selectJoin;
+    let nameAliasProperty = this.statements.strategy === 'joined' ? 'joinAlias' : 'alias';
+
+    relationshipNames.forEach((relationshipName, index) => {
+      const relationship = currentEntity.relations.find(rel => rel.propertyKey === relationshipName);
+
+      if (!relationship) {
+        throw new Error(`Relationship "${relationshipName}" not found in entity`);
+      }
+
+      const isLastRelationship = index === relationshipNames.length - 1;
+
+      if (index === (relationshipNames.length - 2 >= 0 ? relationshipNames.length - 2 : 0)) {
+        const join = statement?.find(j => j.joinProperty === relationshipName);
+        if (join) {
+          currentAlias = join[nameAliasProperty];
+        }
+      }
+
+      if (relationship.relation === 'many-to-one' && isLastRelationship) {
+        this.applyJoin(relationship, {}, currentAlias);
+        statement = this.statements.strategy === 'joined' ? this.statements.join : this.statements.selectJoin;
+        currentAlias = statement[statement.length - 1][nameAliasProperty];
+      }
+
+      currentEntity = this.entityStorage.get(relationship.entity() as Function)!;
+    });
+  }
+
+  applyJoin(relationShip: Relationship<any>, value: FilterQuery<any>, alias: string): string {
+    const {tableName, schema} = this.getTableName();
+    const {
+      tableName: joinTableName,
+      schema: joinSchema,
+      hooks: joinHooks,
+    } = this.entityStorage.get((relationShip.entity() as Function)) || {
+      tableName: (relationShip.entity() as Function).name.toLowerCase(),
+      schema: 'public',
+    };
+
+    const originPrimaryKey = this.getPrimaryKey();
+    const joinAlias = this.getAliasCallback(joinTableName);
+    const joinWhere = this.conditionBuilder.build(value, joinAlias, relationShip.entity() as Function);
+    const on = this.buildJoinOn(relationShip, alias, joinAlias, originPrimaryKey);
+
+    if (this.statements.strategy === 'joined') {
+      this.addJoinedJoin(relationShip, joinTableName, joinSchema, joinAlias, joinWhere, on, alias, schema, tableName, joinHooks);
+    } else {
+      this.addSelectJoin(relationShip, joinTableName, joinSchema, joinAlias, joinWhere, originPrimaryKey, alias, joinHooks);
+    }
+
+    return joinWhere;
+  }
+
+  async handleSelectJoin(entities: any, models): Promise<void> {
+    if (!this.statements.selectJoin || this.statements.selectJoin.length === 0) {
+      return;
+    }
+
+    for (const join of this.statements.selectJoin.reverse()) {
+      await this.processSelectJoin(join, entities, models);
+    }
+
+    return models as any;
+  }
+
+  getPathForSelectJoin(selectJoin: Statement<any>): string[] | null {
+    const path = this.getPathForSelectJoinRecursive(selectJoin);
+    return path.reverse();
+  }
+
+  private buildJoinOn(relationShip: Relationship<any>, alias: string, joinAlias: string, originPrimaryKey: string): string {
+    let on = '';
+
+    switch (relationShip.relation) {
+      case "one-to-many":
+        on = `${joinAlias}."${this.getFkKey(relationShip)}" = ${alias}."${originPrimaryKey}"`;
+        break;
+      case "many-to-one":
+        on = `${alias}."${relationShip.columnName as string}" = ${joinAlias}."${this.getFkKey(relationShip)}"`;
+        break;
+    }
+
+    return on;
+  }
+
+  private addJoinedJoin(
+    relationShip: Relationship<any>,
+    joinTableName: string,
+    joinSchema: string,
+    joinAlias: string,
+    joinWhere: string,
+    on: string,
+    alias: string,
+    schema: string,
+    tableName: string,
+    joinHooks: any,
+  ): void {
+    this.statements.join = this.statements.join || [];
+
+    this.statements.join.push({
+      joinAlias: joinAlias,
+      joinTable: joinTableName,
+      joinSchema: joinSchema || 'public',
+      joinWhere: joinWhere,
+      joinProperty: relationShip.propertyKey as string,
+      originAlias: alias,
+      originSchema: schema,
+      originTable: tableName,
+      propertyKey: relationShip.propertyKey,
+      joinEntity: (relationShip.entity() as Function),
+      type: 'LEFT',
+      on,
+      originalEntity: relationShip.originalEntity as Function,
+      hooks: joinHooks,
+    });
+  }
+
+  private addSelectJoin(
+    relationShip: Relationship<any>,
+    joinTableName: string,
+    joinSchema: string,
+    joinAlias: string,
+    joinWhere: string,
+    originPrimaryKey: string,
+    alias: string,
+    joinHooks: any,
+  ): void {
+    this.statements.selectJoin = this.statements.selectJoin || [];
+
+    this.statements.selectJoin.push({
+      statement: 'select',
+      columns: this.getOriginalColumnsCallback().filter(column => column.startsWith(`${relationShip.propertyKey as string}`)).map(column => column.split('.')[1]) || [],
+      table: `"${joinSchema || 'public'}"."${joinTableName}"`,
+      alias: joinAlias,
+      where: joinWhere,
+      joinProperty: relationShip.propertyKey as string,
+      fkKey: this.getFkKey(relationShip),
+      primaryKey: originPrimaryKey,
+      originAlias: alias,
+      originProperty: relationShip.propertyKey as string,
+      joinEntity: (relationShip.entity() as Function),
+      originEntity: relationShip.originalEntity as Function,
+      hooks: joinHooks,
+    });
+  }
+
+  private async processSelectJoin(join: any, entities: any, models: any): Promise<void> {
+    let ids = this.getIds(join, entities, models);
+
+    if (Array.isArray(ids)) {
+      ids = ids.map((id: any) => this.formatValue(id)).join(', ');
+    }
+
+    this.updateJoinWhere(join, ids);
+    this.updateJoinColumns(join);
+
+    const child = await this.driver.executeStatement(join);
+    this.logger.debug(`SQL: ${child.sql} [${Date.now() - child.startTime}ms]`);
+
+    this.attachJoinResults(join, child, models);
+  }
+
+  private getIds(join: any, entities: any, models: any): any {
+    let ids = entities[`${join.originAlias}_${join.primaryKey}`];
+
+    if (typeof ids === 'undefined') {
+      const selectJoined = this.statements.selectJoin.find(j => j.joinEntity === join.originEntity);
+
+      if (!selectJoined) {
+        return undefined;
+      }
+
+      ids = this.findIdRecursively(models, selectJoined, join);
+    }
+
+    return ids;
+  }
+
+  private updateJoinWhere(join: any, ids: any): void {
+    if (join.where) {
+      join.where = `${join.where} AND ${join.alias}."${join.fkKey}" IN (${ids})`;
+    } else {
+      join.where = `${join.alias}."${join.fkKey}" IN (${ids})`;
+    }
+  }
+
+  private updateJoinColumns(join: any): void {
+    if (join.columns && join.columns.length > 0) {
+      join.columns = (join.columns.map(
+        (column: string) => `${join.alias}."${column}" as "${join.alias}_${column}"`,
+      ) as any[]);
+    } else {
+      join.columns = this.columnManager.getColumnsForEntity(join.joinEntity, join.alias) as any;
+    }
+  }
+
+  private attachJoinResults(join: any, child: any, models: any): void {
+    const property = this.entityStorage.get(this.model)!.relations.find(
+      (rel) => rel.propertyKey === join.joinProperty,
+    );
+
+    const values = child.query.rows.map((row: any) =>
+      this.modelTransformer.transform(join.joinEntity, join, row),
+    );
+
+    const path = this.getPathForSelectJoin(join);
+    this.setValueByPath(models, path, property?.type === Array ? [...values] : values[0]);
+  }
+
+  private setValueByPath(obj: any, path: string[], value: any): void {
+    let currentObj = obj;
+
+    for (let i = 0; i < path.length - 1; i++) {
+      const key = path[i];
+      currentObj[key] = currentObj[key] || {};
+      currentObj = currentObj[key];
+    }
+
+    currentObj[path[path.length - 1]] = value;
+  }
+
+  private getPathForSelectJoinRecursive(selectJoin: Statement<any>): string[] | null {
+    const originJoin = this.statements.selectJoin.find(j => j.joinEntity === selectJoin.originEntity);
+    let pathInJoin = [];
+
+    if (!originJoin) {
+      return [selectJoin.joinProperty];
+    }
+
+    if (originJoin.originEntity !== this.statements.originEntity) {
+      pathInJoin = this.getPathForSelectJoinRecursive(originJoin);
+    }
+
+    return [selectJoin.joinProperty, ...pathInJoin];
+  }
+
+  private findIdRecursively(models: any, selectJoined: any, join: any): any {
+    let ids = models[selectJoined.originProperty][join.primaryKey];
+
+    if (typeof ids === 'undefined') {
+      const nextSelectJoined = this.statements.selectJoin.find(j => j.joinEntity === selectJoined.originEntity);
+
+      if (nextSelectJoined) {
+        ids = this.findIdRecursively(models, nextSelectJoined, join);
+      }
+    }
+
+    return ids;
+  }
+
+  private getFkKey(relationShip: Relationship<any>): string {
+    if (typeof relationShip.fkKey === 'undefined') {
+      return 'id';
+    }
+
+    if (typeof relationShip.fkKey === 'string') {
+      return relationShip.fkKey;
+    }
+
+    const match = /\.(?<propriedade>[\w]+)/.exec(relationShip.fkKey.toString());
+    const propertyKey = match ? match.groups!.propriedade : '';
+    const entity = this.entityStorage.get(relationShip.entity() as Function)!;
+    const property = Object.entries(entity.properties).find(([key, _value]) => key === propertyKey)?.[1];
+    return property.options.columnName;
+  }
+
+  private getTableName(): { tableName: string; schema: string } {
+    const tableName = this.entity.tableName || (this.model as Function).name.toLowerCase();
+    const schema = this.entity.schema || 'public';
+    return {tableName, schema};
+  }
+
+  private getPrimaryKey(): string {
+    for (const prop in this.entity.properties) {
+      if (this.entity.properties[prop].options.isPrimary) {
+        return prop;
+      }
+    }
+
+    return 'id';
+  }
+
+  private formatValue(value: any): string {
+    return (typeof value === 'string') ? `'${value}'` : value;
+  }
+}

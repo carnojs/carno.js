@@ -18,6 +18,7 @@ import { ValueProcessor } from './utils/value-processor';
 import { SqlConditionBuilder } from './query/sql-condition-builder';
 import { ModelTransformer } from './query/model-transformer';
 import { SqlColumnManager } from './query/sql-column-manager';
+import { SqlJoinManager } from './query/sql-join-manager';
 
 export class SqlBuilder<T> {
   private readonly driver: DriverInterface;
@@ -32,6 +33,7 @@ export class SqlBuilder<T> {
   private conditionBuilder!: SqlConditionBuilder<T>;
   private modelTransformer!: ModelTransformer;
   private columnManager!: SqlColumnManager;
+  private joinManager!: SqlJoinManager<T>;
 
   constructor(model: new () => T) {
     const orm = Orm.getInstance();
@@ -41,16 +43,36 @@ export class SqlBuilder<T> {
 
     this.getEntity(model);
     this.statements.hooks = this.entity.hooks;
-    this.conditionBuilder = new SqlConditionBuilder(
-      this.entityStorage,
-      this.applyJoin.bind(this),
-      this.statements,
-    );
+
     this.modelTransformer = new ModelTransformer(this.entityStorage);
     this.columnManager = new SqlColumnManager(
       this.entityStorage,
       this.statements,
       this.entity,
+    );
+
+    const applyJoinWrapper = (relationship: Relationship<any>, value: FilterQuery<any>, alias: string) => {
+      return this.joinManager.applyJoin(relationship, value, alias);
+    };
+
+    this.conditionBuilder = new SqlConditionBuilder(
+      this.entityStorage,
+      applyJoinWrapper,
+      this.statements,
+    );
+
+    this.joinManager = new SqlJoinManager(
+      this.entityStorage,
+      this.statements,
+      this.entity,
+      this.model,
+      this.driver,
+      this.logger,
+      this.conditionBuilder,
+      this.columnManager,
+      this.modelTransformer,
+      () => this.originalColumns,
+      this.getAlias.bind(this),
     );
   }
 
@@ -140,7 +162,7 @@ export class SqlBuilder<T> {
 
   load(load: string[]): SqlBuilder<T> {
     load?.forEach(relationshipPath => {
-      this.addJoinForRelationshipPath(this.entity, relationshipPath);
+      this.joinManager.addJoinForRelationshipPath(relationshipPath);
     });
     if (this.statements.join) {
       this.statements.join = this.statements.join?.reverse()
@@ -151,41 +173,6 @@ export class SqlBuilder<T> {
     }
 
     return this;
-  }
-
-  private addJoinForRelationshipPath(entity: Options, relationshipPath: string) {
-    const relationshipNames = relationshipPath.split('.');
-    let currentEntity = entity;
-    let currentAlias = this.statements.alias!;
-    let statement = this.statements.strategy === 'joined' ? this.statements.join : this.statements.selectJoin;
-    let nameAliasProperty = this.statements.strategy === 'joined' ? 'joinAlias' : 'alias';
-
-    relationshipNames.forEach((relationshipName, index) => {
-      const relationship = currentEntity.relations.find(rel => rel.propertyKey === relationshipName);
-
-      if (!relationship) {
-        // @ts-ignore
-        throw new Error(`Relationship "${relationshipName}" not found in entity "${currentEntity.name}"`);
-      }
-
-      const isLastRelationship = index === relationshipNames.length - 1;
-
-      if (index === (relationshipNames.length - 2 >= 0 ? relationshipNames.length - 2 : 0)) {
-        const join = statement?.find(j => j.joinProperty === relationshipName);
-        if (join) {
-          // @ts-ignore
-          currentAlias = join[nameAliasProperty];
-        }
-      }
-
-      if (relationship.relation === 'many-to-one' && isLastRelationship) {
-        this.applyJoin(relationship, {}, currentAlias);
-        statement = this.statements.strategy === 'joined' ? this.statements.join : this.statements.selectJoin;
-        currentAlias = statement[statement.length - 1][nameAliasProperty];
-      }
-
-      currentEntity = this.entityStorage.get(relationship.entity() as Function)!;
-    });
   }
 
   private getPrimaryKeyColumnName(entity: Options): string {
@@ -245,7 +232,7 @@ export class SqlBuilder<T> {
     const entities = result.query.rows[0];
     const model = await this.modelTransformer.transform(this.model, this.statements, entities);
     this.afterHooks(model);
-    await this.handleSelectJoin(entities, model);
+    await this.joinManager.handleSelectJoin(entities, model);
 
     return model as any;
   }
@@ -262,7 +249,7 @@ export class SqlBuilder<T> {
     const entities = result.query.rows[0];
     const model = await this.modelTransformer.transform(this.model, this.statements, entities);
     this.afterHooks(model);
-    await this.handleSelectJoin(entities, model);
+    await this.joinManager.handleSelectJoin(entities, model);
     return model as any;
   }
 
@@ -279,110 +266,11 @@ export class SqlBuilder<T> {
     for (const row of rows) {
       const models = this.modelTransformer.transform(this.model, this.statements, row);
       this.afterHooks(models);
-      await this.handleSelectJoin(row, models);
+      await this.joinManager.handleSelectJoin(row, models);
       results.push(models);
     }
 
     return results as any;
-  }
-
-  private async handleSelectJoin(entities: any, models): Promise<void> {
-    if (!this.statements.selectJoin || this.statements.selectJoin.length === 0) {
-      return;
-    }
-
-    for (const join of this.statements.selectJoin.reverse()) {
-      let ids = entities[`${join.originAlias}_${join.primaryKey}`];
-      if (typeof ids === 'undefined') {
-        // get of models
-        const selectJoined = this.statements.selectJoin.find(j => j.joinEntity === join.originEntity);
-
-        if (!selectJoined) {
-          continue;
-        }
-        ids = this.findIdRecursively(models, selectJoined, join);
-      }
-
-      if (Array.isArray(ids)) {
-        ids = ids.map((id: any) => this.t(id)).join(', ')
-      }
-
-      if (join.where) {
-        join.where = `${join.where} AND ${join.alias}."${join.fkKey}" IN (${ids})`;
-      } else {
-        join.where = `${join.alias}."${join.fkKey}" IN (${ids})`;
-      }
-
-      if (join.columns && join.columns.length > 0) {
-        join.columns = (join.columns.map(
-          (column: string) => `${join.alias}."${column}" as "${join.alias}_${column}"`,
-        ) as any[]);
-      } else {
-        join.columns = this.columnManager.getColumnsForEntity(join.joinEntity, join.alias) as any;
-      }
-
-      const child = await this.driver.executeStatement(join);
-      this.logger.debug(`SQL: ${child.sql} [${Date.now() - child.startTime}ms]`);
-
-      const property = this.entityStorage.get(this.model)!.relations.find(
-        (rel) => rel.propertyKey === join.joinProperty,
-      );
-      const values = child.query.rows.map((row: any) =>
-        this.modelTransformer.transform(join.joinEntity, join, row),
-      );
-
-      const path = this.getPathForSelectJoin(join);
-      this.setValueByPath(models, path, property?.type === Array ? [...values] : values[0]);
-    }
-
-    return models as any;
-  }
-
-  getPathForSelectJoin(selectJoin: Statement<any>): string[] | null {
-    const path = this.getPathForSelectJoinRecursive(this.statements, selectJoin);
-    return path.reverse();
-  }
-
-  private setValueByPath(obj: any, path: string[], value: any) {
-    let currentObj = obj;
-
-    for (let i = 0; i < path.length - 1; i++) {
-      const key = path[i];
-      currentObj[key] = currentObj[key] || {};
-      currentObj = currentObj[key];
-    }
-
-    currentObj[path[path.length - 1]] = value;
-  }
-
-  private getPathForSelectJoinRecursive(statements: Statement<any>, selectJoin: Statement<any>): string[] | null {
-    const originJoin = this.statements.selectJoin.find(j => j.joinEntity === selectJoin.originEntity);
-    let pathInJoin = [];
-
-    if (!originJoin) {
-      return [selectJoin.joinProperty]
-    }
-
-    if (originJoin.originEntity !== statements.originEntity) {
-      pathInJoin = this.getPathForSelectJoinRecursive(statements, originJoin);
-    }
-
-    return [selectJoin.joinProperty, ...pathInJoin];
-  }
-
-  private findIdRecursively(models: any, selectJoined: any, join: any): any {
-    let ids = models[selectJoined.originProperty][join.primaryKey];
-
-    if (typeof ids === 'undefined') {
-      const nextSelectJoined = this.statements.selectJoin.find(j => j.joinEntity === selectJoined.originEntity);
-
-      if (nextSelectJoined) {
-        // Chamada recursiva para a próxima camada
-        ids = this.findIdRecursively(models, nextSelectJoined, join);
-      }
-    }
-
-    return ids;
   }
 
   private logExecution(result: { query: any, startTime: number, sql: string }): void {
@@ -421,97 +309,6 @@ export class SqlBuilder<T> {
 
   private t(value: any) {
     return (typeof value === 'string') ? `'${value}'` : value;
-  }
-
-  private applyJoin(relationShip: Relationship<any>, value: FilterQuery<any>, alias: string) {
-    const {tableName, schema} = this.getTableName();
-    const {
-      tableName: joinTableName,
-      schema: joinSchema,
-      hooks: joinHooks,
-    } = this.entityStorage.get((relationShip.entity() as Function)) || {
-      tableName: (relationShip.entity() as Function).name.toLowerCase(),
-      schema: 'public',
-    };
-    let originPrimaryKey = 'id';
-    for (const prop in this.entity.properties) {
-      if (this.entity.properties[prop].options.isPrimary) {
-        originPrimaryKey = prop;
-        break;
-      }
-    }
-    const joinAlias = `${this.getAlias(joinTableName)}`;
-    const joinWhere = this.conditionBuilder.build(value, joinAlias, relationShip.entity() as Function);
-    let on = '';
-
-    switch (relationShip.relation) {
-      case "one-to-many":
-        on = `${joinAlias}."${this.getFkKey(relationShip)}" = ${alias}."${originPrimaryKey}"`;
-        break;
-      case "many-to-one":
-        on = `${alias}."${relationShip.columnName as string}" = ${joinAlias}."${this.getFkKey(relationShip)}"`;
-        break;
-    }
-
-    if (this.statements.strategy === 'joined') {
-      this.statements.join = this.statements.join || [];
-      this.statements.join.push({
-        joinAlias: joinAlias,
-        joinTable: joinTableName,
-        joinSchema: joinSchema || 'public',
-        joinWhere: joinWhere,
-        joinProperty: relationShip.propertyKey as string,
-        originAlias: alias,
-        originSchema: schema,
-        originTable: tableName,
-        propertyKey: relationShip.propertyKey,
-        joinEntity: (relationShip.entity() as Function),
-        type: 'LEFT',
-        // @ts-ignore
-        on,
-        originalEntity: relationShip.originalEntity as Function,
-        hooks: joinHooks,
-      })
-    } else {
-
-      this.statements.selectJoin = this.statements.selectJoin || [];
-
-      this.statements.selectJoin.push({
-        statement: 'select',
-        columns: this.originalColumns.filter(column => column.startsWith(`${relationShip.propertyKey as string}`)).map(column => column.split('.')[1]) || [],
-        table: `"${joinSchema || 'public'}"."${joinTableName}"`,
-        alias: joinAlias,
-        where: joinWhere,
-        joinProperty: relationShip.propertyKey as string,
-        fkKey: this.getFkKey(relationShip),
-        primaryKey: originPrimaryKey,
-        originAlias: alias,
-        originProperty: relationShip.propertyKey as string,
-        joinEntity: (relationShip.entity() as Function),
-        originEntity: relationShip.originalEntity as Function,
-        hooks: joinHooks,
-      })
-    }
-    return joinWhere;
-  }
-
-  private getFkKey(relationShip: Relationship<any>): string {
-    // se for nullable, deverá retornar o primary key da entidade target
-    if (typeof relationShip.fkKey === 'undefined') {
-      return 'id'; // TODO: Pegar dinamicamente o primary key da entidade target
-    }
-
-    // se o fkKey é uma função, ele retornará a propriedade da entidade que é a chave estrangeira
-    // precisamos pegar o nome dessa propriedade
-    if (typeof relationShip.fkKey === 'string') {
-      return relationShip.fkKey;
-    }
-
-    const match = /\.(?<propriedade>[\w]+)/.exec(relationShip.fkKey.toString());
-    const propertyKey = match ? match.groups!.propriedade : '';
-    const entity = this.entityStorage.get(relationShip.entity() as Function)!;
-    const property = Object.entries(entity.properties).find(([key, _value]) => key === propertyKey)?.[1];
-    return property.options.columnName;
   }
 
   // private conditionLogicalOperatorToSql<T extends typeof BaseEntity>(conditions: Condition<T>[], operator: 'AND' | 'OR'): string {
