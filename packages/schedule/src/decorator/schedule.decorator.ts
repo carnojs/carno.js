@@ -2,7 +2,7 @@ import { CronJobParams } from 'cron';
 import { Metadata } from '@cheetah.js/core';
 import { SCHEDULE_CRON_OPTIONS, SCHEDULER_NAME, SCHEDULER_TYPE } from '../utils/constants';
 import { SchedulerType } from '../utils/scheduler-type.enum';
-import { CronOptions } from '@cheetah.js/schedule';
+import { CronOptions } from '../utils/cron-options';
 
 /**
  * Creates a scheduled job.

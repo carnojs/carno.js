@@ -16,7 +16,7 @@
     }
   },
   "scripts": {
-    "compile": "sudo rm -rf ./dist && tsc && bun run build.ts"
+    "compile": "rm -rf ./dist && tsc && bun run build.ts"
   },
   "dependencies": {
     "commander": "^11.1.0",

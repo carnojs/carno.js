@@ -1,13 +1,13 @@
 import { Metadata, OnApplicationInit, OnApplicationShutdown, Service } from '@cheetah.js/core';
-import { CronOptions } from '@cheetah.js/schedule';
+import { CronOptions } from './utils/cron-options';
 import { CronCallback, CronJob, CronJobParams } from 'cron';
-import { SchedulerRegistry } from '@cheetah.js/schedule/scheduler.registry';
+import { SchedulerRegistry } from './scheduler.registry';
 import { v4 } from 'uuid';
 import {
     SCHEDULE_CRON_OPTIONS,
     SCHEDULE_INTERVAL_OPTIONS,
     SCHEDULE_TIMEOUT_OPTIONS,
-} from '@cheetah.js/schedule/utils/constants';
+} from './utils/constants';
 
 @Service()
 export class SchedulerOrchestration {

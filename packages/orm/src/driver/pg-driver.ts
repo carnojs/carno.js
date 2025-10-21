@@ -80,7 +80,7 @@ export class PgDriver implements DriverInterface {
     } else {
       sql += `ALTER TABLE "${schema}"."${tableName}" ADD COLUMN "${colName}" ${colDiff.colType}${(colDiff.colLength ? `(${colDiff.colLength})` : '')}`
     }
-    if (!colDiff.colChang-es?.nullable) {
+    if (!colDiff.colChanges?.nullable) {
       sql += ' NOT NULL';
     }
     if (colDiff.colChanges?.primary) {
