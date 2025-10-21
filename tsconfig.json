@@ -31,6 +31,7 @@
   "references": [
     { "path": "./packages/core" },
     { "path": "./packages/orm" },
-    { "path": "./packages/schedule" }
+    { "path": "./packages/schedule" },
+    { "path": "./packages/swagger" }
   ]
 }

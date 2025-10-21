@@ -12,7 +12,7 @@
     "oop"
   ],
   "scripts": {
-    "compile": "rm -rf ./dist && tsc --build && bun run build.ts"
+    "compile": "rm -rf ./dist tsconfig.tsbuildinfo && tsc --build --force && bun run build.ts"
   },
   "main": "dist/index.js",
   "module": "dist/index.js",

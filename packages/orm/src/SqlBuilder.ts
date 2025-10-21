@@ -408,27 +408,6 @@ export class SqlBuilder<T> {
     this.logger.debug(`SQL: ${result.sql} [${Date.now() - result.startTime}ms]`);
   }
 
-  /**
-   * @deprecated Use inTransaction() instead
-   */
-  startTransaction(): Promise<void> {
-    throw new Error('startTransaction() is deprecated. Use inTransaction() instead.');
-  }
-
-  /**
-   * @deprecated Use inTransaction() instead
-   */
-  commit(): Promise<void> {
-    throw new Error('commit() is deprecated. Use inTransaction() instead.');
-  }
-
-  /**
-   * @deprecated Use inTransaction() instead
-   */
-  rollback(): Promise<void> {
-    throw new Error('rollback() is deprecated. Use inTransaction() instead.');
-  }
-
   async inTransaction<T>(callback: (builder: SqlBuilder<T>) => Promise<T>): Promise<T> {
     return await this.driver.transaction(async (tx) => {
       // @ts-ignore
@@ -829,9 +808,9 @@ export class SqlBuilder<T> {
     for (const [key, property] of defaultProperties) {
       if (typeof values[key] === 'undefined') {
         if (typeof property.options.default === 'function') {
-          values[key] = eval(property.options.default());
+          values[key] = property.options.default();
         } else {
-          values[key] = eval(property.options.default);
+          values[key] = property.options.default;
         }
       }
     }

@@ -6,6 +6,9 @@
   ],
   "license": "MIT",
   "scripts": {
+    "build": "lerna run compile --parallel",
+    "lint": "tsc --noEmit",
+    "compile": "npm run build",
     "pretest": "docker-compose up -d",
     "test": "bun test",
     "posttest": "docker-compose down"

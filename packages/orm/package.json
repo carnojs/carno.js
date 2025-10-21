@@ -16,7 +16,7 @@
     }
   },
   "scripts": {
-    "compile": "rm -rf ./dist && tsc  --build && bun run build.ts"
+    "compile": "rm -rf ./dist tsconfig.tsbuildinfo && tsc --build --force && bun run build.ts"
   },
   "dependencies": {
     "commander": "^11.1.0",
