@@ -1,6 +1,6 @@
 {
   "name": "@cheetah.js/orm",
-  "version": "0.1.43",
+  "version": "0.1.44",
   "description": "A simple ORM for Cheetah.js",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -20,10 +20,10 @@
   },
   "dependencies": {
     "commander": "^11.1.0",
+    "globby": "^10.0.2",
     "reflect-metadata": "^0.1.13",
     "ts-morph": "^20.0.0",
-    "uuid": "^9.0.1",
-    "globby": "^10.0.2"
+    "uuid": "^9.0.1"
   },
   "repository": {
     "type": "git",

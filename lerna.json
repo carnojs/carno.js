@@ -2,7 +2,7 @@
   "packages": [
     "packages/*"
   ],
-  "version": "0.1.17",
+  "version": "0.1.44",
   "ignoreChanges": [
     "**/tests/**",
     "**/*.md"
