@@ -292,9 +292,17 @@ export class SqlBuilder<T> {
 
   private mapObjectKey(obj: any, key: string, parentKey: string): string[] {
     const fullKey = parentKey ? `${parentKey}.${key}` : key;
-    return this.isNestedObject(obj[key])
-      ? this.objectToStringMap(obj[key], fullKey)
-      : [`${this.columnManager.discoverAlias(fullKey, true)} ${obj[key]}`];
+
+    if (this.isNestedObject(obj[key])) {
+      return this.objectToStringMap(obj[key], fullKey);
+    }
+
+    if (parentKey) {
+      return [`${this.columnManager.discoverAlias(fullKey, true)} ${obj[key]}`];
+    }
+
+    const columnName = ValueProcessor.getColumnName(key, this.entity);
+    return [`${this.columnManager.discoverAlias(columnName, true)} ${obj[key]}`];
   }
 
   private isNestedObject(value: any): boolean {
