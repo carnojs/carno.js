@@ -27,6 +27,10 @@
     },
     "types": ["bun-types"]
   },
-  "exclude": ["node_modules", "**/*.spec.ts", "**/dist"],
-  "include": ["packages/**/*"]
+  "files": [],
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/orm" },
+    { "path": "./packages/schedule" }
+  ]
 }

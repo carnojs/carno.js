@@ -16,13 +16,13 @@
     }
   },
   "scripts": {
-    "compile": "rm -rf ./dist && tsc && bun run build.ts"
+    "compile": "rm -rf ./dist && tsc  --build && bun run build.ts"
   },
   "dependencies": {
     "commander": "^11.1.0",
     "globby": "^10.0.2",
     "reflect-metadata": "^0.1.13",
-    "ts-morph": "^20.0.0",
+    "ts-morph": "^27.0.0",
     "uuid": "^9.0.1"
   },
   "repository": {

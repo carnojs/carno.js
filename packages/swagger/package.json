@@ -4,7 +4,7 @@
   "description": "Generate automatically swagger.json from your cheetah.js project",
   "main": "src/index.ts",
   "scripts": {
-    "compile": "rm -rf ./dist && tsc && bun run build.ts"
+    "compile": "rm -rf ./dist && tsc --build && bun run build.ts"
   },
   "dependencies": {
     "openapi-types": "^12.1.3",
