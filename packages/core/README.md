@@ -1,18 +1,27 @@
-# Cheetah.js
-Cheetah.js is a simple object-oriented framework for Bun still in development.
-<br>
-Check the ORM documentation [here](https://github.com/mlusca/cheetah.js/tree/master/packages/orm).
-### Menu
-- [Installation](#install)
+# @cheetah.js/core
 
-### [Installation](#install)
-For install Cheetah.js, run the command below:
+Core framework for building web applications with Bun and TypeScript.
 
-```bash 
+## Features
+
+- Decorator-based routing
+- Dependency injection with multiple scopes
+- Built-in validation with class-validator
+- Flexible middleware system
+- Integrated logging with Pino
+- Built-in caching system
+- TypeScript first
+
+## Installation
+
+```bash
 bun install @cheetah.js/core
 ```
 
-Your tsconfig.json should have the following settings:
+### TypeScript Configuration
+
+Your `tsconfig.json` must include:
+
 ```json
 {
   "compilerOptions": {
@@ -22,165 +31,238 @@ Your tsconfig.json should have the following settings:
 }
 ```
 
-## Start the server
-```javascript
+## Quick Start
+
+```typescript
 import { Cheetah } from '@cheetah.js/core';
 
 new Cheetah().listen();
 ```
 
-### Controller and Routes
-In Cheetah.js, all classes in dependency injection are considered providers, including controllers.
-#### Example:
-```javascript 
-import { Controller, Get, Cheetah } from '@cheetah.js/core';
+## Controllers and Routes
+
+```typescript
+import { Controller, Get, Post, Param, Body } from '@cheetah.js/core';
+
+@Controller()
+export class UserController {
+  @Get('/')
+  list() {
+    return { users: [] };
+  }
+
+  @Get(':id')
+  show(@Param('id') id: string) {
+    return { id, name: 'User' };
+  }
+
+  @Post()
+  create(@Body() data: any) {
+    return { message: 'User created' };
+  }
+}
+
+new Cheetah({
+  providers: [UserController]
+}).listen();
+```
+
+### Nested Controllers
+
+```typescript
+@Controller({
+  children: [UserController]
+})
+export class ApiController {
+  @Get('/')
+  index() {
+    return { api: 'v1' };
+  }
+}
+```
+
+## Validation
+
+Automatic request validation using class-validator:
+
+```typescript
+import { IsString, IsEmail, MinLength } from 'class-validator';
+import { Controller, Post, Body } from '@cheetah.js/core';
+
+export class CreateUserDto {
+  @IsString()
+  @MinLength(3)
+  name: string;
+
+  @IsEmail()
+  email: string;
+}
+
+@Controller()
+export class UserController {
+  @Post()
+  create(@Body() user: CreateUserDto) {
+    return { name: user.name };
+  }
+}
+```
+
+Configure validator:
+
+```typescript
+new Cheetah({
+  validator: {
+    whitelist: true,
+    forbidNonWhitelisted: true
+  }
+}).listen();
+```
+
+## Dependency Injection
+
+```typescript
+import { Service } from '@cheetah.js/core';
+
+@Service()
+export class UserService {
+  findAll() {
+    return [];
+  }
+}
+
+@Controller()
+export class UserController {
+  constructor(private userService: UserService) {}
+
+  @Get()
+  list() {
+    return this.userService.findAll();
+  }
+}
+```
+
+### Scopes
+
+- **Singleton** (default) - Single instance
+- **Request** - New instance per request
+- **Instance** - New instance every time
+
+```typescript
+@Service({ scope: 'request' })
+export class RequestService {}
+```
+
+## Middleware
+
+```typescript
+import { Service, CheetahMiddleware, Context, CheetahClosure } from '@cheetah.js/core';
+
+@Service()
+export class AuthMiddleware implements CheetahMiddleware {
+  handle(context: Context, next: CheetahClosure) {
+    const token = context.headers.authorization;
+
+    if (!token) {
+      throw new HttpException('Unauthorized', 401);
+    }
+
+    next();
+  }
+}
+
+@Middleware(AuthMiddleware)
+@Controller()
+export class ProtectedController {
+  @Get('/')
+  index() {
+    return 'Protected';
+  }
+}
+```
+
+## Logging
+
+```typescript
+import { Controller, LoggerService } from '@cheetah.js/core';
 
 @Controller()
 export class HomeController {
+  constructor(private logger: LoggerService) {}
+
   @Get('/')
   index() {
+    this.logger.info('Request received');
     return 'Hello World!';
   }
 }
 
-new Cheetah({ 
-    providers: [ HomeController ]
-}).listen();
-```
-To receive parameters in the route, simply add the ":" before the parameter name. And to receive it in the method, just use the @Param decorator.
-```javascript
-import { Controller, Get } from '@cheetah.js/core';
-
-@Controller()
-export class HomeController {
-  @Get(':name')
-  index(@Param('name') name: string) {
-    return `Hello ${name}!`;
-  }
-}
-```
-
-### Validation
-Cheetah.js validates route parameters using [class-validator](https:github.comtypestackclass-validator). Simply add the DTO as a method parameter and Cheetah.js will validate the route parameters.
-#### Exemplo:
-```javascript
-import { Controller, Get, Query } from '@cheetah.js/core';
-
-export class UserDto {
-  @IsString()
-  name: string;
-}
-
-@Controller()
-export class HomeController {
-  @Get()
-  index(@Query() user: UserDto) {
-    return `Hello ${user.name}!`;
-  }
-}
-```
-To configure the validator, simply pass the options in the Cheetah.js constructor:
-```javascript
-import { Cheetah } from '@cheetah.js/core';
-
-new Cheetah({ 
-    validator: {
-        whitelist: true
-    }
+new Cheetah({
+  logger: { level: 'info' }
 }).listen();
 ```
 
-### Dependency injection
-Cheetah.js provides support for dependency injection using the @Service decorator.
-The available scopes are Singleton (default), request and instance. You can define services to handle business logic and inject them into controllers or other services as needed. </br>
-#### Example:
-```javascript
-import { Service } from '@cheetah.js/core';
+## Caching
 
-@Service() // Default scope is Singleton
+```typescript
+import { Service, CachePort } from '@cheetah.js/core';
+
+@Service()
 export class UserService {
-    create() {
-        return 'User created!';
-    }
-}
+  constructor(private cache: CachePort) {}
 
+  async getUser(id: string) {
+    const cached = await this.cache.get(`user:${id}`);
 
-@Service()
-export class AnotherService {
-    constructor(userService: UserService) {
-        console.log(userService.create()); // User created!
+    if (cached) {
+      return cached;
     }
-}
-```
-### Middleware
-Cheetah.js supports the use of middleware to process requests before they reach their defined routes. This allows you to perform additional logic and manipulate context.
-Middlewares can be added to the class or method and all middleware must be in the scope of dependency injection.
-#### Example:
-```javascript
-import { Context, Middleware, Service, CheetahMiddleware, CheetahClosure } from '@cheetah.js/core';
 
-@Service
-export class LoggerMiddleware implements CheetahMiddleware {
-    handle(context: Context, next: CheetahClosure) {
-        next();
-    }
-}
+    const user = { id, name: 'John' };
+    await this.cache.set(`user:${id}`, user, { ttl: 3600 });
 
-@Middleware(LoggerMiddleware)
-@Controller()
-export class HomeController {
-    @Get('/')
-    index() {
-        return 'Hello World!';
-    }
+    return user;
+  }
 }
 ```
 
-### Logging
-We provide the LoggerService service, it uses pinojs to log.
-```javascript
-import { Cheetah, LoggerService, Controller } from '@cheetah.js/core';
+Custom cache driver:
 
-@Controller()
-export class HomeController {
-    constructor(logger: LoggerService) {
-        this.logger.info("Hello World!")
-    }
-}
-
-new Cheetah({logger: {level: 'info'}}).listen();
-```
-If you need to customize the logger, it can be configured:
-```javascript
-import { Cheetah } from '@cheetah.js/core';
-
-new Cheetah().useLogger(CustomServiceLogger)
-```
-
-### Caching
-Cheetah.js provides a simple caching system using the CachePort service.
-```javascript
-import { Cheetah, CachePort, CheetahMiddleware, CheetahClosure, Context } from '@cheetah.js/core';
-
-@Service()
-export class LoggerMiddleware implements CheetahMiddleware {
-    constructor(private cache: CachePort) {}
-
-    handle(context: Context, next: CheetahClosure) {
-        this.cache.set('key', 'value');
-        next();
-    }
-}
-```
-For custom cache driver, only implement the CachePort interface in your provider.
-```javascript
+```typescript
 import { CachePort, Service } from '@cheetah.js/core';
 
 @Service({ provide: CachePort })
-export class CustomCache implements CachePort {
-    // implements
+export class RedisCache implements CachePort {
+  async get(key: string) {
+    // Implementation
+  }
+
+  async set(key: string, value: any, options?: any) {
+    // Implementation
+  }
 }
 ```
 
-### Contributing
-Contributions are welcome! Feel free to open issues and submit pull requests.
+## Available Decorators
+
+### Route Decorators
+- `@Controller()` - Define controller
+- `@Get()` - HTTP GET
+- `@Post()` - HTTP POST
+- `@Put()` - HTTP PUT
+- `@Patch()` - HTTP PATCH
+- `@Delete()` - HTTP DELETE
+
+### Parameter Decorators
+- `@Param()` - Route parameters
+- `@Query()` - Query parameters
+- `@Body()` - Request body
+- `@Header()` - Request headers
+- `@Context()` - Request context
+
+### Other Decorators
+- `@Service()` - Injectable service
+- `@Middleware()` - Apply middleware
+
+## License
+
+MIT

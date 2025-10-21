@@ -45,3 +45,4 @@ data
 dist/bun
 build.ts
 cheetah.config.ts
+build.ts

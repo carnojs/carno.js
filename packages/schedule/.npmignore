@@ -11,7 +11,7 @@
 .husky
 .DS_Store
 .scannerwork
-
+build.ts
 bun.lock
 bun.lockb
 node_modules
