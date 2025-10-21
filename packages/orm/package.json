@@ -21,15 +21,15 @@
     "commander": "^11.1.0",
     "globby": "^10.0.2",
     "reflect-metadata": "^0.1.13",
-    "ts-morph": "^27.0.0",
-    "uuid": "^9.0.1"
+    "ts-morph": "^27.0.0"
   },
   "repository": {
     "type": "git",
     "url": "git+ssh://git@github.com:mlusca/cheetah.js.git"
   },
   "devDependencies": {
-    "@types/uuid": "^9.0.6"
+    "@types/uuid": "^9.0.6",
+    "uuid": "^9.0.1"
   },
   "peerDependencies": {
     "@cheetah.js/core": "^0.1.35"

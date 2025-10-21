@@ -1,6 +1,6 @@
 import { PROPERTIES, PROPERTIES_METADATA } from "../constants";
 import { extendsFrom, getDefaultLength, toSnakeCase } from "../utils";
-import { Metadata } from "@cheetah.js/core";
+import { isObject, Metadata } from "@cheetah.js/core";
 import { Index } from "./index.decorator";
 import { ValueObject } from "..";
 
@@ -49,6 +49,10 @@ export function Property(options?: PropertyOptions): PropertyDecorator {
         // 1) Resolva o tipo logo no início
         const propType = Metadata.getType(target, propertyKey);
         const length = (options && options.length) || getDefaultLength(propType?.name);
+
+        if (isObject(propType) ) {
+            throw new Error(`Property ${String(propertyKey)} has unknown type`);
+        }
 
         options = { length, ...options };
         options["columnName"] = options?.columnName || toSnakeCase(propertyKey as string);
