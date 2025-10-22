@@ -23,49 +23,6 @@ class Router {
         return this.mountResponse(result, context);
     }
 
-    private serializeForJson(value: any): any {
-        if (value == null) return value;
-
-        if (Array.isArray(value)) {
-            const len = value.length;
-            const result = new Array(len);
-            for (let i = 0; i < len; i++) {
-                result[i] = this.serializeForJson(value[i]);
-            }
-            return result;
-        }
-
-        if (typeof value === 'object') {
-            let toJSONFn = this.toJsonCache.get(Object.getPrototypeOf(value));
-
-            if (toJSONFn === undefined) {
-                let proto: any = value;
-                toJSONFn = null;
-
-                while (proto && proto !== Object.prototype) {
-                    const desc = Object.getOwnPropertyDescriptor(proto, 'toJSON');
-                    if (desc && typeof desc.value === 'function') {
-                        toJSONFn = desc.value;
-                        break;
-                    }
-                    proto = Object.getPrototypeOf(proto);
-                }
-
-                this.toJsonCache.set(Object.getPrototypeOf(value), toJSONFn);
-            }
-
-            if (toJSONFn) {
-                try {
-                    return toJSONFn.call(value);
-                } catch {
-                    // Se falhar, retorna o valor original (sem quebrar fluxo)
-                }
-            }
-        }
-
-        return value;
-    }
-
     private mountResponse(result: any, context: Context) {
         let payload: string | any;
         let contentType: string;
@@ -80,8 +37,7 @@ class Router {
                 contentType = 'text/html';
                 break;
             case 'object':
-                const serialized = this.serializeForJson(result);
-                payload = JSON.stringify(serialized);
+                payload = JSON.stringify(result);
                 contentType = 'application/json';
                 break;
             default:
