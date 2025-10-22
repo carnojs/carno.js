@@ -185,8 +185,10 @@ export abstract class Repository<T extends BaseEntity> {
    * Counts entities matching the criteria.
    */
   async count(where?: FilterQuery<T>): Promise<number> {
-    const results = await this.find({ where: where || {} });
-    return results.length;
+    return this.createQueryBuilder()
+      .count()
+      .where(where || {})
+      .executeCount();
   }
 
   /**

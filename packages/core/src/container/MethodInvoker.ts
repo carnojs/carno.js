@@ -116,7 +116,7 @@ export class MethodInvoker {
   private validateAndTransform(token: any, value: any): any {
     const obj = plainToInstance(token, value);
     const errors = validateSync(obj, this.applicationConfig.validation);
-
+    // todo: deve retornar apenas os erros e não o objeto class-validator inteiro.
     if (errors.length > 0) {
       throw new HttpException(errors, 400);
     }

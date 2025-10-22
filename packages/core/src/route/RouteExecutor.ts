@@ -3,48 +3,97 @@ import { Context, LocalsContainer } from "../domain";
 import { EventType } from "../events";
 
 class Router {
-  public async executeRoute(route: TokenRouteWithProvider, injector: InjectorService, context: Context, locals: LocalsContainer): Promise<Response> {
-    const provider = injector.invoke(route.provider, locals);
+    private toJsonCache = new WeakMap<object, Function | null>();
 
-    route.provider.instance = provider;
+    public async executeRoute(route: TokenRouteWithProvider, injector: InjectorService, context: Context, locals: LocalsContainer): Promise<Response> {
+        const provider = injector.invoke(route.provider, locals);
 
-    // @ts-ignore
-    if (!provider[route.methodName]) {
-      throw new Error('Controller not found');
+        route.provider.instance = provider;
+
+        // @ts-ignore
+        if (!provider[route.methodName]) {
+            throw new Error('Controller not found');
+        }
+
+
+        const result = await injector.invokeRoute(route, context, locals);
+
+        injector.callHook(EventType.OnResponse, {context, result})
+
+        return this.mountResponse(result, context);
     }
 
+    private serializeForJson(value: any): any {
+        if (value == null) return value;
 
-    const result = await injector.invokeRoute(route, context, locals);
+        if (Array.isArray(value)) {
+            const len = value.length;
+            const result = new Array(len);
+            for (let i = 0; i < len; i++) {
+                result[i] = this.serializeForJson(value[i]);
+            }
+            return result;
+        }
 
-    injector.callHook(EventType.OnResponse, { context, result })
+        if (typeof value === 'object') {
+            let toJSONFn = this.toJsonCache.get(Object.getPrototypeOf(value));
 
-    return this.mountResponse(result, context);
-  }
+            if (toJSONFn === undefined) {
+                let proto: any = value;
+                toJSONFn = null;
 
-  private mountResponse(result: any, context: Context) {
-    let payload: string | any;
-    let contentType: string;
+                while (proto && proto !== Object.prototype) {
+                    const desc = Object.getOwnPropertyDescriptor(proto, 'toJSON');
+                    if (desc && typeof desc.value === 'function') {
+                        toJSONFn = desc.value;
+                        break;
+                    }
+                    proto = Object.getPrototypeOf(proto);
+                }
 
-    if (result instanceof Response) {
-      return result;
+                this.toJsonCache.set(Object.getPrototypeOf(value), toJSONFn);
+            }
+
+            if (toJSONFn) {
+                try {
+                    return toJSONFn.call(value);
+                } catch {
+                    // Se falhar, retorna o valor original (sem quebrar fluxo)
+                }
+            }
+        }
+
+        return value;
     }
 
-    switch (typeof result) {
-      case 'string':
-        payload = result;
-        contentType = 'text/html';
-        break;
-      case 'object':
-        payload = JSON.stringify(result);
-        contentType = 'application/json';
-        break;
-      default:
-        payload = result;
-        contentType = 'text/plain';
-    }
+    private mountResponse(result: any, context: Context) {
+        let payload: string | any;
+        let contentType: string;
 
-    return new Response(payload, {status: context.getResponseStatus() || 201, headers: {'Content-Type': contentType}});
-  }
+        if (result instanceof Response) {
+            return result;
+        }
+
+        switch (typeof result) {
+            case 'string':
+                payload = result;
+                contentType = 'text/html';
+                break;
+            case 'object':
+                const serialized = this.serializeForJson(result);
+                payload = JSON.stringify(serialized);
+                contentType = 'application/json';
+                break;
+            default:
+                payload = result;
+                contentType = 'text/plain';
+        }
+
+        return new Response(payload, {
+            status: context.getResponseStatus() || 201,
+            headers: {'Content-Type': contentType}
+        });
+    }
 }
 
 export const RouteExecutor = new Router();

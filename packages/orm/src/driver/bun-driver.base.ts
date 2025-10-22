@@ -224,6 +224,8 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
         return this.buildInsertSql(table, values, columns, alias);
       case 'update':
         return this.buildUpdateSql(table, values, alias);
+      case 'count':
+        return `SELECT COUNT(*) as count FROM ${table} ${alias}`;
       default:
         return '';
     }

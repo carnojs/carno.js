@@ -175,6 +175,14 @@ export class SqlBuilder<T> {
     return this;
   }
 
+  count(): SqlBuilder<T> {
+    const {tableName, schema} = this.getTableName();
+    this.statements.statement = 'count';
+    this.statements.alias = this.getAlias(tableName);
+    this.statements.table = `"${schema}"."${tableName}"`;
+    return this;
+  }
+
   private getPrimaryKeyColumnName(entity: Options): string {
     // Lógica para obter o nome da coluna de chave primária da entidade
     // Aqui você pode substituir por sua própria lógica, dependendo da estrutura do seu projeto
@@ -271,6 +279,16 @@ export class SqlBuilder<T> {
     }
 
     return results as any;
+  }
+
+  async executeCount(): Promise<number> {
+    const result = await this.execute();
+
+    if (result.query.rows.length === 0) {
+      return 0;
+    }
+
+    return parseInt(result.query.rows[0].count);
   }
 
   private logExecution(result: { query: any, startTime: number, sql: string }): void {

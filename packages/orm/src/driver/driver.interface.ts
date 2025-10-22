@@ -113,7 +113,7 @@ export type JoinStatement<T> = {
 };
 
 export type Statement<T> = {
-  statement?: 'select' | 'insert' | 'update' | 'delete';
+  statement?: 'select' | 'insert' | 'update' | 'delete' | 'count';
   table?: string;
   alias?: string;
   customSchema?: string;
