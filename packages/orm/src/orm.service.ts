@@ -92,9 +92,20 @@ export class OrmService {
 
     for (const entity of entities) {
       const nullableDefaultEntity = this.allEntities.get(entity.target.name);
-      const properties: { [key: string]: Property } = Metadata.get(PROPERTIES_METADATA, entity.target);
+      const propertiesFromMetadata: { [key: string]: Property } = Metadata.get(PROPERTIES_METADATA, entity.target);
       const relationship = Metadata.get(PROPERTIES_RELATIONS, entity.target);
       const hooks = Metadata.get(EVENTS_METADATA, entity.target)
+
+      // Cria uma cópia profunda das propriedades para evitar mutação compartilhada
+      const properties: { [key: string]: Property } = {};
+      if (propertiesFromMetadata) {
+        for (const [key, value] of Object.entries(propertiesFromMetadata)) {
+          properties[key] = {
+            type: value.type,
+            options: { ...value.options }
+          };
+        }
+      }
 
       for (const property in properties) {
         if (nullableDefaultEntity?.nullables.includes(property)) {

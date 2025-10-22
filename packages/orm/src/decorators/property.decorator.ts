@@ -79,7 +79,9 @@ export function Property(options?: PropertyOptions): PropertyDecorator {
         }
 
         // 2) Atualize PROPERTIES_METADATA apenas para esta propriedade
-        const types = Metadata.get(PROPERTIES_METADATA, target.constructor) || {};
+        const existingTypes = Metadata.get(PROPERTIES_METADATA, target.constructor) || {};
+        // Cria uma cópia para evitar mutação compartilhada entre entidades
+        const types = { ...existingTypes };
         types[propertyKey as string] = { type: propType, options };
         Metadata.set(PROPERTIES_METADATA, types, target.constructor);
     };
