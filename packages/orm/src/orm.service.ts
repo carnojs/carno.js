@@ -11,7 +11,6 @@ export class OrmService {
   private allEntities = new Map<string, { nullables: string[], defaults: { [key: string]: any } }>();
 
   constructor(private orm: Orm, private storage: EntityStorage, entityFile?: string) {
-    console.log('Preparing entities...')
     const files = new Project({skipLoadingLibFiles: true}).addSourceFilesAtPaths(entityFile ?? this.getSourceFilePaths())
     files.forEach(file => {
       file.getClasses().forEach(classDeclaration => {
@@ -118,7 +117,6 @@ export class OrmService {
 
       this.storage.add(entity, properties, relationship, hooks);
     }
-    console.log('Entities prepared!')
   }
 
 
