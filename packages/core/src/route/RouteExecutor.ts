@@ -39,6 +39,7 @@ class Router {
             case 'object':
                 payload = JSON.stringify(result);
                 contentType = 'application/json';
+
                 break;
             default:
                 payload = result;
