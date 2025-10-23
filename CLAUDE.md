@@ -6,7 +6,7 @@ The repository contains source code, documentation, and usage examples.
 The AI MUST use **all available MCP tools** when performing tasks.
 
 The AI MUST follow this documentation rigorously.
-The focus in any development in this project is Performance.
+The focus in any development in this project is PERFORMANCE and EFFICIENCY.
 All APIs created must be developer-friendly and easy to use.
 Any changes to the feature must be updated or the doc created.
 

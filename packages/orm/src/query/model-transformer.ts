@@ -12,6 +12,7 @@ export class ModelTransformer {
 
     this.populateProperties(data, instanceMap, optionsMap);
     this.linkJoinedEntities(statement, instanceMap, optionsMap);
+    this.resetChangedValues(instanceMap);
 
     return instanceMap[statement.alias!] as T;
   }
@@ -164,5 +165,20 @@ export class ModelTransformer {
 
   private appendToArray(existingArray: any[], newItem: any): any[] {
     return existingArray ? [...existingArray, newItem] : [newItem];
+  }
+
+  private resetChangedValues(instanceMap: Record<string, any>): void {
+    Object.values(instanceMap).forEach(instance => {
+      const currentValues = {};
+
+      for (const key in instance) {
+        if (!key.startsWith('_') && !key.startsWith('$')) {
+          currentValues[key] = instance[key];
+        }
+      }
+
+      instance._oldValues = currentValues;
+      instance._changedValues = {};
+    });
   }
 }

@@ -38,6 +38,26 @@ const DEFAULT_CONNECTION: ConnectionSettings<BunPgDriver> = {
   driver: BunPgDriver,
 };
 
+type CachedSession = {
+  orm: Orm<BunPgDriver>;
+  tables: string[];
+  schema: string;
+};
+
+const sessionCache = new Map<string, CachedSession>();
+
+function getCacheKey(options: DatabaseTestOptions): string {
+  const connection = resolveConnection(options.connection);
+  return JSON.stringify({
+    host: connection.host,
+    port: connection.port,
+    database: connection.database,
+    schema: options.schema ?? DEFAULT_SCHEMA,
+    entityFile: options.entityFile,
+    migrationPath: connection.migrationPath,
+  });
+}
+
 export async function withDatabase(
   tables: string[],
   routine: DatabaseTestRoutine,
@@ -60,11 +80,27 @@ export async function withDatabase(
     arg2,
     arg3,
   );
-  const session = await createSession(targetOptions);
-  const context = buildContext(session.orm);
+
+  const cacheKey = getCacheKey(targetOptions);
+  let cachedSession = sessionCache.get(cacheKey);
   const schemaStatements = await resolveSchemaStatements(statements, targetOptions);
 
-  await executeWithinSession(session, context, schemaStatements, targetRoutine);
+  if (!cachedSession) {
+    const session = await createSession(targetOptions);
+    cachedSession = {
+      orm: session.orm,
+      tables: [],
+      schema: session.schema,
+    };
+    sessionCache.set(cacheKey, cachedSession);
+  }
+
+  const context = buildContext(cachedSession.orm);
+
+  await dropAndRecreateSchema(context, cachedSession.schema);
+  await prepareSchema(context, cachedSession.schema);
+  await createTables(context, schemaStatements);
+  await targetRoutine(context);
 }
 
 async function createSession(options: DatabaseTestOptions): Promise<DatabaseSession> {
@@ -134,21 +170,6 @@ async function executeSql(orm: Orm<BunPgDriver>, sql: string): Promise<{ rows: u
   return {rows: Array.isArray(result) ? result : []};
 }
 
-async function executeWithinSession(
-  session: DatabaseSession,
-  context: DatabaseTestContext,
-  statements: string[],
-  routine: DatabaseTestRoutine,
-): Promise<void> {
-  try {
-    await prepareSchema(context, session.schema);
-    await createTables(context, statements);
-    await routine(context);
-  } finally {
-    await resetSession(session, context);
-  }
-}
-
 async function createTables(context: DatabaseTestContext, statements: string[]): Promise<void> {
   const payload = statements.filter(Boolean);
 
@@ -165,23 +186,8 @@ async function executeStatements(context: DatabaseTestContext, statements: strin
   }
 }
 
-async function resetSession(
-  session: DatabaseSession,
-  context: DatabaseTestContext,
-): Promise<void> {
-  await dropSchema(session, context);
-  await ensureSearchPath(context, session.schema);
-  await session.orm.disconnect();
-}
-
-async function dropSchema(session: DatabaseSession, context: DatabaseTestContext): Promise<void> {
-  const statement = buildDropStatement(session.schema);
-
-  await context.executeSql(statement);
-}
-
-function buildDropStatement(schema: string): string {
-  return `DROP SCHEMA IF EXISTS ${schema} CASCADE; CREATE SCHEMA ${schema};`;
+async function dropAndRecreateSchema(context: DatabaseTestContext, schema: string): Promise<void> {
+  await context.executeSql(`DROP SCHEMA IF EXISTS ${schema} CASCADE; CREATE SCHEMA ${schema};`);
 }
 
 type WithDatabaseArgs = {
