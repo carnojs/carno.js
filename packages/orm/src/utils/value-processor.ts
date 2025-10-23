@@ -94,8 +94,9 @@ export class ValueProcessor {
         instance[key] = property.options.onUpdate!();
       }
 
-      if (key in values) {
-        instance[key] = values[property.options.columnName];
+      const columnName = property.options.columnName;
+      if (columnName in values) {
+        instance[key] = values[columnName];
       }
     });
 

@@ -394,9 +394,10 @@ export class SqlBuilder<T> {
   }
 
   private setDefaultValue(values: any, key: string, property: any): void {
-    if (typeof values[key] !== 'undefined') return;
+    const columnName = property.options.columnName;
+    if (typeof values[columnName] !== 'undefined') return;
 
-    values[key] = typeof property.options.default === 'function'
+    values[columnName] = typeof property.options.default === 'function'
       ? property.options.default()
       : property.options.default;
   }
@@ -407,8 +408,9 @@ export class SqlBuilder<T> {
   }
 
   private applyOnInsert(values: any, key: string, property: any): void {
-    values[key] = property.options.onInsert!();
-    this.updatedColumns.push(`${this.statements.alias}."${key}" as "${this.statements.alias}_${key}"`);
+    const columnName = property.options.columnName;
+    values[columnName] = property.options.onInsert!();
+    this.updatedColumns.push(`${this.statements.alias}."${columnName}" as "${this.statements.alias}_${columnName}"`);
   }
 
   private withUpdatedValues(values: any, entityOptions: Options) {
