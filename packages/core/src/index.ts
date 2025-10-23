@@ -11,5 +11,6 @@ export * from "./utils";
 export * from "./default-routes-cheetah";
 export * from "./services/logger.service";
 export * from "./cache/cache.port";
+export * from "./testing";
 
 import './cache/bento-cache.driver';

@@ -1,3 +1,6 @@
+import globby from 'globby';
+import {promises as fs} from 'fs';
+import path from 'path';
 import {LoggerService} from '@cheetah.js/core';
 import {EntityStorage} from '../domain/entities';
 import {Orm} from '../orm';
@@ -38,12 +41,30 @@ const DEFAULT_CONNECTION: ConnectionSettings<BunPgDriver> = {
 export async function withDatabase(
   tables: string[],
   routine: DatabaseTestRoutine,
-  options: DatabaseTestOptions = {},
-): Promise<void> {
-  const session = await createSession(options);
-  const context = buildContext(session.orm);
+  options?: DatabaseTestOptions,
+): Promise<void>;
 
-  await executeWithinSession(session, context, tables, routine);
+export async function withDatabase(
+  routine: DatabaseTestRoutine,
+  options?: DatabaseTestOptions,
+  tables?: string[],
+): Promise<void>;
+
+export async function withDatabase(
+  arg1: DatabaseTestRoutine | string[],
+  arg2?: DatabaseTestRoutine | DatabaseTestOptions,
+  arg3?: DatabaseTestOptions | string[],
+): Promise<void> {
+  const {routine: targetRoutine, options: targetOptions, statements} = await normalizeArgs(
+    arg1,
+    arg2,
+    arg3,
+  );
+  const session = await createSession(targetOptions);
+  const context = buildContext(session.orm);
+  const schemaStatements = await resolveSchemaStatements(statements, targetOptions);
+
+  await executeWithinSession(session, context, schemaStatements, targetRoutine);
 }
 
 async function createSession(options: DatabaseTestOptions): Promise<DatabaseSession> {
@@ -107,25 +128,26 @@ async function executeSql(orm: Orm<BunPgDriver>, sql: string): Promise<{ rows: u
 async function executeWithinSession(
   session: DatabaseSession,
   context: DatabaseTestContext,
-  tables: string[],
+  statements: string[],
   routine: DatabaseTestRoutine,
 ): Promise<void> {
   try {
-    await createTables(context, tables);
+    await prepareSchema(context, session.schema);
+    await createTables(context, statements);
     await routine(context);
   } finally {
     await resetSession(session, context);
   }
 }
 
-async function createTables(context: DatabaseTestContext, tables: string[]): Promise<void> {
-  const statements = tables.filter(Boolean);
+async function createTables(context: DatabaseTestContext, statements: string[]): Promise<void> {
+  const payload = statements.filter(Boolean);
 
-  if (statements.length < 1) {
+  if (payload.length < 1) {
     return;
   }
 
-  await executeStatements(context, statements);
+  await executeStatements(context, payload);
 }
 
 async function executeStatements(context: DatabaseTestContext, statements: string[]): Promise<void> {
@@ -139,6 +161,7 @@ async function resetSession(
   context: DatabaseTestContext,
 ): Promise<void> {
   await dropSchema(session, context);
+  await ensureSearchPath(context, session.schema);
   await session.orm.disconnect();
 }
 
@@ -150,4 +173,201 @@ async function dropSchema(session: DatabaseSession, context: DatabaseTestContext
 
 function buildDropStatement(schema: string): string {
   return `DROP SCHEMA IF EXISTS ${schema} CASCADE; CREATE SCHEMA ${schema};`;
+}
+
+type WithDatabaseArgs = {
+  routine: DatabaseTestRoutine;
+  options: DatabaseTestOptions;
+  statements: string[];
+};
+
+async function normalizeArgs(
+  tablesOrRoutine: DatabaseTestRoutine | string[],
+  routineOrOptions: DatabaseTestOptions | DatabaseTestRoutine | undefined,
+  optionsOrStatements: string[] | DatabaseTestOptions | undefined,
+): Promise<WithDatabaseArgs> {
+  if (Array.isArray(tablesOrRoutine)) {
+    return {
+      routine: routineOrOptions as DatabaseTestRoutine,
+      options: (optionsOrStatements as DatabaseTestOptions) ?? {},
+      statements: tablesOrRoutine,
+    };
+  }
+
+  return {
+    routine: tablesOrRoutine,
+    options: (routineOrOptions as DatabaseTestOptions) ?? {},
+    statements: Array.isArray(optionsOrStatements) ? optionsOrStatements : [],
+  };
+}
+
+async function resolveSchemaStatements(
+  statements: string[],
+  options: DatabaseTestOptions,
+): Promise<string[]> {
+  const explicit = statements.filter(Boolean);
+
+  if (explicit.length > 0) {
+    return explicit;
+  }
+
+  const fromMigrations = await loadStatementsFromMigrations(options);
+
+  return fromMigrations.filter(Boolean);
+}
+
+function normalizeGlobPatterns(patterns: string[]): string[] {
+  return patterns.map(normalizeGlobPattern);
+}
+
+function normalizeGlobPattern(pattern: string): string {
+  return pattern.replace(/\\/g, '/');
+}
+
+async function loadStatementsFromMigrations(options: DatabaseTestOptions): Promise<string[]> {
+  const connection = resolveConnection(options.connection);
+  const patterns = await resolveMigrationPatterns(connection);
+
+  if (patterns.length < 1) {
+    return [];
+  }
+
+  const normalizedPatterns = normalizeGlobPatterns(patterns);
+  const files = await globby(normalizedPatterns, {absolute: true, expandDirectories: false});
+
+  if (files.length < 1) {
+    return [];
+  }
+
+  return extractStatementsFromFiles(files);
+}
+
+async function resolveMigrationPatterns(
+  connection: ConnectionSettings<BunPgDriver>,
+): Promise<string[]> {
+  if (connection.migrationPath) {
+    return [connection.migrationPath];
+  }
+
+  const inferred = await inferMigrationPathFromConfig();
+
+  if (inferred) {
+    return [inferred];
+  }
+
+  return [];
+}
+
+async function inferMigrationPathFromConfig(): Promise<string | undefined> {
+  const configFile = await findConfigFile();
+
+  if (!configFile) {
+    return undefined;
+  }
+
+  const contents = await safeReadFile(configFile);
+
+  if (!contents) {
+    return undefined;
+  }
+
+  return extractMigrationPath(contents, configFile);
+}
+
+async function findConfigFile(): Promise<string | undefined> {
+  const candidates = [
+    'cheetah.config.ts',
+    'cheetah.config.js',
+    'cheetah.config.mjs',
+    'cheetah.config.cjs',
+  ];
+
+  for (const file of candidates) {
+    const fullPath = path.resolve(process.cwd(), file);
+    const exists = await fileExists(fullPath);
+
+    if (exists) {
+      return fullPath;
+    }
+  }
+
+  return undefined;
+}
+
+async function fileExists(target: string): Promise<boolean> {
+  try {
+    await fs.access(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function safeReadFile(file: string): Promise<string | undefined> {
+  try {
+    return await fs.readFile(file, 'utf8');
+  } catch {
+    return undefined;
+  }
+}
+
+function extractMigrationPath(source: string, file: string): string | undefined {
+  const match = source.match(/migrationPath\s*:\s*['"`]([^'"`]+)['"`]/);
+
+  if (!match) {
+    return undefined;
+  }
+
+  const candidate = match[1].trim();
+
+  if (path.isAbsolute(candidate)) {
+    return candidate;
+  }
+
+  const baseDir = path.dirname(file);
+
+  return path.resolve(baseDir, candidate);
+}
+
+async function extractStatementsFromFiles(files: string[]): Promise<string[]> {
+  const statements: string[] = [];
+
+  for (const file of files) {
+    const payload = await safeReadFile(file);
+
+    if (!payload) {
+      continue;
+    }
+
+    const extracted = extractStatements(payload);
+    statements.push(...extracted);
+  }
+
+  return Array.from(new Set(statements));
+}
+
+function extractStatements(payload: string): string[] {
+  const matches =
+    payload.match(
+      /(CREATE\s+(?:TABLE|TYPE|INDEX|SCHEMA)[\s\S]*?;|ALTER\s+TABLE[\s\S]*?\bADD\b[\s\S]*?;)/gi,
+    ) ?? [];
+
+  return matches.map((statement) => statement.replace(/\s+/g, ' ').trim());
+}
+
+async function prepareSchema(context: DatabaseTestContext, schema: string): Promise<void> {
+  await context.executeSql(buildCreateSchemaStatement(schema));
+  await ensureSearchPath(context, schema);
+}
+
+function buildCreateSchemaStatement(schema: string): string {
+  return `CREATE SCHEMA IF NOT EXISTS ${schema};`;
+}
+
+async function ensureSearchPath(context: DatabaseTestContext, schema: string): Promise<void> {
+  await context.executeSql(buildSearchPathStatement(schema));
+}
+
+function buildSearchPathStatement(schema: string): string {
+  return `SET search_path TO ${schema};`;
 }

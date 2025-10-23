@@ -1,6 +1,6 @@
 # AI Code & Test Generation Rules and Duties
 
-It is a lib (Framework and ORM) and uses **TypeScript** as the main language.  
+It is a lib (Framework and ORM) and uses **TypeScript** with Bun as the main language.  
 The repository contains source code, documentation, and usage examples.
 
 The AI MUST use **all available MCP tools** when performing tasks.
