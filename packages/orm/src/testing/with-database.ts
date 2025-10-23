@@ -88,6 +88,15 @@ function selectLogger(options: DatabaseTestOptions): LoggerService {
 
 async function initializeOrm(orm: Orm<BunPgDriver>, options: DatabaseTestOptions): Promise<void> {
   const storage = new EntityStorage();
+
+  if (options.entityFile) {
+    const entityFiles = await globby(options.entityFile, {absolute: true});
+
+    for (const file of entityFiles) {
+      await import(file);
+    }
+  }
+
   const service = new OrmService(orm, storage, options.entityFile);
   const connection = resolveConnection(options.connection);
 

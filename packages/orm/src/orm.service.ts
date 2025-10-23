@@ -231,20 +231,27 @@ export class OrmService {
 
   @OnApplicationInit()
   async onInit(customConfig: any = {}) {
+    const hasCustomConfig = Object.keys(customConfig).length > 0;
+    let config: any = null;
+    let setConfig: any;
 
-    const configFile = globby.sync('cheetah.config.ts', {absolute: true});
-    if (configFile.length === 0) {
-      console.log('No config file found!')
-      return;
+    if (!hasCustomConfig) {
+      const configFile = globby.sync('cheetah.config.ts', {absolute: true});
+      if (configFile.length === 0) {
+        console.log('No config file found!')
+        return;
+      }
+
+      config = await import(configFile[0]);
+      setConfig = config.default;
+    } else {
+      setConfig = customConfig;
     }
-
-    const config = await import(configFile[0]);
-    const setConfig = Object.keys(customConfig).length > 0 ? customConfig :  config.default;
 
     this.orm.setConnection(setConfig);
     await this.orm.connect();
 
-    if (typeof config.default.entities === 'string') {
+    if (config && typeof config.default.entities === 'string') {
       const files = globby.sync([config.default.entities, '!node_modules'], {gitignore: true, absolute: true})
 
       for (const file of files) {
@@ -252,7 +259,22 @@ export class OrmService {
       }
     }
 
-    const entities = Metadata.get(ENTITIES, Reflect);
+    let entities = Metadata.get(ENTITIES, Reflect);
+
+    if (!entities) {
+      const entityPaths = this.getSourceFilePaths();
+      const entityFiles = globby.sync(entityPaths.filter(path => path.includes('.entity.') || path.includes('entities/')));
+
+      for (const file of entityFiles) {
+        try {
+          await import(file);
+        } catch (error) {
+          console.warn(`Failed to import entity file ${file}:`, error);
+        }
+      }
+
+      entities = Metadata.get(ENTITIES, Reflect);
+    }
 
     if (!entities) {
       console.log('No entities found!')
