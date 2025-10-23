@@ -1,6 +1,6 @@
 {
   "name": "@cheetah.js/swagger",
-  "version": "0.1.60",
+  "version": "0.1.61",
   "description": "Generate automatically swagger.json from your cheetah.js project",
   "type": "commonjs",
   "main": "dist/index.js",
