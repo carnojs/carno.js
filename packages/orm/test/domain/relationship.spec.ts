@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from 'bun:test';
-import { BaseEntity, Entity, ManyToOne, OneToMany, PrimaryKey, Property } from '../../src';
+import { BaseEntity, Entity, ManyToOne, OneToMany, PrimaryKey, Property, EntityStorage } from '../../src';
 import { app, execute, mockLogger, purgeDatabase, startDatabase } from '../node-database';
+import { Metadata } from '@cheetah.js/core';
+import { PROPERTIES_METADATA, PROPERTIES_RELATIONS } from '../../src/constants';
 
 describe('Relationship entities', () => {
 
@@ -170,5 +172,48 @@ describe('Relationship entities', () => {
     expect(find.street).toBe(find2.street);
     expect(find.address.id).toBe(find2.address.id);
     expect(find.address.user.id).toBe(find2.address.user.id);
+  });
+
+  it('should snapshot many-to-one foreign key as uuid', async () => {
+
+    @Entity()
+    class SnapshotCourse extends BaseEntity {
+      @PrimaryKey({ dbType: 'uuid' })
+      id: string;
+    }
+
+    @Entity()
+    class SnapshotLesson extends BaseEntity {
+      @PrimaryKey()
+      id: number;
+
+      @ManyToOne(() => SnapshotCourse)
+      course: SnapshotCourse;
+    }
+
+    const previousStorage = EntityStorage.getInstance();
+    const storage = new EntityStorage();
+
+    try {
+      // Given
+      const courseProperties = Metadata.get(PROPERTIES_METADATA, SnapshotCourse) || {};
+      const courseRelations = Metadata.get(PROPERTIES_RELATIONS, SnapshotCourse) || [];
+      storage.add({ target: SnapshotCourse, options: {} }, courseProperties, courseRelations, []);
+
+      const lessonProperties = Metadata.get(PROPERTIES_METADATA, SnapshotLesson) || {};
+      const lessonRelations = Metadata.get(PROPERTIES_RELATIONS, SnapshotLesson) || [];
+      storage.add({ target: SnapshotLesson, options: {} }, lessonProperties, lessonRelations, []);
+
+      // When
+      const options = storage.get(SnapshotLesson);
+      const snapshot = await storage.snapshot(options!);
+
+      // Then
+      const column = snapshot.columns.find((item) => item.name === 'course_id');
+      expect(column?.type).toBe('uuid');
+      expect(column?.foreignKeys?.[0].referencedColumnName).toBe('id');
+    } finally {
+      EntityStorage['instance'] = previousStorage || storage;
+    }
   });
 });
