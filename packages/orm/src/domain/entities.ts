@@ -42,7 +42,7 @@ export class EntityStorage {
     this.entities.set(entity.target, {
       properties: properties,
       hideProperties: Object.entries(properties)
-        .filter(([key, value]) => value.options.hidden)
+        .filter(([_key, value]) => value.options.hidden)
         .map(([key]) => key),
       relations,
       indexes: indexes.map((index: { name: string; properties: string[] }) => {
@@ -80,7 +80,7 @@ export class EntityStorage {
   }
 
   private snapshotColumns(values: Options): ColumnsInfo[] {
-    let properties: ColumnsInfo[] = Object.entries(values.properties).map(([key, value]) => {
+    let properties: ColumnsInfo[] = Object.entries(values.properties).map(([_key, value]) => {
       return {
         name: value.options.columnName,
         type: value.options.dbType ?? value.type.name,
@@ -135,7 +135,7 @@ export class EntityStorage {
   }
 
   private snapshotIndexes(values: Options): SnapshotIndexInfo[] {
-    return Object.entries(values.properties).map(([key, value]) => {
+    return Object.entries(values.properties).map(([key, _value]) => {
       return {
         indexName: key,
         columnName: key,
@@ -150,7 +150,18 @@ export class EntityStorage {
       return "unknown";
     }
 
-    return entity.properties[this.getFkKey(relation)].type.name;
+    const foreignKey = this.getFkKey(relation);
+    const property = entity.properties[foreignKey];
+
+    if (!property) {
+      return "unknown";
+    }
+
+    if (property.options?.dbType) {
+      return property.options.dbType;
+    }
+
+    return property.type?.name ?? "unknown";
   }
 
   private getFkIncrement(relation: Relationship<any>): any {
@@ -171,7 +182,7 @@ export class EntityStorage {
     // se for nullable, deverá retornar o primary key da entidade target
     if (typeof relationShip.fkKey === "undefined") {
       const entity = this.entities.get(relationShip.entity() as any);
-      const property = Object.entries(entity!.properties).find(([key, value]) => value.options.isPrimary === true);
+      const property = Object.entries(entity!.properties).find(([_key, value]) => value.options.isPrimary === true);
       if (!property) {
         throw new Error(`Entity ${entity!.tableName} does not have a primary key`);
       }
