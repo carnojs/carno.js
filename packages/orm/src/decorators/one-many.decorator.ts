@@ -14,10 +14,11 @@ export function OneToMany<T>(entity: () => EntityName<T>, fkKey: (string & keyof
   };
 }
 
-export function ManyToOne<T>(entity: () => EntityName<T>): PropertyDecorator {
+export function ManyToOne<T>(entity?: () => EntityName<T>): PropertyDecorator {
   return (target, propertyKey) => {
     const existing: Relationship<T>[] = Metadata.get(PROPERTIES_RELATIONS, target.constructor) || [];
-    const options = {relation: 'many-to-one', propertyKey, isRelation: true, entity, type: Metadata.getType(target, propertyKey), originalEntity: target.constructor}
+    const entityValue = entity || '__AUTO_DETECT__';
+    const options = {relation: 'many-to-one', propertyKey, isRelation: true, entity: entityValue, type: Metadata.getType(target, propertyKey), originalEntity: target.constructor}
     options['columnName'] = `${toSnakeCase(propertyKey as string)}_id`;
     // @ts-ignore
     existing.push(options);

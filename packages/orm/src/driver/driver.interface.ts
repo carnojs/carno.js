@@ -194,7 +194,7 @@ export type ColumnsInfo = {
   precision?: number;
   scale?: number;
   isDecimal?: boolean;
-  enumItems?: string[] | number[];
+  enumItems?: string[] | number[] | '__AUTO_DETECT__';
   foreignKeys?: ForeignKeyInfo[];
 }
 

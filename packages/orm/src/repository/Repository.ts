@@ -46,7 +46,7 @@ export abstract class Repository<T extends BaseEntity> {
    * Finds entities matching the given criteria.
    *
    * @example
-   * ```typescript
+   * ```TypeScript
    * const lessons = await repository.find({
    *   where: { courseId: 1, isPublished: true },
    *   order: { orderIndex: 'ASC' },

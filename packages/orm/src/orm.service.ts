@@ -59,6 +59,176 @@ export class OrmService {
     })
   }
 
+  private discoverRelationshipTypes(files: any[]): void {
+    const entityNameToClass = new Map<string, Function>();
+    const processedClasses = new Set<string>();
+
+    const entities = Metadata.get(ENTITIES, Reflect) || [];
+    for (const entity of entities) {
+      entityNameToClass.set(entity.target.name, entity.target);
+    }
+
+    files.forEach(file => {
+      file.getClasses().forEach(classDeclaration => {
+        if (!classDeclaration.getDecorator('Entity')) return;
+
+        const className = classDeclaration.getName();
+        const targetClass = entityNameToClass.get(className!);
+        if (!targetClass) return;
+
+        processedClasses.add(className!);
+        const relationships: any[] = Metadata.get(PROPERTIES_RELATIONS, targetClass) || [];
+
+        classDeclaration.getProperties().forEach(property => {
+          const propertyName = property.getName();
+          const relationship = relationships.find(r => r.propertyKey === propertyName);
+
+          if (relationship && relationship.entity === '__AUTO_DETECT__' && relationship.relation === 'many-to-one') {
+            const typeNode = property.getTypeNode();
+            if (!typeNode) return;
+
+            const entityTypeName = typeNode.getText().trim();
+
+            if (entityTypeName) {
+              const entityClass = entityNameToClass.get(entityTypeName);
+              if (entityClass) {
+                relationship.entity = () => entityClass;
+              } else {
+                console.warn(
+                  `Warning: Could not find entity "${entityTypeName}" for relationship ` +
+                  `"${className}.${propertyName}". Please define it explicitly.`
+                );
+              }
+            }
+          }
+        });
+
+        Metadata.set(PROPERTIES_RELATIONS, relationships, targetClass);
+      });
+    });
+
+    for (const entity of entities) {
+      if (processedClasses.has(entity.target.name)) continue;
+
+      const relationships: any[] = Metadata.get(PROPERTIES_RELATIONS, entity.target) || [];
+      let updated = false;
+
+      for (const relationship of relationships) {
+        if (relationship.entity === '__AUTO_DETECT__' && relationship.relation === 'many-to-one') {
+          const propertyKey = relationship.propertyKey as string;
+          const capitalizedName = propertyKey.charAt(0).toUpperCase() + propertyKey.slice(1);
+          let entityClass = entityNameToClass.get(capitalizedName);
+
+          if (!entityClass) {
+            for (const [name, cls] of entityNameToClass) {
+              if (name.toLowerCase() === propertyKey.toLowerCase()) {
+                entityClass = cls;
+                break;
+              }
+            }
+          }
+
+          if (entityClass) {
+            relationship.entity = () => entityClass;
+            updated = true;
+          } else {
+            console.warn(
+              `Warning: Could not auto-detect entity for "${entity.target.name}.${propertyKey}". ` +
+              `Please define it explicitly.`
+            );
+          }
+        }
+      }
+
+      if (updated) {
+        Metadata.set(PROPERTIES_RELATIONS, relationships, entity.target);
+      }
+    }
+  }
+
+  private discoverEnumTypes(files: any[], entities: any[]): void {
+    const entityNameToClass = new Map<string, Function>();
+
+    for (const entity of entities) {
+      entityNameToClass.set(entity.target.name, entity.target);
+    }
+
+    files.forEach(file => {
+      file.getClasses().forEach(classDeclaration => {
+        if (!classDeclaration.getDecorator('Entity')) return;
+
+        const className = classDeclaration.getName();
+        const targetClass = entityNameToClass.get(className!);
+        if (!targetClass) return;
+
+        const properties: { [key: string]: Property } = Metadata.get(PROPERTIES_METADATA, targetClass) || {};
+
+        classDeclaration.getProperties().forEach(property => {
+          const propertyName = property.getName();
+          const propertyMetadata = properties[propertyName];
+
+          if (propertyMetadata?.options?.enumItems === '__AUTO_DETECT__') {
+            const typeNode = property.getTypeNode();
+            if (!typeNode) return;
+
+            const enumTypeName = typeNode.getText().trim();
+            const enumArrayMatch = enumTypeName.match(/^(.+)\[\]$/);
+            const actualEnumName = enumArrayMatch ? enumArrayMatch[1] : enumTypeName;
+
+            const sourceFile = file;
+            const enumDeclaration = sourceFile.getEnum(actualEnumName);
+
+            if (enumDeclaration) {
+              const enumMembers = enumDeclaration.getMembers();
+              const enumValues = enumMembers.map(member => {
+                const value = member.getValue();
+                return value !== undefined ? value : member.getName();
+              });
+
+              propertyMetadata.options.enumItems = enumValues;
+
+              if (enumArrayMatch) {
+                propertyMetadata.options.array = true;
+              }
+            } else {
+              const allSourceFiles = sourceFile.getProject().getSourceFiles();
+              let foundEnum = false;
+
+              for (const sf of allSourceFiles) {
+                const importedEnum = sf.getEnum(actualEnumName);
+                if (importedEnum) {
+                  const enumMembers = importedEnum.getMembers();
+                  const enumValues = enumMembers.map(member => {
+                    const value = member.getValue();
+                    return value !== undefined ? value : member.getName();
+                  });
+
+                  propertyMetadata.options.enumItems = enumValues;
+
+                  if (enumArrayMatch) {
+                    propertyMetadata.options.array = true;
+                  }
+
+                  foundEnum = true;
+                  break;
+                }
+              }
+
+              if (!foundEnum) {
+                console.warn(
+                  `Warning: Could not find enum "${actualEnumName}" for property ` +
+                  `"${className}.${propertyName}". Please define it explicitly.`
+                );
+              }
+            }
+          }
+        });
+
+        Metadata.set(PROPERTIES_METADATA, properties, targetClass);
+      });
+    });
+  }
+
   @OnApplicationInit()
   async onInit(customConfig: any = {}) {
 
@@ -88,6 +258,11 @@ export class OrmService {
       console.log('No entities found!')
       return;
     }
+
+    const files = new Project({skipLoadingLibFiles: true})
+      .addSourceFilesAtPaths(this.getSourceFilePaths());
+    this.discoverRelationshipTypes(files);
+    this.discoverEnumTypes(files, entities);
 
     for (const entity of entities) {
       const nullableDefaultEntity = this.allEntities.get(entity.target.name);

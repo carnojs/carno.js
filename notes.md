@@ -1,0 +1,1 @@
+Auto-discover o tipo do enum

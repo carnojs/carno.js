@@ -35,7 +35,8 @@ export type PropertyOptions = {
   autoIncrement?: boolean;
   columnName?: string;
   isEnum?: boolean;
-  enumItems?: string[] | number[];
+  enumItems?: string[] | number[] | '__AUTO_DETECT__';
+  array?: boolean;
   onUpdate?: () => any;
   onInsert?: () => any;
 };

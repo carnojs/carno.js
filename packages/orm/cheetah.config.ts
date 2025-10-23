@@ -1,5 +1,4 @@
-import { PgDriver } from '@cheetah.js/orm';
-import { ConnectionSettings } from '@cheetah.js/orm/driver/driver.interface';
+import { BunPgDriver, ConnectionSettings } from "./src";
 
 const config: ConnectionSettings<any> = {
   host: 'localhost',
@@ -7,7 +6,7 @@ const config: ConnectionSettings<any> = {
   database: 'postgres',
   username: 'postgres',
   password: 'postgres',
-  driver: PgDriver,
+  driver: BunPgDriver,
   migrationPath: '/packages/orm/test/migration'
 };
 
