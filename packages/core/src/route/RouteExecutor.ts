@@ -3,52 +3,93 @@ import { Context, LocalsContainer } from "../domain";
 import { EventType } from "../events";
 
 class Router {
-    private toJsonCache = new WeakMap<object, Function | null>();
+    private readonly jsonHeaders = { "Content-Type": "application/json" };
+    private readonly textHeaders = { "Content-Type": "text/html" };
 
-    public async executeRoute(route: TokenRouteWithProvider, injector: InjectorService, context: Context, locals: LocalsContainer): Promise<Response> {
+    public async executeRoute(
+        route: TokenRouteWithProvider,
+        injector: InjectorService,
+        context: Context,
+        locals: LocalsContainer
+    ): Promise<Response> {
         const provider = injector.invoke(route.provider, locals);
 
         route.provider.instance = provider;
 
         // @ts-ignore
         if (!provider[route.methodName]) {
-            throw new Error('Controller not found');
+            throw new Error("Controller not found");
         }
-
 
         const result = await injector.invokeRoute(route, context, locals);
 
-        injector.callHook(EventType.OnResponse, {context, result})
+        injector.callHook(EventType.OnResponse, { context, result });
 
         return this.mountResponse(result, context);
     }
 
-    private mountResponse(result: any, context: Context) {
-        let payload: string | any;
-        let contentType: string;
+    private mountResponse(result: unknown, context: Context) {
+        const status = context.getResponseStatus() || 200;
 
-        if (result instanceof Response) {
+        if (this.isNativeResponse(result)) {
             return result;
         }
 
-        switch (typeof result) {
-            case 'string':
-                payload = result;
-                contentType = 'text/html';
-                break;
-            case 'object':
-                payload = JSON.stringify(result);
-                contentType = 'application/json';
-                break;
-            default:
-                payload = result;
-                contentType = 'text/plain';
+        if (result === null || result === undefined) {
+            return new Response("", { status, headers: this.textHeaders });
         }
 
-        return new Response(payload, {
-            status: context.getResponseStatus() || 201,
-            headers: {'Content-Type': contentType}
-        });
+        const resultType = typeof result;
+
+        if (resultType === "string") {
+            return new Response(result as string, { status, headers: this.textHeaders });
+        }
+
+        if (resultType === "number" || resultType === "boolean") {
+            return new Response(String(result), { status, headers: this.textHeaders });
+        }
+
+        if (this.isBodyInit(result)) {
+            return new Response(result as BodyInit, { status });
+        }
+
+        return this.createJsonResponse(result, status);
+    }
+
+    private isNativeResponse(result: unknown): result is Response {
+        return result instanceof Response;
+    }
+
+    private isBodyInit(result: unknown): result is BodyInit {
+        if (!result) {
+            return false;
+        }
+
+        if (result instanceof ReadableStream) {
+            return true;
+        }
+
+        if (result instanceof Blob || result instanceof ArrayBuffer) {
+            return true;
+        }
+
+        if (ArrayBuffer.isView(result as any)) {
+            return true;
+        }
+
+        return result instanceof FormData || result instanceof URLSearchParams;
+    }
+
+    private createJsonResponse(body: unknown, status: number) {
+        try {
+            const json = JSON.stringify(body);
+
+            return new Response(json, { status, headers: this.jsonHeaders });
+        } catch (error) {
+            const fallback = JSON.stringify({ error: "Serialization failed" });
+
+            return new Response(fallback, { status: 500, headers: this.jsonHeaders });
+        }
     }
 }
 

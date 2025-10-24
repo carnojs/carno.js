@@ -12,7 +12,7 @@ export async function startDatabase(entityFile: string | undefined = undefined, 
   const service = new OrmService(app, new EntityStorage(), entityFile)
   await service.onInit({
     host: 'localhost',
-    port: 5432,
+    port: 5433,
     database: 'postgres',
     username: 'postgres',
     password: 'postgres',

@@ -41,7 +41,7 @@ describe('Core testing helper', () => {
       const response = await harness.request('/status');
       const payload = await response.text();
 
-      expect(response.status).toBe(201);
+      expect(response.status).toBe(200);
       expect(payload).toBe('ready');
     } finally {
       await harness.close();
