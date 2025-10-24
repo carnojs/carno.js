@@ -10,7 +10,7 @@ import { createInjector } from "./container/createInjector";
 import { Metadata } from "./domain";
 import { Context } from "./domain/Context";
 import { LocalsContainer } from "./domain/LocalsContainer";
-import { CorsConfig, DEFAULT_CORS_METHODS, CorsOrigin } from "./domain/cors-config";
+import { CorsConfig, DEFAULT_CORS_METHODS, DEFAULT_CORS_ALLOWED_HEADERS, CorsOrigin } from "./domain/cors-config";
 import { EventType } from "./events/on-event";
 import { HttpException } from "./exceptions/HttpException";
 import { RouteExecutor } from "./route/RouteExecutor";
@@ -242,9 +242,8 @@ export class Cheetah {
     const methods = cors.methods || DEFAULT_CORS_METHODS;
     headers["Access-Control-Allow-Methods"] = methods.join(", ");
 
-    if (cors.allowedHeaders && cors.allowedHeaders.length > 0) {
-      headers["Access-Control-Allow-Headers"] = cors.allowedHeaders.join(", ");
-    }
+    const allowedHeaders = cors.allowedHeaders || DEFAULT_CORS_ALLOWED_HEADERS;
+    headers["Access-Control-Allow-Headers"] = allowedHeaders.join(", ");
 
     if (cors.exposedHeaders && cors.exposedHeaders.length > 0) {
       headers["Access-Control-Expose-Headers"] = cors.exposedHeaders.join(", ");

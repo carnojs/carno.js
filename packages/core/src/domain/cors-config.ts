@@ -22,3 +22,11 @@ export const DEFAULT_CORS_METHODS = [
   "POST",
   "DELETE",
 ];
+
+export const DEFAULT_CORS_ALLOWED_HEADERS = [
+  "Content-Type",
+  "Authorization",
+  "X-Requested-With",
+  "Accept",
+  "Origin",
+];

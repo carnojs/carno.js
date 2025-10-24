@@ -95,6 +95,32 @@ describe("CORS functionality", () => {
     );
   });
 
+  test("CORS without allowedHeaders config - uses default allowed headers", async () => {
+    await withCoreApplication(
+      async ({ request }) => {
+        const response = await request("/api/users", {
+          method: "OPTIONS",
+          headers: {
+            origin: "http://example.com",
+            "Access-Control-Request-Method": "POST",
+          },
+        });
+
+        expect(response.status).toBe(204);
+        const allowedHeaders = response.headers.get("Access-Control-Allow-Headers");
+        expect(allowedHeaders).toContain("Content-Type");
+        expect(allowedHeaders).toContain("Authorization");
+      },
+      {
+        listen: true,
+        config: {
+          providers: [TestController],
+          cors: { origins: "http://example.com" },
+        },
+      }
+    );
+  });
+
   test("CORS enabled with multiple origins - allows matching origins", async () => {
     await withCoreApplication(
       async ({ request }) => {
