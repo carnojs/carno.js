@@ -2,7 +2,7 @@ import {BunPgDriver, ConnectionSettings} from './packages/orm/src';
 
 const config: ConnectionSettings = {
   host: 'localhost',
-  port: 5432,
+  port: 5433,
   database: 'postgres',
   username: 'postgres',
   password: 'postgres',

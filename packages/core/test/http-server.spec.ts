@@ -60,7 +60,7 @@ describe('HTTP server integration tests', () => {
       const response = await request('/users');
       const payload = await response.json();
 
-      expect(response.status).toBe(201);
+      expect(response.status).toBe(200);
       expect(payload.users).toBeArray();
       expect(payload.limit).toBe(10);
     }, {
@@ -79,7 +79,7 @@ describe('HTTP server integration tests', () => {
 
       const payload = JSON.parse(text);
 
-      expect(response.status).toBe(201);
+      expect(response.status).toBe(200);
       expect(payload.limit).toBe(10);
     }, {
       listen: true,
@@ -92,7 +92,7 @@ describe('HTTP server integration tests', () => {
       const response = await request('/users/456');
       const payload = await response.json();
 
-      expect(response.status).toBe(201);
+      expect(response.status).toBe(200);
       expect(payload.id).toBe('456');
       expect(payload.name).toBe('John Doe');
       expect(payload.email).toBe('john@example.com');
@@ -117,7 +117,7 @@ describe('HTTP server integration tests', () => {
 
       const payload = await response.json();
 
-      expect(response.status).toBe(201);
+      expect(response.status).toBe(200);
       expect(payload.id).toBe('123');
       expect(payload.name).toBe('Jane Smith');
       expect(payload.email).toBe('jane@example.com');
@@ -142,7 +142,7 @@ describe('HTTP server integration tests', () => {
 
       const payload = await response.json();
 
-      expect(response.status).toBe(201);
+      expect(response.status).toBe(200);
       expect(payload.id).toBe('789');
       expect(payload.name).toBe('Jane Updated');
       expect(payload.updated).toBe(true);
@@ -162,7 +162,7 @@ describe('HTTP server integration tests', () => {
 
       const payload = await response.json();
 
-      expect(response.status).toBe(201);
+      expect(response.status).toBe(200);
       expect(payload.id).toBe('999');
       expect(payload.deleted).toBe(true);
     }, {
@@ -189,7 +189,7 @@ describe('HTTP server integration tests', () => {
 
       const payload = await response.json();
 
-      expect(response.status).toBe(201);
+      expect(response.status).toBe(200);
       expect(payload.token).toBe('mock-jwt-token');
       expect(payload.user).toBe('user@test.com');
       expect(payload.device).toContain('CheetahTest');
@@ -212,7 +212,7 @@ describe('HTTP server integration tests', () => {
 
       const payload = await response.json();
 
-      expect(response.status).toBe(201);
+      expect(response.status).toBe(200);
       expect(payload.success).toBe(true);
       expect(payload.token).toBe('Bearer test-token-xyz');
     }, {
@@ -234,10 +234,10 @@ describe('HTTP server integration tests', () => {
 
       const authPayload = await authResponse.json();
 
-      expect(userResponse.status).toBe(201);
+      expect(userResponse.status).toBe(200);
       expect(userPayload.id).toBe('123');
 
-      expect(authResponse.status).toBe(201);
+      expect(authResponse.status).toBe(200);
       expect(authPayload.token).toBe('mock-jwt-token');
     }, {
       listen: true,
@@ -256,7 +256,7 @@ describe('HTTP server integration tests', () => {
       const response = await request('/users');
       const payload = await response.json();
 
-      expect(response.status).toBe(201);
+      expect(response.status).toBe(200);
       expect(payload.users).toBeArray();
     }, {
       listen: true,
@@ -270,7 +270,7 @@ describe('HTTP server integration tests', () => {
 
       const response = await request('/users');
 
-      expect(response.status).toBe(201);
+      expect(response.status).toBe(200);
     }, {
       listen: true,
       config: {providers: [UserController]},
@@ -283,7 +283,7 @@ describe('HTTP server integration tests', () => {
 
       const response = await request('/users');
 
-      expect(response.status).toBe(201);
+      expect(response.status).toBe(200);
     }, {
       listen: 4567,
       config: {providers: [UserController]},
