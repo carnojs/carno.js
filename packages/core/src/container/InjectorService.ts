@@ -38,11 +38,11 @@ export class InjectorService {
   private dependencyResolver: DependencyResolver;
   private methodInvoker: MethodInvoker;
 
-  loadModule(
+  async loadModule(
     container: Container,
     applicationConfig: ApplicationConfig,
     router: Memoirist<any>
-  ) {
+  ): Promise<void> {
     this.container = container;
     this.router = router;
     this.applicationConfig = applicationConfig;
@@ -51,7 +51,7 @@ export class InjectorService {
     this.removeUnknownProviders();
     this.saveInjector();
     this.routeResolver.resolveControllers();
-    this.callHook(EventType.OnApplicationInit);
+    await this.callHook(EventType.OnApplicationInit);
   }
 
   private initializeResolvers(): void {
@@ -116,20 +116,36 @@ export class InjectorService {
     return provider.scope || ProviderScope.SINGLETON;
   }
 
-  public callHook(event: EventType, data: any = null): void {
-    const hooks: OnEvent[] | undefined = Metadata.get(
-      CONTROLLER_EVENTS,
-      Reflect
-    );
-    if (!hooks) return;
+  public async callHook(event: EventType, data: unknown = null): Promise<void> {
+    const hooks = this.getHooksByEvent(event);
 
-    hooks
-      .filter((hook: OnEvent) => hook.eventName === event)
-      .forEach(async (hook: OnEvent) => {
-        const instance = this.invoke(hook.target);
-        // @ts-ignore
-        await instance[hook.methodName](data ?? {});
-      });
+    if (hooks.length === 0) {
+      return;
+    }
+
+    await this.runHookHandlers(hooks, data ?? {});
+  }
+
+  private getHooksByEvent(event: EventType): OnEvent[] {
+    const hooks = Metadata.get(CONTROLLER_EVENTS, Reflect) as OnEvent[] | undefined;
+
+    if (!hooks) {
+      return [];
+    }
+
+    return hooks.filter((hook: OnEvent) => hook.eventName === event);
+  }
+
+  private async runHookHandlers(hooks: OnEvent[], data: unknown): Promise<void> {
+    for (const hook of hooks) {
+      await this.executeHook(hook, data);
+    }
+  }
+
+  private async executeHook(hook: OnEvent, data: unknown): Promise<void> {
+    const instance = this.invoke(hook.target) as Record<string, (payload: unknown) => Promise<void> | void>;
+
+    await instance[hook.methodName](data);
   }
 
   private saveInjector() {

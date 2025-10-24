@@ -24,7 +24,7 @@ export interface ApplicationConfig {
 }
 
 const parseUrl = require("parseurl-fast");
-
+// todo: change console.log for LoggerService.
 export class Cheetah {
   router: Memoirist<TokenRouteWithProvider> = new Memoirist();
   private injector = createInjector();
@@ -33,7 +33,7 @@ export class Cheetah {
   private server: Server<any>;
 
   constructor(public config: ApplicationConfig = {}) {
-    this.injector.callHook(EventType.OnApplicationBoot, {});
+    void this.bootstrapApplication();
   }
 
   /**
@@ -83,16 +83,16 @@ export class Cheetah {
     }
   }
 
-  public init() {
+  public async init(): Promise<void> {
     this.loadProvidersAndControllers();
-    this.injector.loadModule(createContainer(), this.config, this.router);
+    await this.injector.loadModule(createContainer(), this.config, this.router);
   }
 
   async listen(port: number = 3000) {
-    process.on("SIGTERM", () =>
-      this.injector.callHook(EventType.OnApplicationShutdown)
-    );
-    this.init();
+    process.on("SIGTERM", () => {
+      void this.handleShutdownHook();
+    });
+    await this.init();
     this.createHttpServer(port);
   }
 
@@ -113,7 +113,7 @@ export class Cheetah {
     const urlParsed = parseUrl(request);
 
     const context = await Context.createFromRequest(urlParsed, request, server);
-    this.injector.callHook(EventType.OnRequest, { context });
+    await this.injector.callHook(EventType.OnRequest, { context });
     const local = new LocalsContainer();
 
     const route = this.router.find(
@@ -152,6 +152,26 @@ export class Cheetah {
 
     return new Response(error.message, { status: 500 });
   };
+
+  private async bootstrapApplication(): Promise<void> {
+    try {
+      await this.injector.callHook(EventType.OnApplicationBoot, {});
+    } catch (error) {
+      this.reportHookFailure(EventType.OnApplicationBoot, error);
+    }
+  }
+
+  private async handleShutdownHook(): Promise<void> {
+    try {
+      await this.injector.callHook(EventType.OnApplicationShutdown);
+    } catch (error) {
+      this.reportHookFailure(EventType.OnApplicationShutdown, error);
+    }
+  }
+
+  private reportHookFailure(event: EventType, error: unknown): void {
+    console.error(`Lifecycle hook ${event} failed`, error);
+  }
 
   close(closeActiveConnections: boolean = false) {
     this.server?.stop(closeActiveConnections);

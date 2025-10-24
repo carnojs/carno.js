@@ -23,7 +23,7 @@ class Router {
 
         const result = await injector.invokeRoute(route, context, locals);
 
-        injector.callHook(EventType.OnResponse, { context, result });
+        await injector.callHook(EventType.OnResponse, { context, result });
 
         return this.mountResponse(result, context);
     }

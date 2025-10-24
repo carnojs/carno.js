@@ -67,7 +67,7 @@ type BootResult = {
 
 async function bootApplication(app: Cheetah, options: CoreTestOptions): Promise<BootResult> {
   if (!shouldListen(options.listen)) {
-    app.init();
+    await app.init();
 
     return {};
   }

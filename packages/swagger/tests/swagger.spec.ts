@@ -5,11 +5,11 @@ import { SwaggerModule } from "@cheetah.js/swagger";
 describe("Swagger", () => {
   let injector: InjectorService;
 
-  beforeAll(() => {
+  beforeAll(async () => {
     const app = new Cheetah();
     app.use(SwaggerModule({ path: "/swagger" }));
     try {
-      app.init();
+      await app.init();
     } catch (e) {
       console.log(e);
     }
