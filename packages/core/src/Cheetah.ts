@@ -10,6 +10,7 @@ import { createInjector } from "./container/createInjector";
 import { Metadata } from "./domain";
 import { Context } from "./domain/Context";
 import { LocalsContainer } from "./domain/LocalsContainer";
+import { CorsConfig, DEFAULT_CORS_METHODS, CorsOrigin } from "./domain/cors-config";
 import { EventType } from "./events/on-event";
 import { HttpException } from "./exceptions/HttpException";
 import { RouteExecutor } from "./route/RouteExecutor";
@@ -21,6 +22,7 @@ export interface ApplicationConfig {
   logger?: pino.LoggerOptions;
   exports?: any[];
   providers?: any[];
+  cors?: CorsConfig;
 }
 
 const parseUrl = require("parseurl-fast");
@@ -110,6 +112,14 @@ export class Cheetah {
   }
 
   private async fetcher(request: Request, server: Server<any>): Promise<Response> {
+    if (this.isCorsEnabled()) {
+      const origin = request.headers.get("origin");
+
+      if (request.method === "OPTIONS" && origin) {
+        return this.handlePreflightRequest(request);
+      }
+    }
+
     const urlParsed = parseUrl(request);
 
     const context = await Context.createFromRequest(urlParsed, request, server);
@@ -128,12 +138,23 @@ export class Cheetah {
     context.param = route.params;
 
     local.set(Context, context);
-    return RouteExecutor.executeRoute(
+
+    let response = await RouteExecutor.executeRoute(
       route.store,
       this.injector,
       context,
       local
     );
+
+    if (this.isCorsEnabled()) {
+      const origin = request.headers.get("origin");
+
+      if (origin && this.isOriginAllowed(origin)) {
+        response = this.applyCorsHeaders(response, origin);
+      }
+    }
+
+    return response;
   }
 
   private catcher = (error: Error) => {
@@ -171,6 +192,100 @@ export class Cheetah {
 
   private reportHookFailure(event: EventType, error: unknown): void {
     console.error(`Lifecycle hook ${event} failed`, error);
+  }
+
+  private isCorsEnabled(): boolean {
+    return !!this.config.cors;
+  }
+
+  private isOriginAllowed(origin: string | null): boolean {
+    if (!origin || !this.config.cors) {
+      return false;
+    }
+
+    const { origins } = this.config.cors;
+
+    if (typeof origins === "string") {
+      return origins === "*" || origins === origin;
+    }
+
+    if (Array.isArray(origins)) {
+      return origins.includes(origin);
+    }
+
+    if (origins instanceof RegExp) {
+      return origins.test(origin);
+    }
+
+    if (typeof origins === "function") {
+      return origins(origin);
+    }
+
+    return false;
+  }
+
+  private buildCorsHeaders(origin: string): Record<string, string> {
+    const cors = this.config.cors!;
+    const headers: Record<string, string> = {};
+
+    const allowedOrigin =
+      typeof cors.origins === "string" && cors.origins === "*"
+        ? "*"
+        : origin;
+
+    headers["Access-Control-Allow-Origin"] = allowedOrigin;
+
+    if (cors.credentials) {
+      headers["Access-Control-Allow-Credentials"] = "true";
+    }
+
+    const methods = cors.methods || DEFAULT_CORS_METHODS;
+    headers["Access-Control-Allow-Methods"] = methods.join(", ");
+
+    if (cors.allowedHeaders && cors.allowedHeaders.length > 0) {
+      headers["Access-Control-Allow-Headers"] = cors.allowedHeaders.join(", ");
+    }
+
+    if (cors.exposedHeaders && cors.exposedHeaders.length > 0) {
+      headers["Access-Control-Expose-Headers"] = cors.exposedHeaders.join(", ");
+    }
+
+    if (cors.maxAge !== undefined) {
+      headers["Access-Control-Max-Age"] = cors.maxAge.toString();
+    }
+
+    return headers;
+  }
+
+  private handlePreflightRequest(request: Request): Response | null {
+    const origin = request.headers.get("origin");
+
+    if (!this.isOriginAllowed(origin)) {
+      return new Response(null, { status: 403 });
+    }
+
+    const corsHeaders = this.buildCorsHeaders(origin!);
+
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders,
+    });
+  }
+
+  private applyCorsHeaders(response: Response, origin: string): Response {
+    const corsHeaders = this.buildCorsHeaders(origin);
+
+    const newHeaders = new Headers(response.headers);
+
+    for (const [key, value] of Object.entries(corsHeaders)) {
+      newHeaders.set(key, value);
+    }
+
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: newHeaders,
+    });
   }
 
   close(closeActiveConnections: boolean = false) {
