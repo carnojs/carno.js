@@ -1,0 +1,32 @@
+{
+  "name": "@cheetah.js/queue",
+  "version": "0.1.68",
+  "description": "Queue module for Cheetah framework with BullMQ support",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "compile": "rm -rf ./dist tsconfig.tsbuildinfo && tsc --build --force",
+    "build": "tsc --build --force",
+    "prepublishOnly": "bun run build"
+  },
+  "dependencies": {
+    "bullmq": "^5.61.2"
+  },
+  "devDependencies": {},
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "peerDependencies": {
+    "@cheetah.js/core": "^0.1.27"
+  },
+  "author": "",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
+}

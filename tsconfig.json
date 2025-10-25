@@ -23,7 +23,9 @@
       "@cheetah.js/orm": ["./packages/orm"],
       "@cheetah.js/orm/*": ["./packages/orm/src/*"],
       "@cheetah.js/swagger": ["./packages/swagger"],
-      "@cheetah.js/swagger/*": ["./packages/swagger/src/*"]
+      "@cheetah.js/swagger/*": ["./packages/swagger/src/*"],
+      "@cheetah.js/queue": ["./packages/queue"],
+      "@cheetah.js/queue/*": ["./packages/queue/src/*"]
     },
     "types": ["bun-types"]
   },
@@ -32,6 +34,7 @@
     { "path": "./packages/core" },
     { "path": "./packages/orm" },
     { "path": "./packages/schedule" },
-    { "path": "./packages/swagger" }
+    { "path": "./packages/swagger" },
+    { "path": "./packages/queue" }
   ]
 }
