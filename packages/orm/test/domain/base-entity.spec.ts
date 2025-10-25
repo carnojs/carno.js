@@ -634,6 +634,23 @@ describe('Creation, update and deletion of entities', () => {
     })
 
 
+    test('should update an entity loaded from database using save()', async () => {
+        await User.create({
+            email: 'test@test.com',
+            id: 1,
+        });
+
+        const library = await User.findOne({ id: 1 });
+        expect(library).toBeInstanceOf(User);
+        expect(library!.email).toEqual('test@test.com');
+
+        library!.email = 'updated@test.com';
+        await library!.save();
+
+        const updated = await User.findOne({ id: 1 });
+        expect(updated!.email).toEqual('updated@test.com');
+    });
+
     async function createUser() {
         return User.create({
             email: 'test@test.com',

@@ -17,13 +17,14 @@ export abstract class BaseEntity {
         }
 
         // se oldvalue não existir, é porque é a primeira vez que o atributo está sendo setado
-        if (!target._oldValues[p]) {
+        if (!(p in target._oldValues)) {
           target._oldValues[p] = newValue;
         }
 
         // se o valor for diferente do valor antigo, é porque o valor foi alterado
         if (target._oldValues[p] !== newValue) {
           target._changedValues[p] = newValue;
+          this.$_isPersisted = false;
         }
 
         target[p] = newValue;
@@ -148,6 +149,15 @@ export abstract class BaseEntity {
       ...this._changedValues,
     }
     this._changedValues = {}
+  }
+
+    /**
+     * Determines whether the current object has been persisted after the last modification.
+     *
+     * @return {boolean} Returns true if the object has been persisted, otherwise false.
+     */
+  public isPersisted() {
+    return this.$_isPersisted;
   }
 
   public toJSON(): Record<string, any> {
