@@ -303,13 +303,9 @@ export type Relationship<T> = {
 
 export type Cast<T, R> = T extends R ? T : R;
 export type IsUnknown<T> = T extends unknown ? unknown extends T ? true : never : never;
-export type IdentifiedReference<T, PK extends keyof T | unknown = PrimaryProperty<T>> = true extends IsUnknown<PK> ? Reference<T> : ({
-  [K in Cast<PK, keyof T>]: T[K];
-} & Reference<T>);
-export type Ref<T, PK extends keyof T | unknown = PrimaryProperty<T>> = IdentifiedReference<T, PK>;
 type Loadable<T extends object> = Collection<T, any> | Reference<T> | readonly T[];
 type ExtractType<T> = T extends Loadable<infer U> ? U : T;
-type StringKeys<T, E extends string = never> = T extends Collection<any, any> ? `${Exclude<keyof ExtractType<T> | E, symbol>}` : T extends Ref<any> ? `${Exclude<keyof ExtractType<T> | E, symbol>}` : T extends object ? `${Exclude<keyof ExtractType<T> | E, symbol>}` : never;
+type StringKeys<T, E extends string = never> = T extends Collection<any, any> ? `${Exclude<keyof ExtractType<T> | E, symbol>}` : T extends Reference<any> ? `${Exclude<keyof ExtractType<T> | E, symbol>}` : T extends object ? `${Exclude<keyof ExtractType<T> | E, symbol>}` : never;
 type Defined<T> = Exclude<T, null | undefined>;
 type GetStringKey<T, K extends StringKeys<T, string>, E extends string> = K extends keyof T ? ExtractType<T[K]> : (K extends E ? keyof T : never);
 type Prev = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9];

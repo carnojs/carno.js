@@ -8,6 +8,7 @@ export * from './decorators/enum.decorator';
 export * from './orm'
 export * from './orm.service'
 export * from './domain/base-entity'
+export * from './domain/reference'
 export { EntityStorage } from './domain/entities'
 export * from './driver/bun-pg.driver'
 export * from './driver/bun-mysql.driver'
