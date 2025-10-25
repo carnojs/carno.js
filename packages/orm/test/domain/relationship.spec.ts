@@ -240,4 +240,75 @@ describe('Relationship entities', () => {
     expect(address.address).toBe('test address');
     expect(address.user).toBe(user.id); // The FK value should be returned
   });
+
+  it('should return FK fields when selecting without load', async () => {
+    Entity()(User)
+    Entity()(Address)
+    Entity()(Street)
+
+    // Given: Create entities with relationships
+    const user = new User();
+    user.email = 'test@test.com';
+    user.id = 1;
+    await user.save();
+
+    const address = await Address.create({
+      id: 1,
+      address: 'test address',
+      user,
+    });
+
+    await Street.create({
+      id: 1,
+      street: 'test street',
+      address,
+    });
+
+    // When: Select without load (should return FK values, not populated entities)
+    const street = await Street.findOneOrFail({ id: 1 });
+
+    // Then: FK field should be present with the ID value
+    expect(street).toBeInstanceOf(Street);
+    expect(street.id).toBe(1);
+    expect(street.street).toBe('test street');
+    expect(street.address).toBe(address.id); // Should be the FK value, not the entity
+  });
+
+  it('should populate relationship entities when using load', async () => {
+    Entity()(User)
+    Entity()(Address)
+    Entity()(Street)
+
+    // Given: Create entities with relationships
+    const user = new User();
+    user.email = 'test@test.com';
+    user.id = 1;
+    await user.save();
+
+    const address = await Address.create({
+      id: 1,
+      address: 'test address',
+      user,
+    });
+
+    await Street.create({
+      id: 1,
+      street: 'test street',
+      address,
+    });
+
+    // When: Select with load (should populate the relationship entities)
+    const street = await Street.findOneOrFail({ id: 1 }, { load: ['address', 'address.user'] });
+
+    // Then: Relationship should be populated with full entities
+    expect(street).toBeInstanceOf(Street);
+    expect(street.id).toBe(1);
+    expect(street.street).toBe('test street');
+    expect(street.address).toBeInstanceOf(Address); // Should be the full entity
+    expect(street.address.id).toBe(1);
+    expect(street.address.address).toBe('test address');
+    expect(street.address.user).toBeInstanceOf(User); // Should be the full entity
+    expect(street.address.user.id).toBe(1);
+    expect(street.address.user.email).toBe('test@test.com');
+  });
 });
