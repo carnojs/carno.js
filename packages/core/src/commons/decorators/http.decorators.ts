@@ -59,3 +59,4 @@ export const Get = createMethodDecorator("GET");
 export const Post = createMethodDecorator("POST");
 export const Put = createMethodDecorator("PUT");
 export const Delete = createMethodDecorator("DELETE");
+export const Patch = createMethodDecorator("PATCH");

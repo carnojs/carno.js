@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'bun:test';
-import {Controller, Get, Post, Put, Delete, Body, Query, Param, Headers} from '../src';
+import {Controller, Get, Post, Put, Delete, Patch, Body, Query, Param, Headers} from '../src';
 import {withCoreApplication} from '../src/testing';
 
 describe('HTTP server integration tests', () => {
@@ -32,6 +32,11 @@ describe('HTTP server integration tests', () => {
     @Delete('/:id')
     remove(@Param('id') id: string) {
       return {id, deleted: true};
+    }
+
+    @Patch('/:id')
+    partialUpdate(@Param('id') id: string, @Body() body: any) {
+      return {id, ...body, patched: true};
     }
   }
 
@@ -165,6 +170,30 @@ describe('HTTP server integration tests', () => {
       expect(response.status).toBe(200);
       expect(payload.id).toBe('999');
       expect(payload.deleted).toBe(true);
+    }, {
+      listen: true,
+      config: {providers: [UserController]},
+    });
+  });
+
+  test('PATCH request partially updates user', async () => {
+    await withCoreApplication(async ({request}) => {
+      const patchData = {
+        email: 'newemail@example.com',
+      };
+
+      const response = await request('/users/555', {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(patchData),
+      });
+
+      const payload = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(payload.id).toBe('555');
+      expect(payload.email).toBe('newemail@example.com');
+      expect(payload.patched).toBe(true);
     }, {
       listen: true,
       config: {providers: [UserController]},

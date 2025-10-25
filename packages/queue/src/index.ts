@@ -12,4 +12,4 @@ export { QueueBuilderService } from './services/queue-builder.service';
 export { EventBinderService } from './services/event-binder.service';
 export { ConnectionManagerService } from './services/connection-manager.service';
 
-export { Queue, Worker, Job } from 'bullmq';
+export { Worker, Job } from 'bullmq';
