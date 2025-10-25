@@ -85,3 +85,24 @@ export class Reference<T> {
     return this.entity;
   }
 }
+
+/**
+ * Creates a lightweight entity reference by class and id without hitting the DB.
+ * Useful to assign many-to-one relations when only the id is known.
+ *
+ * Example:
+ *   const library = await UserLibrary.create({
+ *     user: refById(User, userId),
+ *     course: refById(Course, courseId),
+ *   });
+ */
+export function refById<C extends new () => any, T = InstanceType<C>, PK = any>(
+  Cls: C,
+  id: PK,
+): T {
+  const entity = new Cls() as any;
+
+  entity.id = id;
+
+  return entity as T;
+}

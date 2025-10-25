@@ -49,7 +49,7 @@ describe('Database test helper', () => {
       // Then
       expect(usersBeforeInsert).toBe(0);
       expect(usersAfterInsert).toBe(1);
-    });
+    }, { connection: { port: 5433 } });
 
     await withDatabase([USERS_TABLE], async (context) => {
       // Given
@@ -59,7 +59,7 @@ describe('Database test helper', () => {
       // Then
       expect(usersOnFreshSchema).toBe(0);
       expect(shouldStayEmpty).toBe(0);
-    });
+    }, { connection: { port: 5433 } });
   });
 
   test('withDatabase derives schema from migrations when statements omitted', async () => {
@@ -75,7 +75,7 @@ describe('Database test helper', () => {
         expect(afterInsert).toBe(1);
       },
       {
-        connection: {migrationPath: MIGRATIONS_GLOB},
+        connection: { migrationPath: MIGRATIONS_GLOB, port: 5433 },
       },
     );
   });

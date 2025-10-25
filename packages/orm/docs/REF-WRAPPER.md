@@ -147,6 +147,53 @@ const userRef = ref(user);  // userRef === user (same reference)
 
 ---
 
+### Function: `refById<Entity>(Cls, id)`
+
+Create a lightweight entity instance with only the primary key set, without fetching from the database. This is ideal for assigning many-to-one relations when you only know the foreign key ID.
+
+```typescript
+import { refById } from '@cheetah.js/orm';
+
+@Entity()
+class User extends BaseEntity {
+  @PrimaryKey()
+  id: number;
+}
+
+@Entity()
+class Course extends BaseEntity {
+  @PrimaryKey()
+  id: number;
+}
+
+@Entity()
+class UserLibrary extends BaseEntity {
+  @PrimaryKey()
+  id: number;
+
+  @ManyToOne()
+  user: Ref<User>;
+
+  @ManyToOne()
+  course: Ref<Course>;
+}
+
+// Create with only IDs, no extra SELECTs
+const entry = await UserLibrary.create({
+  user: refById(User, userId),
+  course: refById(Course, courseId),
+});
+
+// Later, load relations when needed
+const full = await UserLibrary.findOne({ id: entry.id }, { load: ['user', 'course'] });
+```
+
+Notes:
+- Optimized for performance: avoids pre-loading entities.
+- The inserted row will store FK IDs correctly; use `load` to hydrate relations later.
+
+---
+
 ### Function: `unwrap<T>(reference: Ref<T>): T`
 
 Identity function to unwrap a reference.

@@ -82,7 +82,7 @@ describe('Relationship entities', () => {
   }
 
   it('should create a new user with address', async () => {
-
+      (mockLogger as jest.Mock).mockClear();
     Entity()(User)
     Entity()(Address)
     Entity()(Street)

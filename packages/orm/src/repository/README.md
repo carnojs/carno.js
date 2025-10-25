@@ -45,6 +45,26 @@ export class LessonRepository extends Repository<Lesson> {
 
 ## 📚 API Reference
 
+### Tabela Resumida
+
+| Método | Tipo | Descrição |
+|--------|------|-----------|
+| `find()` | Read | Busca múltiplas entidades |
+| `findOne()` | Read | Busca uma entidade (retorna undefined) |
+| `findOneOrFail()` | Read | Busca uma entidade (lança erro) |
+| `findAll()` | Read | Busca todas as entidades |
+| `findById()` | Read | Busca por ID (retorna undefined) |
+| `findByIdOrFail()` | Read | Busca por ID (lança erro) |
+| `create()` | Write | Cria nova entidade |
+| `update()` | Write | Atualiza entidades por filtro |
+| `updateById()` | Write | Atualiza entidade por ID |
+| `delete()` | Write | **Deleta entidades por filtro** |
+| `deleteById()` | Write | **Deleta entidade por ID** |
+| `count()` | Utility | Conta entidades |
+| `exists()` | Utility | Verifica existência |
+
+---
+
 ### Métodos de Leitura (Read)
 
 #### `find(options: RepositoryFindOptions<T>): Promise<T[]>`
@@ -179,6 +199,35 @@ await lessonRepo.updateById(1, {
 
 ---
 
+#### `delete(where: FilterQuery<T>): Promise<void>`
+
+Deleta entidades que correspondem ao filtro.
+
+```typescript
+// Deletar lições não publicadas
+await lessonRepo.delete({ isPublished: false });
+
+// Deletar por múltiplos critérios
+await lessonRepo.delete({
+  courseId: 1,
+  isPublished: false
+});
+```
+
+---
+
+#### `deleteById(id: number | string): Promise<void>`
+
+Deleta entidade por ID.
+
+```typescript
+await lessonRepo.deleteById(1);
+```
+
+**⚠️ IMPORTANTE**: Operações de delete são **irreversíveis**. Use com cuidado.
+
+---
+
 ### Métodos Utilitários
 
 #### `count(where?: FilterQuery<T>): Promise<number>`
@@ -277,6 +326,17 @@ export class LessonRepository extends Repository<Lesson> {
       { isPublished: true }
     );
   }
+
+  async deleteAllByCourse(courseId: number): Promise<void> {
+    await this.delete({ courseId });
+  }
+
+  async deleteDrafts(courseId: number): Promise<void> {
+    await this.delete({
+      courseId,
+      isPublished: false
+    });
+  }
 }
 ```
 
@@ -324,6 +384,15 @@ export class LessonService {
   async reorderLessons(courseId: number, lessonIds: number[]) {
     await this.lessonRepo.reorder(courseId, lessonIds);
   }
+
+  async deleteLesson(id: number) {
+    const lesson = await this.lessonRepo.findByIdOrFail(id);
+    await this.lessonRepo.deleteById(id);
+  }
+
+  async cleanupDrafts(courseId: number) {
+    await this.lessonRepo.deleteDrafts(courseId);
+  }
 }
 ```
 
@@ -347,6 +416,18 @@ export class LessonRepository extends Repository<Lesson> {
       .limit(10)
       .offset(0)
       .executeAndReturnAll();
+  }
+
+  async deleteWithComplexConditions(courseId: number, olderThanDays: number) {
+    // Exemplo de delete com query builder
+    await this['createQueryBuilder']()
+      .delete()
+      .where({
+        courseId,
+        isPublished: false,
+        createdAt: { $lt: new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000) }
+      })
+      .execute();
   }
 }
 ```
