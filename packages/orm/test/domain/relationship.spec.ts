@@ -216,4 +216,28 @@ describe('Relationship entities', () => {
       EntityStorage['instance'] = previousStorage || storage;
     }
   });
+
+  it('should return many-to-one relationship fields after insert', async () => {
+    Entity()(User)
+    Entity()(Address)
+
+    // Given: Create a user first
+    const user = new User();
+    user.email = 'test@test.com';
+    user.id = 1;
+    await user.save();
+
+    // When: Create an address with a many-to-one relationship to user
+    const address = await Address.create({
+      id: 1,
+      address: 'test address',
+      user,
+    });
+
+    // Then: The returned entity should have the relationship field populated
+    expect(address).toBeInstanceOf(Address);
+    expect(address.id).toBe(1);
+    expect(address.address).toBe('test address');
+    expect(address.user).toBe(user.id); // The FK value should be returned
+  });
 });
