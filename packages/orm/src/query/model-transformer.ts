@@ -102,15 +102,25 @@ export class ModelTransformer {
     columnName: string,
     options: Options,
   ): { key: string; property: any } | null {
+    // First, try to find in regular properties
     const entry = Object.entries(options.properties).find(
       ([_, prop]) => prop.options.columnName === columnName,
     );
 
-    if (!entry) {
-      return null;
+    if (entry) {
+      return { key: entry[0], property: entry[1] };
     }
 
-    return { key: entry[0], property: entry[1] };
+    // If not found, try to find in relations (many-to-one)
+    const relation = options.relations?.find(
+      (rel) => rel.columnName === columnName && rel.relation === 'many-to-one',
+    );
+
+    if (relation) {
+      return { key: relation.propertyKey as string, property: relation };
+    }
+
+    return null;
   }
 
   private isValueObjectType(type: any): boolean {
