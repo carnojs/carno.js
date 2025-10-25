@@ -302,6 +302,7 @@ export class SqlBuilder<T> {
   }
 
   private logExecution(result: { query: any, startTime: number, sql: string }): void {
+      console.log(result.sql)
     this.logger.debug(`SQL: ${result.sql} [${Date.now() - result.startTime}ms]`);
   }
 
