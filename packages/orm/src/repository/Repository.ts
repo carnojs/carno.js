@@ -174,11 +174,25 @@ export abstract class Repository<T extends BaseEntity> {
   }
 
   /**
-   * Finds entities for deletion (use with caution).
-   * To delete, call .remove() on returned entities or use SQL directly.
+   * Deletes entities matching the criteria.
+   *
+   * @example
+   * ```typescript
+   * await repository.delete({ isActive: false });
+   * ```
    */
-  async findForDeletion(where: FilterQuery<T>): Promise<T[]> {
-    return this.find({ where });
+  async delete(where: FilterQuery<T>): Promise<void> {
+    await this.createQueryBuilder()
+      .delete()
+      .where(where)
+      .execute();
+  }
+
+  /**
+   * Deletes an entity by its primary key.
+   */
+  async deleteById(id: number | string): Promise<void> {
+    await this.delete({ id } as any);
   }
 
   /**

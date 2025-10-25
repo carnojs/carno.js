@@ -224,6 +224,8 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
         return this.buildInsertSql(table, values, columns, alias);
       case 'update':
         return this.buildUpdateSql(table, values, alias);
+      case 'delete':
+        return this.buildDeleteSql(table, alias);
       case 'count':
         return `SELECT COUNT(*) as count FROM ${table} ${alias}`;
       default:
@@ -258,6 +260,13 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
       .join(', ');
 
     return `UPDATE ${table} as ${alias} SET ${sets}`;
+  }
+
+  protected buildDeleteSql(
+    table: string,
+    alias: string
+  ): string {
+    return `DELETE FROM ${table} AS ${alias}`;
   }
 
   protected buildJoinClause(statement: Statement<any>): string {

@@ -123,6 +123,16 @@ export class SqlBuilder<T> {
     return this;
   }
 
+  delete(): SqlBuilder<T> {
+    const {tableName, schema} = this.getTableName();
+
+    this.statements.statement = 'delete';
+    this.statements.alias = this.getAlias(tableName);
+    this.statements.table = `${schema}.${tableName}`;
+
+    return this;
+  }
+
   where(where: FilterQuery<T>): SqlBuilder<T> {
     if (!where || Object.keys(where).length === 0) {
       return this;

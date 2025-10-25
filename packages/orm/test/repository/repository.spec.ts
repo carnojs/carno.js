@@ -624,4 +624,109 @@ describe('Repository Pattern', () => {
       expect(page2[0].id).toBeLessThan(page3[0].id);
     });
   });
+
+  describe('DELETE operations', () => {
+    test('should delete course by id', async () => {
+      const course = await courseRepo.create({
+        name: 'Course to Delete',
+        description: 'Description',
+      });
+
+      await courseRepo.deleteById(course.id);
+
+      const found = await courseRepo.findById(course.id);
+
+      expect(found).toBeUndefined();
+    });
+
+    test('should delete multiple courses with where condition', async () => {
+      await courseRepo.create({
+        name: 'Active Course 1',
+        description: 'Desc',
+        isActive: true,
+      });
+
+      await courseRepo.create({
+        name: 'Inactive Course 1',
+        description: 'Desc',
+        isActive: false,
+      });
+
+      await courseRepo.create({
+        name: 'Inactive Course 2',
+        description: 'Desc',
+        isActive: false,
+      });
+
+      await courseRepo.delete({ isActive: false });
+
+      const remaining = await courseRepo.findAll();
+
+      expect(remaining.length).toBe(1);
+      expect(remaining[0].isActive).toBe(true);
+    });
+
+    test('should delete lessons by courseId', async () => {
+      const course = await courseRepo.create({
+        name: 'Course',
+        description: 'Description',
+      });
+
+      await lessonRepo.create({
+        courseId: course.id,
+        title: 'Lesson 1',
+        content: 'Content 1',
+      });
+
+      await lessonRepo.create({
+        courseId: course.id,
+        title: 'Lesson 2',
+        content: 'Content 2',
+      });
+
+      await lessonRepo.delete({ courseId: course.id });
+
+      const count = await lessonRepo.count({ courseId: course.id });
+
+      expect(count).toBe(0);
+    });
+
+    test('should verify deletion (count should be 0)', async () => {
+      const course = await courseRepo.create({
+        name: 'Temporary Course',
+        description: 'Description',
+      });
+
+      const countBefore = await courseRepo.count({ id: course.id });
+
+      expect(countBefore).toBe(1);
+
+      await courseRepo.deleteById(course.id);
+
+      const countAfter = await courseRepo.count({ id: course.id });
+
+      expect(countAfter).toBe(0);
+    });
+
+    test('should not affect other records when deleting by id', async () => {
+      const course1 = await courseRepo.create({
+        name: 'Course 1',
+        description: 'Desc 1',
+      });
+
+      const course2 = await courseRepo.create({
+        name: 'Course 2',
+        description: 'Desc 2',
+      });
+
+      await courseRepo.deleteById(course1.id);
+
+      const found1 = await courseRepo.findById(course1.id);
+      const found2 = await courseRepo.findById(course2.id);
+
+      expect(found1).toBeUndefined();
+      expect(found2).toBeDefined();
+      expect(found2!.id).toBe(course2.id);
+    });
+  });
 });
