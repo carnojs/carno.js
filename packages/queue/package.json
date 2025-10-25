@@ -1,6 +1,6 @@
 {
   "name": "@cheetah.js/queue",
-  "version": "0.1.68",
+  "version": "0.1.69",
   "description": "Queue module for Cheetah framework with BullMQ support",
   "type": "commonjs",
   "main": "dist/index.js",
@@ -13,7 +13,6 @@
   "dependencies": {
     "bullmq": "^5.61.2"
   },
-  "devDependencies": {},
   "exports": {
     "./package.json": "./package.json",
     ".": {
