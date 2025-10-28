@@ -75,14 +75,17 @@ export class QueueRegistry {
   }
 
   async closeAll(): Promise<void> {
+    console.log("Closing all workers and queues...");
     await this.closeAllWorkers();
     await this.closeAllQueues();
+    console.log("All workers and queues closed.");
   }
 
   private async closeAllQueues(): Promise<void> {
     const names = Array.from(this.queues.keys());
 
     for (const name of names) {
+      console.log(`Closing queue: ${name}`);
       await this.closeQueue(name);
     }
   }
@@ -91,6 +94,7 @@ export class QueueRegistry {
     const names = Array.from(this.workers.keys());
 
     for (const name of names) {
+      console.log(`Closing worker: ${name}`);
       await this.closeWorker(name);
     }
   }

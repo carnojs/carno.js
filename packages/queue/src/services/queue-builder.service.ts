@@ -24,18 +24,20 @@ export class QueueBuilderService {
   }
 
   createWorker(
-    name: string,
+    queueName: string,
+    workerId: string,
     processor: (job: Job) => Promise<any>,
     options: any = {}
   ): Worker {
     const connection = this.getConnectionConfig(options);
+    const concurrency = options.concurrency ?? 1;
 
-    const worker = new Worker(name, processor, {
+    const worker = new Worker(queueName, processor, {
       connection,
-      concurrency: options.concurrency,
+      concurrency,
     });
 
-    this.queueRegistry.addWorker(name, worker);
+    this.queueRegistry.addWorker(workerId, worker);
 
     return worker;
   }

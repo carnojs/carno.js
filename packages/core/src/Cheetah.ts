@@ -152,11 +152,19 @@ export class Cheetah {
   }
 
   async listen(port: number = 3000) {
-    process.on("SIGTERM", () => {
-      void this.handleShutdownHook();
-    });
+    this.registerShutdownHandlers();
     await this.init();
     this.createHttpServer(port);
+  }
+
+  private registerShutdownHandlers(): void {
+    const shutdown = async (signal: string) => {
+      console.log(`\nReceived ${signal}, starting graceful shutdown...`);
+      await this.handleShutdownHook();
+    };
+
+    process.on("SIGTERM", () => shutdown("SIGTERM"));
+    process.on("SIGINT", () => shutdown("SIGINT"));
   }
 
   public getHttpServer() {
@@ -246,9 +254,26 @@ export class Cheetah {
   private async handleShutdownHook(): Promise<void> {
     try {
       await this.injector.callHook(EventType.OnApplicationShutdown);
+
+      this.closeHttpServer();
+
+      this.exitProcess();
     } catch (error) {
       this.reportHookFailure(EventType.OnApplicationShutdown, error);
+      this.exitProcess(1);
     }
+  }
+
+  private closeHttpServer(): void {
+    if (this.server) {
+      console.log("Closing HTTP server...");
+      this.server.stop(true);
+    }
+  }
+
+  private exitProcess(code: number = 0): void {
+    console.log("Shutdown complete.");
+    process.exit(code);
   }
 
   private reportHookFailure(event: EventType, error: unknown): void {

@@ -41,11 +41,11 @@ export class QueueOrchestration {
   private setupQueue(queueMetadata: any): void {
     const queue = this.createQueue(queueMetadata);
 
+    this.registerQueueProvider(queueMetadata.name, queue);
+
     this.setupProcessors(queueMetadata);
 
     this.setupQueueEvents(queueMetadata, queue);
-
-    this.registerQueueProvider(queueMetadata.name, queue);
   }
 
   private createQueue(metadata: any): any {
@@ -82,8 +82,14 @@ export class QueueOrchestration {
       processorMetadata
     );
 
+    const workerId = this.buildWorkerId(
+      queueMetadata.name,
+      processorMetadata.name
+    );
+
     const worker = this.builderService.createWorker(
       queueMetadata.name,
+      workerId,
       processor,
       processorMetadata
     );
@@ -96,8 +102,12 @@ export class QueueOrchestration {
     );
   }
 
+  private buildWorkerId(queueName: string, jobName: string): string {
+    return `${queueName}:${jobName}`;
+  }
+
   private getOrCreateInstance(metadata: any): any {
-    return this.injector.get(metadata.target);
+    return this.injector.invoke(metadata.target);
   }
 
   private createProcessorFunction(
