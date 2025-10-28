@@ -31,8 +31,35 @@ const parseUrl = require("parseurl-fast");
 export class Cheetah {
   router: Memoirist<TokenRouteWithProvider> = new Memoirist();
   private injector = createInjector();
-  private fetch = (request: Request, server: Server<any>) =>
-    this.fetcher(request, server);
+  private fetch = async (request: Request, server: Server<any>) => {
+    try {
+      return await this.fetcher(request, server);
+    } catch (error) {
+      if (error instanceof HttpException) {
+        let response = new Response(
+          JSON.stringify({
+            message: error.getResponse(),
+            statusCode: error.getStatus(),
+          }),
+          {
+            status: error.statusCode,
+            headers: { "Content-Type": "application/json" },
+          },
+        );
+
+        if (this.isCorsEnabled()) {
+          const origin = request.headers.get("origin");
+
+          if (origin && this.isOriginAllowed(origin)) {
+            response = this.applyCorsHeaders(response, origin);
+          }
+        }
+        return response;
+      }
+
+      throw error;
+    }
+  };
   private server: Server<any>;
 
   constructor(public config: ApplicationConfig = {}) {
@@ -227,20 +254,8 @@ export class Cheetah {
   }
 
   private catcher = (error: Error) => {
-    if (error instanceof HttpException) {
-      return new Response(
-        JSON.stringify({
-          message: error.getResponse(),
-          statusCode: error.getStatus(),
-        }),
-        {
-          status: error.statusCode,
-          headers: { "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    return new Response(error.message, { status: 500 });
+    console.error("Unhandled error:", error);
+    return new Response("Internal Server Error", { status: 500 });
   };
 
   private async bootstrapApplication(): Promise<void> {
