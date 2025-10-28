@@ -1,4 +1,4 @@
-import { Metadata } from '@cheetah.js/core';
+import { Injectable, Metadata } from '@cheetah.js/core';
 import { QueueOptions } from '../interfaces';
 import { QUEUE_METADATA } from '../constants';
 
@@ -24,6 +24,6 @@ export function Queue(
       Reflect
     );
 
-    return target;
+    return Injectable()(target);
   };
 }

@@ -48,11 +48,41 @@ export class Cheetah {
       this.config.providers = [];
     }
 
-    for (const provider of plugin.config.exports || []) {
-      this.config.providers.push(provider);
+    for (const exportProvider of plugin.config.exports || []) {
+      const existingProvider = this.findProviderInConfig(
+        plugin,
+        exportProvider
+      );
+
+      const providerToAdd = this.shouldCloneProvider(existingProvider)
+        ? this.cloneProvider(existingProvider)
+        : exportProvider;
+
+      this.config.providers.push(providerToAdd);
     }
 
     return this;
+  }
+
+  private findProviderInConfig(
+    plugin: Cheetah,
+    exportProvider: any
+  ): any | undefined {
+    return plugin.config.providers?.find(
+      (p) => this.getProviderToken(p) === this.getProviderToken(exportProvider)
+    );
+  }
+
+  private getProviderToken(provider: any): any {
+    return provider?.provide || provider;
+  }
+
+  private shouldCloneProvider(provider: any): boolean {
+    return !!(provider?.useValue !== undefined || provider?.useClass);
+  }
+
+  private cloneProvider(provider: any): any {
+    return { ...provider };
   }
 
   /**
