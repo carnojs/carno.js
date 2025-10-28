@@ -34,8 +34,20 @@ export class QueueOrchestration {
     const queues = this.discoveryService.discoverQueues();
 
     queues.forEach(queueMetadata => {
-      this.setupQueue(queueMetadata);
+      try {
+        this.setupQueue(queueMetadata);
+      } catch (error) {
+        if (this.isProviderNotFoundError(error)) {
+          return;
+        }
+
+        throw error;
+      }
     });
+  }
+
+  private isProviderNotFoundError(error: any): boolean {
+    return error?.message?.includes('Provider not found');
   }
 
   private setupQueue(queueMetadata: any): void {
@@ -58,9 +70,11 @@ export class QueueOrchestration {
   private setupProcessors(queueMetadata: any): void {
     const processors = this.findProcessors(queueMetadata);
 
-    processors.forEach(processor => {
-      this.createWorker(queueMetadata, processor);
-    });
+    if (processors.length === 0) {
+      return;
+    }
+
+    this.createUnifiedWorker(queueMetadata, processors);
   }
 
   private findProcessors(queueMetadata: any): any[] {
@@ -71,34 +85,33 @@ export class QueueOrchestration {
     });
   }
 
-  private createWorker(
+  private createUnifiedWorker(
     queueMetadata: any,
-    processorMetadata: any
+    processors: any[]
   ): void {
     const instance = this.getOrCreateInstance(queueMetadata);
 
-    const processor = this.createProcessorFunction(
+    const processorMap = this.buildProcessorMap(
       instance,
-      processorMetadata
+      processors
     );
 
-    const workerId = this.buildWorkerId(
-      queueMetadata.name,
-      processorMetadata.name
-    );
+    const routerProcessor = this.createRouterProcessor(processorMap);
+
+    const maxConcurrency = this.calculateMaxConcurrency(processors);
 
     const worker = this.builderService.createWorker(
       queueMetadata.name,
-      workerId,
-      processor,
-      processorMetadata
+      queueMetadata.name,
+      routerProcessor,
+      { concurrency: maxConcurrency }
     );
 
-    this.setupJobEvents(
+    this.setupAllJobEvents(
       queueMetadata,
       worker,
       instance,
-      processorMetadata
+      processors
     );
   }
 
@@ -115,6 +128,87 @@ export class QueueOrchestration {
     metadata: any
   ): any {
     return instance[metadata.methodName].bind(instance);
+  }
+
+  private buildProcessorMap(
+    instance: any,
+    processors: any[]
+  ): Map<string, Function> {
+    const map = new Map<string, Function>();
+
+    processors.forEach(processor => {
+      const jobName = processor.name || '__default__';
+      const fn = instance[processor.methodName].bind(instance);
+      map.set(jobName, fn);
+    });
+
+    return map;
+  }
+
+  private createRouterProcessor(
+    processorMap: Map<string, Function>
+  ): (job: any) => Promise<any> {
+    return async (job: any) => {
+      const jobName = job.name;
+      const processor = processorMap.get(jobName);
+
+      if (!processor) {
+        const defaultProcessor = processorMap.get('__default__');
+
+        if (defaultProcessor) {
+          return defaultProcessor(job);
+        }
+
+        throw new Error(
+          `No processor found for job "${jobName}"`
+        );
+      }
+
+      return processor(job);
+    };
+  }
+
+  private calculateMaxConcurrency(processors: any[]): number {
+    const concurrencies = processors
+      .map(p => p.concurrency ?? 1)
+      .filter(c => typeof c === 'number');
+
+    if (concurrencies.length === 0) {
+      return 1;
+    }
+
+    return Math.max(...concurrencies);
+  }
+
+  private setupAllJobEvents(
+    queueMetadata: any,
+    worker: any,
+    instance: any,
+    processors: any[]
+  ): void {
+    const allEvents = processors.flatMap(processor => {
+      return this.findJobEvents(queueMetadata, processor);
+    });
+
+    const uniqueEvents = this.deduplicateEvents(allEvents);
+
+    this.eventBinder.bindJobEvents(worker, uniqueEvents, instance);
+  }
+
+  private deduplicateEvents(events: any[]): any[] {
+    const seen = new Set<string>();
+    const unique: any[] = [];
+
+    events.forEach(event => {
+      const key = `${event.eventName}:${event.methodName}`;
+
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(event);
+      }
+    });
+
+    return unique;
   }
 
   private setupJobEvents(
