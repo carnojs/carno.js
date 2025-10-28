@@ -158,6 +158,7 @@ export class InjectorService {
     if (!GlobalProvider.has(LoggerService)) {
       registerProvider({ provide: LoggerService, useClass: LoggerService, instance: new LoggerService(this) })
     }
+
     const defaults = [
       InjectorService,
       Context,
@@ -165,15 +166,14 @@ export class InjectorService {
       DefaultRoutesCheetah,
       CachePort,
     ];
+
     this.applicationConfig.providers = this.applicationConfig.providers || [];
     this.applicationConfig.providers.push(...defaults);
+
     let hooks = Metadata.get(CONTROLLER_EVENTS, Reflect);
 
     for (let [token] of GlobalProvider.entries()) {
-      if (
-        !this.applicationConfig.providers ||
-        !this.applicationConfig.providers.includes(token)
-      ) {
+      if (!this.isProviderAllowed(token)) {
         GlobalProvider.delete(token);
 
         if (hooks) {
@@ -182,5 +182,19 @@ export class InjectorService {
         }
       }
     }
+  }
+
+  private isProviderAllowed(token: any): boolean {
+    if (!this.applicationConfig.providers) {
+      return false;
+    }
+
+    return this.applicationConfig.providers.some((provider) => {
+      if (provider?.provide) {
+        return provider.provide === token;
+      }
+
+      return provider === token;
+    });
   }
 }

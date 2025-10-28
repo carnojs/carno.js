@@ -21,7 +21,7 @@ export function QueueModule(options: QueueModuleOptions = {}) {
       },
       {
         provide: ConnectionManagerService,
-        useValue: connectionManager,
+        useValue: () => connectionManager,
       },
     ],
     exports: [

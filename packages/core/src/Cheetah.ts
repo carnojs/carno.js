@@ -10,6 +10,7 @@ import { createInjector } from "./container/createInjector";
 import { Metadata } from "./domain";
 import { Context } from "./domain/Context";
 import { LocalsContainer } from "./domain/LocalsContainer";
+import { Provider } from "./domain/provider";
 import { CorsConfig, DEFAULT_CORS_METHODS, DEFAULT_CORS_ALLOWED_HEADERS, CorsOrigin } from "./domain/cors-config";
 import { EventType } from "./events/on-event";
 import { HttpException } from "./exceptions/HttpException";
@@ -101,6 +102,12 @@ export class Cheetah {
     const providers = Metadata.get(PROVIDER, Reflect) || [];
     const controllers = Metadata.get(CONTROLLER, Reflect) || [];
 
+    this.registerControllers(controllers);
+    this.registerMetadataProviders(providers);
+    this.registerConfigProviders();
+  }
+
+  private registerControllers(controllers: any[]): void {
     for (const controller of controllers) {
       registerController(controller);
 
@@ -109,10 +116,34 @@ export class Cheetah {
           registerController({ provide: child, parent: controller.provide });
         });
     }
+  }
 
+  private registerMetadataProviders(providers: any[]): void {
     for (const provider of providers) {
       registerProvider(provider);
     }
+  }
+
+  private registerConfigProviders(): void {
+    if (!this.config.providers) {
+      return;
+    }
+
+    for (const provider of this.config.providers) {
+      const normalized = this.normalizeProvider(provider);
+      registerProvider(normalized);
+    }
+  }
+
+  private normalizeProvider(provider: any): Partial<Provider> {
+    if (provider?.provide) {
+      return provider;
+    }
+
+    return {
+      provide: provider,
+      useClass: provider,
+    };
   }
 
   public async init(): Promise<void> {
