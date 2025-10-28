@@ -74,16 +74,20 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
 
     switch (typeof value) {
       case 'string':
-        return `'${value}'`;
+        return `'${this.escapeString(value)}'`;
       case 'number':
         return value;
       case 'boolean':
         return value;
       case 'object':
-        return `'${JSON.stringify(value)}'`;
+        return `'${this.escapeString(JSON.stringify(value))}'`;
       default:
-        return `'${value}'`;
+        return `'${this.escapeString(String(value))}'`;
     }
+  }
+
+  protected escapeString(value: string): string {
+    return value.replace(/'/g, "''");
   }
 
   protected escapeIdentifier(identifier: string): string {
