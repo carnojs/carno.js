@@ -85,7 +85,7 @@ describe('Repository Pattern', () => {
     async findActive(): Promise<Course[]> {
       return this.find({
         where: { isActive: true },
-        order: { createdAt: 'DESC' },
+        orderBy: { createdAt: 'DESC' },
       });
     }
 
@@ -104,14 +104,14 @@ describe('Repository Pattern', () => {
     async findByCourse(courseId: number): Promise<Lesson[]> {
       return this.find({
         where: { courseId },
-        order: { orderIndex: 'ASC' },
+        orderBy: { orderIndex: 'ASC' },
       });
     }
 
     async findPublishedByCourse(courseId: number): Promise<Lesson[]> {
       return this.find({
         where: { courseId, isPublished: true },
-        order: { orderIndex: 'ASC' },
+        orderBy: { orderIndex: 'ASC' },
       });
     }
 
@@ -505,7 +505,7 @@ describe('Repository Pattern', () => {
       await courseRepo.create({ name: 'Beta', description: 'Desc' });
 
       const ordered = await courseRepo.find({
-        order: { name: 'ASC' },
+        orderBy: { name: 'ASC' },
       });
 
       expect(ordered[0].name).toBe('Alpha');
@@ -519,7 +519,7 @@ describe('Repository Pattern', () => {
       await courseRepo.create({ name: 'Beta', description: 'Desc' });
 
       const ordered = await courseRepo.find({
-        order: { name: 'DESC' },
+        orderBy: { name: 'DESC' },
       });
 
       expect(ordered[0].name).toBe('Zebra');
@@ -584,13 +584,13 @@ describe('Repository Pattern', () => {
       const firstPage = await courseRepo.find({
         limit: 3,
         offset: 0,
-        order: { id: 'ASC' },
+        orderBy: { id: 'ASC' },
       });
 
       const secondPage = await courseRepo.find({
         limit: 3,
         offset: 3,
-        order: { id: 'ASC' },
+        orderBy: { id: 'ASC' },
       });
 
       expect(firstPage.length).toBe(3);
@@ -602,19 +602,19 @@ describe('Repository Pattern', () => {
       const page1 = await courseRepo.find({
         limit: 4,
         offset: 0,
-        order: { id: 'ASC' },
+        orderBy: { id: 'ASC' },
       });
 
       const page2 = await courseRepo.find({
         limit: 4,
         offset: 4,
-        order: { id: 'ASC' },
+        orderBy: { id: 'ASC' },
       });
 
       const page3 = await courseRepo.find({
         limit: 4,
         offset: 8,
-        order: { id: 'ASC' },
+        orderBy: { id: 'ASC' },
       });
 
       expect(page1.length).toBe(4);

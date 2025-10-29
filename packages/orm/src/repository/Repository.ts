@@ -55,16 +55,16 @@ export abstract class Repository<T extends BaseEntity> {
    * ```
    */
   async find(options: RepositoryFindOptions<T>): Promise<T[]> {
-    const { where, order, limit, offset, fields, load, loadStrategy } = options;
+    const { where, orderBy, limit, offset, fields, load, loadStrategy } = options;
 
     return this.entityClass.find<T>(
       where || {},
       {
-        orderBy: order as any,
+        orderBy: orderBy,
         limit,
         offset,
-        fields: fields as any,
-        load: load as any,
+        fields: fields,
+        load: load,
         loadStrategy,
       }
     );
@@ -75,14 +75,14 @@ export abstract class Repository<T extends BaseEntity> {
    * Returns undefined if not found.
    */
   async findOne(options: RepositoryFindOneOptions<T>): Promise<T | undefined> {
-    const { where, order, fields, load, loadStrategy } = options;
+    const { where, orderBy, fields, load, loadStrategy } = options;
 
     return this.entityClass.findOne<T>(
       where || {},
       {
-        orderBy: order as any,
-        fields: fields as any,
-        load: load as any,
+        orderBy: orderBy,
+        fields: fields,
+        load: load,
         loadStrategy,
       }
     );
@@ -95,14 +95,14 @@ export abstract class Repository<T extends BaseEntity> {
   async findOneOrFail(
     options: RepositoryFindOneOptions<T>
   ): Promise<T> {
-    const { where, order, fields, load, loadStrategy } = options;
+    const { where, orderBy, fields, load, loadStrategy } = options;
 
     return this.entityClass.findOneOrFail<T>(
       where || {},
       {
-        orderBy: order as any,
-        fields: fields as any,
-        load: load as any,
+        orderBy: orderBy,
+        fields: fields,
+        load: load,
         loadStrategy,
       }
     );
@@ -114,14 +114,14 @@ export abstract class Repository<T extends BaseEntity> {
   async findAll(
     options?: Omit<RepositoryFindOptions<T>, 'where'>
   ): Promise<T[]> {
-    const { order, limit, offset, fields, load, loadStrategy } = options || {};
+    const { orderBy, limit, offset, fields, load, loadStrategy } = options || {};
 
     return this.entityClass.findAll<T>({
-      orderBy: order as any,
+      orderBy: orderBy,
       limit,
       offset,
-      fields: fields as any,
-      load: load as any,
+      fields: fields,
+      load: load,
       loadStrategy,
     });
   }
@@ -215,24 +215,11 @@ export abstract class Repository<T extends BaseEntity> {
 }
 
 /**
- * Order options for repository queries.
- */
-export type RepositoryOrderOptions<T> = {
-  [K in keyof T]?: 'ASC' | 'DESC';
-};
-
-/**
  * Find options for repository queries.
  */
-export interface RepositoryFindOptions<T> {
+export type RepositoryFindOptions<T> = FindOptions<T> & {
   where?: FilterQuery<T>;
-  order?: RepositoryOrderOptions<T>;
-  limit?: number;
-  offset?: number;
-  fields?: readonly (keyof T)[];
-  load?: readonly string[];
-  loadStrategy?: 'select' | 'joined';
-}
+  }
 
 /**
  * Find one options for repository queries.

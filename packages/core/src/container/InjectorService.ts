@@ -86,7 +86,7 @@ export class InjectorService {
 
     const provider = this.ensureProvider(token);
     if (!provider) {
-      throw new Error(`Provider not found for: ${nameOf(token)}`);
+      throw new Error(`Provider not found for: ${nameOf(token)}, check if it was imported into the module or imported without type-only import.`);
     }
 
     return this.dependencyResolver.resolve(
