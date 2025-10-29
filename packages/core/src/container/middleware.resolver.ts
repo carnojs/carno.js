@@ -18,18 +18,27 @@ class MiddlewareResolver {
     let currentIndex = 0
 
     const next = async () => {
-      const middleware = middlewares[currentIndex++]
-      if (!middleware) return
+      if (currentIndex >= middlewares.length) {
+        // Se já processamos todos os middlewares, não faz nada.
+        // Isso evita o erro "Middleware stack exhausted" se um middleware chamar `next()`
+        // quando não há mais middlewares.
+        return;
+      }
 
+      const middleware = middlewares[currentIndex++]
+      
       // @ts-ignore
       const instance = injector.invoke(middleware, local) as CheetahMiddleware
-      instance.handle(context, next)
+      
+      // Await a execução do middleware.
+      // Se o middleware lançar uma exceção, ela será propagada.
+      await instance.handle(context, next)
     }
 
     if (middlewares.length === 0) return;
 
+    // Inicia a execução dos middlewares
     await next()
-    if (currentIndex <= middlewares.length) throw new Error('Middleware stack exhausted')
   }
 }
 
