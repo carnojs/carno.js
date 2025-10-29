@@ -3,6 +3,7 @@ import { app, execute, purgeDatabase, startDatabase } from '../node-database';
 import {
   BaseEntity,
   Entity,
+  ManyToOne,
   OneToMany,
   PrimaryKey,
   Property,
@@ -29,6 +30,14 @@ describe('Repository Pattern', () => {
       "order_index" integer DEFAULT 0,
       "is_published" boolean DEFAULT false,
       "created_at" timestamp DEFAULT NOW()
+    );
+  `;
+
+  const DDL_USER_COURSE = `
+    CREATE TABLE "user_course" (
+      "id" SERIAL PRIMARY KEY,
+      "user_id" integer NOT NULL,
+      "course_id" integer REFERENCES "course" ("id")
     );
   `;
 
@@ -77,6 +86,21 @@ describe('Repository Pattern', () => {
     createdAt: Date;
   }
 
+  @Entity({ tableName: 'user_course' })
+  class UserCourse extends BaseEntity {
+    @PrimaryKey()
+    id: number;
+
+    @Property()
+    userId: number;
+
+    @Property()
+    courseId: number;
+
+    @ManyToOne(() => Course, (course) => course.id)
+    course: Course;
+  }
+
   class CourseRepository extends Repository<Course> {
     constructor() {
       super(Course);
@@ -120,22 +144,31 @@ describe('Repository Pattern', () => {
     }
   }
 
+  class UserCourseRepository extends Repository<UserCourse> {
+    constructor() {
+      super(UserCourse);
+    }
+  }
+
   let courseRepo: CourseRepository;
   let lessonRepo: LessonRepository;
+  let userCourseRepo: UserCourseRepository;
 
   beforeEach(async () => {
     console.log('Preparing repository tests...');
     await startDatabase();
     await execute(DDL_COURSE);
     await execute(DDL_LESSON);
+    await execute(DDL_USER_COURSE);
     courseRepo = new CourseRepository();
     lessonRepo = new LessonRepository();
+    userCourseRepo = new UserCourseRepository();
     console.log('Repository tests prepared!');
   });
 
   afterEach(async () => {
     await purgeDatabase();
-      await app?.disconnect();
+    await app?.disconnect();
   });
 
   describe('CREATE operations', () => {
@@ -337,6 +370,67 @@ describe('Repository Pattern', () => {
       expect(publishedLessons).toBeDefined();
       expect(publishedLessons.length).toBe(1);
       expect(publishedLessons[0].isPublished).toBe(true);
+    });
+
+    test('should load nested entities', async () => {
+      const course = await courseRepo.create({
+        name: 'Course with Lessons',
+        description: 'Description',
+      });
+
+      await lessonRepo.create({
+        courseId: course.id,
+        title: 'Lesson 1',
+        content: 'Content 1',
+        orderIndex: 0,
+      });
+
+      await lessonRepo.create({
+        courseId: course.id,
+        title: 'Lesson 2',
+        content: 'Content 2',
+        orderIndex: 1,
+      });
+
+      const found = await courseRepo.findById(course.id, {
+        load: ['lessons'],
+      });
+
+      expect(found).toBeDefined();
+      expect(found!.lessons).toBeDefined();
+      expect(found!.lessons.length).toBe(2);
+      expect(found!.lessons[0].title).toBe('Lesson 1');
+    });
+  });
+
+  describe('Nested Load operations', () => {
+    test('should load deeply nested entities (course.lessons)', async () => {
+      const course = await courseRepo.create({
+        name: 'Deeply Nested Course',
+        description: 'Description',
+      });
+
+      await lessonRepo.create({
+        courseId: course.id,
+        title: 'Deeply Nested Lesson 1',
+        content: 'Content 1',
+      });
+
+      const userCourse = await userCourseRepo.create({
+        userId: 1,
+        courseId: course.id,
+      });
+
+      const found = await userCourseRepo.findById(userCourse.id, {
+        load: ['course', 'course.lessons'],
+      });
+
+      expect(found).toBeDefined();
+      expect(found!.course).toBeDefined();
+      expect(found!.course.name).toBe('Deeply Nested Course');
+      expect(found!.course.lessons).toBeDefined();
+      expect(found!.course.lessons.length).toBe(1);
+      expect(found!.course.lessons[0].title).toBe('Deeply Nested Lesson 1');
     });
   });
 

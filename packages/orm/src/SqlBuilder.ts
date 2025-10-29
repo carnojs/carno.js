@@ -239,12 +239,20 @@ export class SqlBuilder<T> {
   }
 
   async executeAndReturnFirst(): Promise<T | undefined> {
-    this.statements.limit = 1;
+    const hasOneToManyJoinedJoin = this.hasOneToManyJoinedJoin();
+
+    if (!hasOneToManyJoinedJoin) {
+      this.statements.limit = 1;
+    }
 
     const result = await this.execute();
 
     if (result.query.rows.length === 0) {
       return undefined;
+    }
+
+    if (hasOneToManyJoinedJoin) {
+      return this.processOneToManyJoinedResult(result.query.rows);
     }
 
     const entities = result.query.rows[0];
@@ -256,12 +264,24 @@ export class SqlBuilder<T> {
   }
 
   async executeAndReturnFirstOrFail(): Promise<T> {
-    this.statements.limit = 1;
+    const hasOneToManyJoinedJoin = this.hasOneToManyJoinedJoin();
+
+    if (!hasOneToManyJoinedJoin) {
+      this.statements.limit = 1;
+    }
 
     const result = await this.execute();
 
     if (result.query.rows.length === 0) {
       throw new Error('Result not found');
+    }
+
+    if (hasOneToManyJoinedJoin) {
+      const model = await this.processOneToManyJoinedResult(result.query.rows);
+      if (!model) {
+        throw new Error('Result not found');
+      }
+      return model;
     }
 
     const entities = result.query.rows[0];
@@ -289,6 +309,94 @@ export class SqlBuilder<T> {
     }
 
     return results as any;
+  }
+
+  private hasOneToManyJoinedJoin(): boolean {
+    if (!this.statements.join || this.statements.join.length === 0) {
+      return false;
+    }
+
+    if (this.statements.strategy !== 'joined') {
+      return false;
+    }
+
+    return this.statements.join.some(join => {
+      const relationship = this.entity.relations.find(
+        rel => rel.propertyKey === join.joinProperty
+      );
+      return relationship?.relation === 'one-to-many';
+    });
+  }
+
+  private async processOneToManyJoinedResult(rows: any[]): Promise<T | undefined> {
+    const primaryKey = this.getPrimaryKeyName();
+    const alias = this.statements.alias!;
+    const primaryKeyColumn = `${alias}_${primaryKey}`;
+
+    const firstRowPrimaryKeyValue = rows[0][primaryKeyColumn];
+    const relatedRows = rows.filter(row => row[primaryKeyColumn] === firstRowPrimaryKeyValue);
+
+    const model = this.modelTransformer.transform(this.model, this.statements, relatedRows[0]);
+    this.afterHooks(model);
+
+    this.attachOneToManyRelations(model, relatedRows);
+
+    return model as any;
+  }
+
+  private attachOneToManyRelations(model: any, rows: any[]): void {
+    if (!this.statements.join) {
+      return;
+    }
+
+    for (const join of this.statements.join) {
+      const relationship = this.entity.relations.find(
+        rel => rel.propertyKey === join.joinProperty
+      );
+
+      if (relationship?.relation === 'one-to-many') {
+        const joinedModels = rows.map(row =>
+          this.modelTransformer.transform(join.joinEntity, { alias: join.joinAlias }, row)
+        );
+
+        const uniqueModels = this.removeDuplicatesByPrimaryKey(joinedModels, join.joinEntity);
+        model[join.joinProperty] = uniqueModels;
+      }
+    }
+  }
+
+  private removeDuplicatesByPrimaryKey(models: any[], entityClass: Function): any[] {
+    const entity = this.entityStorage.get(entityClass);
+    if (!entity) {
+      return models;
+    }
+
+    const primaryKey = this.getPrimaryKeyNameForEntity(entity);
+    const seen = new Set();
+    const unique: any[] = [];
+
+    for (const model of models) {
+      const id = model[primaryKey];
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        unique.push(model);
+      }
+    }
+
+    return unique;
+  }
+
+  private getPrimaryKeyName(): string {
+    return this.getPrimaryKeyNameForEntity(this.entity);
+  }
+
+  private getPrimaryKeyNameForEntity(entity: Options): string {
+    for (const prop in entity.properties) {
+      if (entity.properties[prop].options.isPrimary) {
+        return prop;
+      }
+    }
+    return 'id';
   }
 
   async executeCount(): Promise<number> {

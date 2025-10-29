@@ -24,33 +24,47 @@ export class SqlJoinManager<T> {
     const relationshipNames = relationshipPath.split('.');
     let currentEntity = this.entity;
     let currentAlias = this.statements.alias!;
-    let statement = this.statements.strategy === 'joined' ? this.statements.join : this.statements.selectJoin;
-    let nameAliasProperty = this.statements.strategy === 'joined' ? 'joinAlias' : 'alias';
 
-    relationshipNames.forEach((relationshipName, index) => {
-      const relationship = currentEntity.relations.find(rel => rel.propertyKey === relationshipName);
+    for (const relationshipName of relationshipNames) {
+      const relationship = currentEntity.relations.find(
+        (rel) => rel.propertyKey === relationshipName,
+      );
 
       if (!relationship) {
-        throw new Error(`Relationship "${relationshipName}" not found in entity`);
+        throw new Error(
+          `Relationship "${relationshipName}" not found in entity "${currentEntity.tableName}"`,
+        );
       }
 
-      const isLastRelationship = index === relationshipNames.length - 1;
+      const statement =
+        this.statements.strategy === 'joined'
+          ? this.statements.join
+          : this.statements.selectJoin;
 
-      if (index === (relationshipNames.length - 2 >= 0 ? relationshipNames.length - 2 : 0)) {
-        const join = statement?.find(j => j.joinProperty === relationshipName);
-        if (join) {
-          currentAlias = join[nameAliasProperty];
-        }
+      const nameAliasProperty =
+        this.statements.strategy === 'joined' ? 'joinAlias' : 'alias';
+
+      const existingJoin = statement?.find(
+        (j) =>
+          j.joinProperty === relationshipName && j.originAlias === currentAlias,
+      );
+
+      if (existingJoin) {
+        currentAlias = existingJoin[nameAliasProperty];
+        currentEntity = this.entityStorage.get(relationship.entity() as Function)!;
+        continue;
       }
 
-      if (relationship.relation === 'many-to-one' && isLastRelationship) {
-        this.applyJoin(relationship, {}, currentAlias);
-        statement = this.statements.strategy === 'joined' ? this.statements.join : this.statements.selectJoin;
-        currentAlias = statement[statement.length - 1][nameAliasProperty];
-      }
+      this.applyJoin(relationship, {}, currentAlias);
 
+      const newStatement =
+        this.statements.strategy === 'joined'
+          ? this.statements.join
+          : this.statements.selectJoin;
+
+      currentAlias = newStatement![newStatement!.length - 1][nameAliasProperty];
       currentEntity = this.entityStorage.get(relationship.entity() as Function)!;
-    });
+    }
   }
 
   applyJoin(relationShip: Relationship<any>, value: FilterQuery<any>, alias: string): string {
