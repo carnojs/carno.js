@@ -300,9 +300,32 @@ export class SqlJoinManager<T> {
 
     const match = /\.(?<propriedade>[\w]+)/.exec(relationShip.fkKey.toString());
     const propertyKey = match ? match.groups!.propriedade : '';
-    const entity = this.entityStorage.get(relationShip.entity() as Function)!;
+    const entity = this.entityStorage.get(relationShip.entity() as Function);
+
+    if (!entity) {
+      throw new Error(
+        `Entity not found in storage for relationship. ` +
+        `Make sure the entity ${(relationShip.entity() as Function).name} is decorated with @Entity()`
+      );
+    }
+
     const property = Object.entries(entity.properties).find(([key, _value]) => key === propertyKey)?.[1];
-    return property.options.columnName;
+
+    if (property) {
+      return property.options.columnName;
+    }
+
+    const relation = entity.relations.find(rel => rel.propertyKey === propertyKey);
+
+    if (relation && relation.columnName) {
+      return relation.columnName;
+    }
+
+    throw new Error(
+      `Property or relation "${propertyKey}" not found in entity "${entity.tableName}". ` +
+      `Available properties: ${Object.keys(entity.properties).join(', ')}. ` +
+      `Available relations: ${entity.relations.map(r => r.propertyKey as string).join(', ')}`
+    );
   }
 
   private getTableName(): { tableName: string; schema: string } {
