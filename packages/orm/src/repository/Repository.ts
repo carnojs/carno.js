@@ -54,10 +54,10 @@ export abstract class Repository<T extends BaseEntity> {
    * });
    * ```
    */
-  async find(options: RepositoryFindOptions<T>): Promise<T[]> {
+  async find<Hint extends string = never>(options: RepositoryFindOptions<T, Hint>): Promise<T[]> {
     const { where, orderBy, limit, offset, fields, load, loadStrategy } = options;
 
-    return this.entityClass.find<T>(
+    return this.entityClass.find<T, Hint>(
       where || {},
       {
         orderBy: orderBy,
@@ -74,10 +74,10 @@ export abstract class Repository<T extends BaseEntity> {
    * Finds a single entity matching the given criteria.
    * Returns undefined if not found.
    */
-  async findOne(options: RepositoryFindOneOptions<T>): Promise<T | undefined> {
+  async findOne<Hint extends string = never>(options: RepositoryFindOneOptions<T, Hint>): Promise<T | undefined> {
     const { where, orderBy, fields, load, loadStrategy } = options;
 
-    return this.entityClass.findOne<T>(
+    return this.entityClass.findOne<T, Hint>(
       where || {},
       {
         orderBy: orderBy,
@@ -92,12 +92,12 @@ export abstract class Repository<T extends BaseEntity> {
    * Finds a single entity matching the given criteria.
    * Throws an error if not found.
    */
-  async findOneOrFail(
-    options: RepositoryFindOneOptions<T>
+  async findOneOrFail<Hint extends string = never>(
+    options: RepositoryFindOneOptions<T, Hint>
   ): Promise<T> {
     const { where, orderBy, fields, load, loadStrategy } = options;
 
-    return this.entityClass.findOneOrFail<T>(
+    return this.entityClass.findOneOrFail<T, Hint>(
       where || {},
       {
         orderBy: orderBy,
@@ -111,7 +111,7 @@ export abstract class Repository<T extends BaseEntity> {
   /**
    * Finds all entities with optional filtering.
    */
-  async findAll(
+  async findAll<Hint extends string = never>(
     options?: Omit<RepositoryFindOptions<T>, 'where'>
   ): Promise<T[]> {
     const { orderBy, limit, offset, fields, load, loadStrategy } = options || {};
@@ -129,16 +129,16 @@ export abstract class Repository<T extends BaseEntity> {
   /**
    * Finds an entity by its primary key.
    */
-  async findById(id: number | string): Promise<T | undefined> {
-    return this.findOne({ where: { id } as any });
+  async findById<Hint extends string = never>(id: number | string, options?: Omit<RepositoryFindOneOptions<T, Hint>, 'where'>): Promise<T | undefined> {
+    return this.findOne({ where: { id } as any, ...options });
   }
 
   /**
    * Finds an entity by its primary key.
    * Throws an error if not found.
    */
-  async findByIdOrFail(id: number | string): Promise<T> {
-    return this.findOneOrFail({ where: { id } as any });
+  async findByIdOrFail<Hint extends string = never>(id: number | string, options?: Omit<RepositoryFindOneOptions<T, Hint>, 'where'>): Promise<T> {
+    return this.findOneOrFail({ where: { id } as any, ...options });
   }
 
   /**
@@ -217,14 +217,14 @@ export abstract class Repository<T extends BaseEntity> {
 /**
  * Find options for repository queries.
  */
-export type RepositoryFindOptions<T> = FindOptions<T> & {
+export type RepositoryFindOptions<T, Hint extends string = never> = FindOptions<T, Hint> & {
   where?: FilterQuery<T>;
-  }
+}
 
 /**
  * Find one options for repository queries.
  */
-export type RepositoryFindOneOptions<T> = Omit<
-  RepositoryFindOptions<T>,
+export type RepositoryFindOneOptions<T, Hint extends string = never> = Omit<
+  RepositoryFindOptions<T, Hint>,
   'limit' | 'offset'
 >;
