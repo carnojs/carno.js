@@ -37,7 +37,7 @@
     "uuid": "^9.0.1"
   },
   "peerDependencies": {
-    "@cheetah.js/core": "^0.1.35"
+    "@cheetah.js/core": "^0.1.90"
   },
   "author": "",
   "license": "MIT",

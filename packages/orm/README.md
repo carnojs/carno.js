@@ -123,7 +123,7 @@ export class User {
 }
 ```
 
-For define a index for a multiple properties, add the @Index decorator:
+For define a index for a multiple properties, add the @Index decorator. You can use it on a property or on the class. It accepts either an array of property names (legacy) or an object with a properties field (recommended):
 
 ```javascript
 @Entity()
@@ -134,10 +134,29 @@ export class User {
     @Property()
     name: string;
 
-    @Index(['name', 'email'])
+    // Property-level (compound index)
+    @Index({ properties: ['name', 'email'] })
     @Property()
     email: string;
 }
+
+// Or, at the class level
+
+@Entity()
+@Index<{ User }>({ properties: ['name', 'email'] })
+export class User {
+  @PrimaryKey()
+  id: number;
+
+  @Property()
+  name: string;
+
+  @Property()
+  email: string;
+}
+
+// Backward compatible usage (array):
+// @Index(['name', 'email'])
 ```
 
 #### Property options

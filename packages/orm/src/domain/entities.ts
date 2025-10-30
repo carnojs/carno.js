@@ -46,10 +46,36 @@ export class EntityStorage {
         .map(([key]) => key),
       relations,
       indexes: indexes.map((index: { name: string; properties: string[] }) => {
+        // Convert property names to database column names
+        const columnNames = index.properties.map(propName => {
+          // Check if it's a regular property
+          if (properties[propName]) {
+            return properties[propName].options.columnName;
+          }
+
+          // Check if it's a relation
+          const relation = relations.find(rel => String(rel.propertyKey) === propName);
+          if (relation) {
+            return relation.columnName as string;
+          }
+
+          // Fallback to snake_case conversion if not found
+          return toSnakeCase(propName);
+        });
+
+        // Preserve the original index name if it's a primary key index (contains _pkey or [TABLE])
+        // Otherwise, generate index name using column names
+        let indexName: string;
+        if (index.name.includes('_pkey') || index.name.includes('[TABLE]')) {
+          indexName = index.name.replace("[TABLE]", entityName);
+        } else {
+          indexName = `${columnNames.join("_")}_index`;
+        }
+
         return {
           table: entityName,
-          indexName: index.name.replace("[TABLE]", entityName),
-          columnName: index.properties.join(","),
+          indexName,
+          columnName: columnNames.join(","),
         };
       }),
       hooks,

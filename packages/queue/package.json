@@ -21,7 +21,7 @@
     }
   },
   "peerDependencies": {
-    "@cheetah.js/core": "^0.1.27"
+    "@cheetah.js/core": "^0.1.90"
   },
   "author": "",
   "license": "MIT",
