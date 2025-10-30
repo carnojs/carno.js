@@ -8,7 +8,7 @@ import { ConnectionManagerService } from './services/connection-manager.service'
 import { QueueModuleOptions } from './interfaces';
 import { QUEUE_MODULE_OPTIONS } from './constants';
 
-export function QueueModule(options: QueueModuleOptions = {}) {
+export function CheetahQueue(options: QueueModuleOptions = {}) {
   const connectionManager = new ConnectionManagerService();
 
   connectionManager.setDefaultConnection(options.connection);

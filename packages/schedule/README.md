@@ -13,7 +13,7 @@ Task scheduling plugin for Cheetah.js with support for cron jobs, intervals, and
 ## Installation
 
 ```bash
-bun install @cheetah.js/schedule
+bun add @cheetah.js/schedule
 ```
 
 ## Usage
