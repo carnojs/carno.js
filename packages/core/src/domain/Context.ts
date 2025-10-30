@@ -38,8 +38,8 @@ export class Context {
   }
 
   // @ts-ignore
-  private setQuery({query}) {
-    this.query = new URLSearchParams(query)
+  private setQuery({ query }: { query?: string }) {
+    this.query = this.buildQueryObject(query);
   }
 
   private setBody(body: any) {
@@ -68,5 +68,9 @@ export class Context {
 
   getResponseStatus() {
     return this.resultStatus;
+  }
+
+  private buildQueryObject(query?: string) {
+    return query ? Object.fromEntries(new URLSearchParams(query)) : {};
   }
 }

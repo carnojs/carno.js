@@ -6,6 +6,8 @@ import {
     TestUserEntity,
     TestUserLibraryEntity,
 } from './fixtures/user-library.entities';
+import { ConnectionSettings } from "../src";
+import config from "../cheetah.config";
 
 const ENTITY_FILE = new URL('./fixtures/user-library.entities.ts', import.meta.url).pathname;
 
@@ -63,6 +65,7 @@ describe('SqlConditionBuilder OR conditions', () => {
             },
             {
                 entityFile: ENTITY_FILE,
+                connection: config
             },
         );
     });

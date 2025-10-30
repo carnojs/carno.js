@@ -222,9 +222,11 @@ export class Cheetah {
     await this.injector.callHook(EventType.OnRequest, { context });
     const local = new LocalsContainer();
 
+    const routePath = this.discoverRoutePath(urlParsed);
+
     const route = this.router.find(
       request.method.toLowerCase(),
-      urlParsed.path
+      routePath
     );
 
     if (!route) {
@@ -390,5 +392,12 @@ export class Cheetah {
 
   close(closeActiveConnections: boolean = false) {
     this.server?.stop(closeActiveConnections);
+  }
+
+  private discoverRoutePath(url: { pathname?: string; path?: string }): string {
+    if (url?.pathname) {
+      return url.pathname;
+    }
+    return url?.path || "/";
   }
 }
