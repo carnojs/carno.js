@@ -1,6 +1,6 @@
 {
   "name": "@cheetah.js/schedule",
-  "version": "0.1.80",
+  "version": "0.1.90",
   "description": "Schedule module for Cheetah framework (Bun) ⏰",
   "type": "commonjs",
   "main": "dist/index.js",
