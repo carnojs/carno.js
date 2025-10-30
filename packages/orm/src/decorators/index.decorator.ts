@@ -29,7 +29,7 @@ function resolveIndex<T>(options?: IndexOptions<T>, propertyKey?: string | symbo
 export function Index<T>(options?: IndexOptions<T>): ClassDecorator & PropertyDecorator {
   return (target: any, propertyKey?: symbol | string) => {
     const ctor = getCtor(target);
-    const indexes: IndexDef[] = Metadata.get("indexes", ctor) || [];
+    const indexes: IndexDef[] = [...(Metadata.get("indexes", ctor) || [])];
     const index = resolveIndex(options, propertyKey);
     indexes.push(index);
     Metadata.set("indexes", indexes, ctor);

@@ -207,5 +207,47 @@ describe('Index decorator', () => {
 
     expect(define).toThrow('@Index on class requires properties option');
   });
-});
 
+  test('scopes index metadata to declaring entity', () => {
+    // Given: hierarchy where only one subclass defines composite index
+    @Entity()
+    class ScopedBase extends BaseEntity {
+      @PrimaryKey()
+      id: number;
+    }
+
+    @Entity()
+    class PlainChild extends ScopedBase {
+      @Property()
+      label: string;
+    }
+
+    @Entity()
+    class IndexedChild extends ScopedBase {
+      @Property()
+      user: string;
+
+      @Property()
+      course: string;
+
+      @Index<{ IndexedChild }>({ properties: ['user', 'course', 'title'] })
+      @Property()
+      title: string;
+    }
+
+    // When: reading metadata across the hierarchy
+    const baseIndexes = Metadata.get('indexes', ScopedBase) || [];
+    const plainIndexes = Metadata.get('indexes', PlainChild) || [];
+    const indexedIndexes = Metadata.get('indexes', IndexedChild) || [];
+
+    // Then: base metadata keeps only primary key, siblings stay clean, subclass keeps index
+    expect(baseIndexes).toEqual([{ name: '[TABLE]_pkey', properties: ['id'] }]);
+    expect(plainIndexes.some((index) => index.name.includes('user_course'))).toBe(false);
+    const scopedIndex = indexedIndexes.find((index) => index.name === 'user_course_title_index');
+    expect(scopedIndex?.properties).toEqual(['user', 'course', 'title']);
+
+    Metadata.delete('indexes', ScopedBase);
+    Metadata.delete('indexes', PlainChild);
+    Metadata.delete('indexes', IndexedChild);
+  });
+});
