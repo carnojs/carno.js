@@ -1,8 +1,7 @@
 import { CONTROLLER_MIDDLEWARES, ROUTE_MIDDLEWARES } from "../../constants"
 import { CheetahMiddleware } from "../../domain/CheetahMiddleware"
 
-
-export function Middleware(...middlewares: (new () => CheetahMiddleware)[]): ClassDecorator & MethodDecorator {
+export function Middleware(...middlewares: (new (...args: any[]) => CheetahMiddleware)[]): ClassDecorator & MethodDecorator {
   return (target: any, propertyKey?: any) => {
     let definedMiddlewares: any[]
     if (propertyKey)
