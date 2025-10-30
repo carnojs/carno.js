@@ -1,6 +1,6 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { Cheetah, InjectorService } from '@cheetah.js/core';
-import { QueueModule, QueueRegistry } from '../src';
+import { CheetahQueue, QueueRegistry } from '../src';
 import { Queue as BullQueue, Worker, Job } from 'bullmq';
 
 describe('Queue Module Integration', () => {
@@ -15,7 +15,7 @@ describe('Queue Module Integration', () => {
     app = new Cheetah();
 
     app.use(
-      QueueModule({
+      CheetahQueue({
         connection: {
           host: 'localhost',
           port: 6379,

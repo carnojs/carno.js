@@ -1,4 +1,11 @@
-import { Metadata, OnApplicationInit, OnApplicationShutdown, Service } from '@cheetah.js/core';
+import {
+    GlobalProvider,
+    InjectorService,
+    Metadata,
+    OnApplicationInit,
+    OnApplicationShutdown,
+    Service,
+} from '@cheetah.js/core';
 import { CronOptions } from './utils/cron-options';
 import { CronCallback, CronJob, CronJobParams } from 'cron';
 import { SchedulerRegistry } from './scheduler.registry';
@@ -16,7 +23,10 @@ export class SchedulerOrchestration {
     private readonly timeouts: Record<string, any> = {};
     private readonly intervals: Record<string, any> = {};
 
-    constructor(private schedulerRegistry: SchedulerRegistry) {}
+    constructor(
+        private readonly schedulerRegistry: SchedulerRegistry,
+        private readonly injectorService: InjectorService,
+    ) {}
 
     @OnApplicationInit()
     onApplicationInit() {
@@ -121,15 +131,32 @@ export class SchedulerOrchestration {
         const timeout = Metadata.get(SCHEDULE_TIMEOUT_OPTIONS, Reflect) || [];
 
         schedulers.forEach((scheduler: any) => {
-            this.addCron(scheduler.target[scheduler.methodName], scheduler.options)
+            this.addCron(this.bindMethod(scheduler), scheduler.options);
         });
 
         interval.forEach((scheduler: any) => {
-            this.addInterval(scheduler.target[scheduler.methodName], scheduler.timeout, scheduler.name)
+            this.addInterval(this.bindMethod(scheduler), scheduler.timeout, scheduler.name);
         });
 
         timeout.forEach((scheduler: any) => {
-            this.addTimeout(scheduler.target[scheduler.methodName], scheduler.timeout, scheduler.name)
+            this.addTimeout(this.bindMethod(scheduler), scheduler.timeout, scheduler.name);
         });
+    }
+
+    private bindMethod(scheduler: any) {
+        const instance = this.resolveInstance(scheduler.target);
+
+        return instance[scheduler.methodName].bind(instance);
+    }
+
+    private resolveInstance(target: any) {
+        const token = target.constructor;
+        const provider = GlobalProvider.get(token);
+
+        if (provider?.instance) {
+            return provider.instance;
+        }
+
+        return this.injectorService.invoke(token);
     }
 }

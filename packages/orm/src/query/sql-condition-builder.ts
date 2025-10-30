@@ -1,5 +1,5 @@
 import { FilterQuery, Relationship, Statement } from '../driver/driver.interface';
-import { EntityStorage } from '../domain/entities';
+import { EntityStorage, Options } from '../domain/entities';
 import { ValueObject } from '../common/value-object';
 import { extendsFrom } from '../utils';
 
@@ -41,7 +41,7 @@ export class SqlConditionBuilder<T> {
   }
 
   private processEntry(key: string, value: any, alias: string, model: Function): string {
-    this.trackLastNonOperatorKey(key);
+    this.trackLastNonOperatorKey(key, model);
 
     const relationship = this.findRelationship(key, model);
     if (relationship) {
@@ -49,11 +49,11 @@ export class SqlConditionBuilder<T> {
     }
 
     if (this.isScalarValue(value)) {
-      return this.handleScalarValue(key, value, alias);
+      return this.handleScalarValue(key, value, alias, model);
     }
 
     if (this.isArrayValue(key, value)) {
-      return this.buildInCondition(key, value, alias);
+      return this.buildInCondition(key, value, alias, model);
     }
 
     return this.handleObjectValue(key, value, alias, model);
@@ -69,12 +69,12 @@ export class SqlConditionBuilder<T> {
     return '';
   }
 
-  private handleScalarValue(key: string, value: any, alias: string): string {
+  private handleScalarValue(key: string, value: any, alias: string, model: Function): string {
     if (key === '$eq') {
-      return this.buildSimpleCondition(this.lastKeyNotOperator, value, alias, '=');
+      return this.buildSimpleCondition(this.lastKeyNotOperator, value, alias, '=', model);
     }
 
-    return this.buildSimpleCondition(key, value, alias);
+    return this.buildSimpleCondition(key, value, alias, '=', model);
   }
 
   private handleObjectValue(key: string, value: any, alias: string, model: Function): string {
@@ -107,23 +107,23 @@ export class SqlConditionBuilder<T> {
   private buildOperatorCondition(key: string, operator: string, value: any, alias: string, model: Function): string {
     switch (operator) {
       case '$eq':
-        return this.buildSimpleCondition(key, value, alias, '=');
+        return this.buildSimpleCondition(key, value, alias, '=', model);
       case '$ne':
-        return this.buildSimpleCondition(key, value, alias, '!=');
+        return this.buildSimpleCondition(key, value, alias, '!=', model);
       case '$in':
-        return this.buildInCondition(key, value, alias);
+        return this.buildInCondition(key, value, alias, model);
       case '$nin':
-        return this.buildNotInCondition(key, value, alias);
+        return this.buildNotInCondition(key, value, alias, model);
       case '$like':
-        return this.buildLikeCondition(key, value, alias);
+        return this.buildLikeCondition(key, value, alias, model);
       case '$gt':
-        return this.buildComparisonCondition(key, value, alias, '>');
+        return this.buildComparisonCondition(key, value, alias, '>', model);
       case '$gte':
-        return this.buildComparisonCondition(key, value, alias, '>=');
+        return this.buildComparisonCondition(key, value, alias, '>=', model);
       case '$lt':
-        return this.buildComparisonCondition(key, value, alias, '<');
+        return this.buildComparisonCondition(key, value, alias, '<', model);
       case '$lte':
-        return this.buildComparisonCondition(key, value, alias, '<=');
+        return this.buildComparisonCondition(key, value, alias, '<=', model);
       case '$and':
       case '$or':
         return this.buildNestedLogicalCondition(operator, value, alias, model);
@@ -132,27 +132,32 @@ export class SqlConditionBuilder<T> {
     }
   }
 
-  private buildSimpleCondition(key: string, value: any, alias: string, operator: string = '='): string {
+  private buildSimpleCondition(key: string, value: any, alias: string, operator: string, model: Function): string {
+    const column = this.resolveColumnName(key, model);
     const formattedValue = this.formatValue(value);
-    return `${alias}.${key} ${operator} ${formattedValue}`;
+    return `${alias}.${column} ${operator} ${formattedValue}`;
   }
 
-  private buildInCondition(key: string, values: any[], alias: string): string {
+  private buildInCondition(key: string, values: any[], alias: string, model: Function): string {
+    const column = this.resolveColumnName(key, model);
     const formattedValues = values.map(val => this.formatValue(val)).join(', ');
-    return `${alias}.${key} IN (${formattedValues})`;
+    return `${alias}.${column} IN (${formattedValues})`;
   }
 
-  private buildNotInCondition(key: string, values: any[], alias: string): string {
+  private buildNotInCondition(key: string, values: any[], alias: string, model: Function): string {
+    const column = this.resolveColumnName(key, model);
     const formattedValues = values.map(val => this.formatValue(val)).join(', ');
-    return `${alias}.${key} NOT IN (${formattedValues})`;
+    return `${alias}.${column} NOT IN (${formattedValues})`;
   }
 
-  private buildLikeCondition(key: string, value: string, alias: string): string {
-    return `${alias}.${key} LIKE '${value}'`;
+  private buildLikeCondition(key: string, value: string, alias: string, model: Function): string {
+    const column = this.resolveColumnName(key, model);
+    return `${alias}.${column} LIKE '${value}'`;
   }
 
-  private buildComparisonCondition(key: string, value: any, alias: string, operator: string): string {
-    return `${alias}.${key} ${operator} ${value}`;
+  private buildComparisonCondition(key: string, value: any, alias: string, operator: string, model: Function): string {
+    const column = this.resolveColumnName(key, model);
+    return `${alias}.${column} ${operator} ${value}`;
   }
 
   private buildNestedLogicalCondition(operator: string, value: any[], alias: string, model: Function): string {
@@ -197,9 +202,33 @@ export class SqlConditionBuilder<T> {
     return key.toUpperCase().replace('$', '') as 'AND' | 'OR';
   }
 
-  private trackLastNonOperatorKey(key: string): void {
+  private trackLastNonOperatorKey(key: string, model: Function): void {
     if (!this.OPERATORS.includes(key)) {
       this.lastKeyNotOperator = key;
     }
+  }
+
+  private resolveColumnName(property: string, model: Function): string {
+    if (property.startsWith('$')) {
+      return property;
+    }
+
+    const entity = this.entityStorage.get(model);
+    if (!entity) {
+      return property;
+    }
+
+    const column = entity.properties?.[property]?.options.columnName;
+    if (column) {
+      return column;
+    }
+
+    return this.resolveRelationColumn(property, entity) ?? property;
+  }
+
+  private resolveRelationColumn(property: string, entity: Options): string | undefined {
+    const relation = entity.relations?.find(rel => rel.propertyKey === property);
+    const column = relation?.columnName;
+    return typeof column === 'string' ? column : undefined;
   }
 }
