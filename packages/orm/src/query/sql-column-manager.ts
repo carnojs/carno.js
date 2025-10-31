@@ -85,10 +85,13 @@ export class SqlColumnManager {
   }
 
   private buildSimpleColumnAlias(column: string, alias: string, onlyAlias: boolean): string {
+    const columnName = this.getColumnNameFromProperty(column);
+
     if (onlyAlias) {
-      return `${alias}."${column}"`;
+      return `${alias}."${columnName}"`;
     }
-    return `${alias}."${column}" as ${alias}_${column}`;
+
+    return `${alias}."${columnName}" as ${alias}_${columnName}`;
   }
 
   private buildNestedColumnAlias(column: string, onlyAlias: boolean): string | undefined {
@@ -176,12 +179,49 @@ export class SqlColumnManager {
 
   private formatColumnWithAlias(
     alias: string,
-    columnName: string,
+    propertyName: string,
     onlyAlias: boolean,
   ): string {
+    const entity = this.getEntityFromAlias(alias);
+    const columnName = this.getColumnNameFromPropertyForEntity(propertyName, entity);
+
     if (onlyAlias) {
       return `${alias}."${columnName}"`;
     }
+
     return `${alias}."${columnName}" as ${alias}_${columnName}`;
+  }
+
+  private getColumnNameFromProperty(propertyName: string): string {
+    return this.getColumnNameFromPropertyForEntity(propertyName, this.entity);
+  }
+
+  private getColumnNameFromPropertyForEntity(propertyName: string, entity: Options): string {
+    if (entity.properties[propertyName]) {
+      return entity.properties[propertyName].options.columnName;
+    }
+
+    const relation = entity.relations?.find(rel => rel.propertyKey === propertyName);
+    if (relation) {
+      return relation.columnName;
+    }
+
+    return propertyName;
+  }
+
+  private getEntityFromAlias(alias: string): Options {
+    if (alias === this.statements.alias) {
+      return this.entity;
+    }
+
+    const join = this.statements.join?.find(j => j.joinAlias === alias);
+    if (join?.joinEntity) {
+      const entity = this.entityStorage.get(join.joinEntity);
+      if (entity) {
+        return entity;
+      }
+    }
+
+    return this.entity;
   }
 }

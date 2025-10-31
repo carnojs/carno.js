@@ -663,4 +663,64 @@ describe('Creation, update and deletion of entities', () => {
             id: 1,
         })
     }
+
+    test('should use columnName in SELECT when fields are specified', async () => {
+        const DLL = `
+            CREATE TABLE "user_camel"
+            (
+                "id"              SERIAL PRIMARY KEY,
+                "email_user"      varchar(255) NOT NULL,
+                "date"            timestamp    NOT NULL,
+                "address_user_id" integer REFERENCES "address" ("id")
+            );
+        `;
+
+        await execute(DDL_ADDRESS);
+        await execute(DLL);
+        Entity()(Address);
+        Entity()(UserCamel);
+
+        await User.create({
+            email: 'owner@test.com',
+            id: 1,
+        });
+
+        const address = await Address.create({
+            address: 'Street 1',
+            userOwner: 1,
+            id: 1,
+        });
+
+        await UserCamel.create({
+            emailUser: 'test@test.com',
+            createdAt: new Date('2024-01-01'),
+            id: 1,
+            addressUser: address,
+        });
+
+        await UserCamel.create({
+            emailUser: 'another@test.com',
+            createdAt: new Date('2024-01-02'),
+            id: 2,
+            addressUser: address,
+        });
+
+        (mockLogger as jest.Mock).mockClear();
+
+        const users = await UserCamel.find(
+            { id: 1 },
+            { fields: ['createdAt', 'emailUser'] }
+        );
+
+        expect(users).toHaveLength(1);
+        expect(users[0].emailUser).toEqual('test@test.com');
+        expect(users[0].createdAt).toEqual(new Date('2024-01-01'));
+        expect(mockLogger).toHaveBeenCalledTimes(1);
+
+        const loggedSql = (mockLogger as jest.Mock).mock.calls[0][0];
+        expect(loggedSql).toContain('u1."date"');
+        expect(loggedSql).toContain('u1."email_user"');
+        expect(loggedSql).not.toContain('u1."createdAt"');
+        expect(loggedSql).not.toContain('u1."emailUser"');
+    });
 })
