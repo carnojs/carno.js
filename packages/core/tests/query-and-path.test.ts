@@ -27,4 +27,24 @@ describe('Routing path and query parsing', () => {
     expect(context.param.lessonId).toBe('lesson-1');
     expect(context.query.libraryId).toBe('library-99');
   });
+
+  it('keeps query values available for POST requests', async () => {
+    const request = new Request(
+      'http://localhost/exercises/lesson-1/submit?libraryId=library-55',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ answer: 'A' }),
+      },
+    );
+
+    const context = await Context.createFromRequest(
+      { pathname: '/exercises/lesson-1/submit', query: 'libraryId=library-55' },
+      request,
+      {} as any,
+    );
+
+    expect(context.query.libraryId).toBe('library-55');
+    expect(context.body.answer).toBe('A');
+  });
 });

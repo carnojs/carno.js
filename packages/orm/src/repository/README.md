@@ -450,6 +450,8 @@ const lessons = await lessonRepo.find({
     invalidField: 'ASC' // ❌ Erro de compilação!
   }
 });
+
+> 💡 Ao ordenar por relacionamentos, utilize sempre o nome da propriedade TypeScript (`lesson.orderIndex`). O ORM converte automaticamente para o nome físico da coluna (`order_index`) antes de gerar o SQL.
 ```
 
 ## 🎁 Benefícios

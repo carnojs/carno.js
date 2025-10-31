@@ -434,7 +434,8 @@ export class SqlBuilder<T> {
     }
 
     if (parentKey) {
-      return [`${this.columnManager.discoverAlias(fullKey, true)} ${obj[key]}`];
+      const columnPath = this.buildColumnPath(fullKey);
+      return [`${this.columnManager.discoverAlias(columnPath, true)} ${obj[key]}`];
     }
 
     const columnName = ValueProcessor.getColumnName(key, this.entity);
@@ -443,6 +444,58 @@ export class SqlBuilder<T> {
 
   private isNestedObject(value: any): boolean {
     return typeof value === 'object' && value !== null;
+  }
+
+  private buildColumnPath(path: string): string {
+    const segments = this.splitPath(path);
+    const entity = this.resolvePathEntity(segments.parents);
+    const column = this.resolveColumn(segments.column, entity);
+    return this.joinSegments(segments.parents, column);
+  }
+
+  private splitPath(path: string): { parents: string[]; column: string } {
+    const parts = path.split('.');
+    const column = parts.pop() ?? path;
+    return { parents: parts, column };
+  }
+
+  private resolvePathEntity(parents: string[]): Options {
+    let current = this.entity;
+
+    for (const relation of parents) {
+      current = this.nextEntity(current, relation);
+    }
+
+    return current;
+  }
+
+  private nextEntity(entity: Options, relation: string): Options {
+    const relations = entity.relations ?? [];
+    const meta = relations.find(rel => rel.propertyKey === relation);
+
+    if (!meta) {
+      throw new Error(`Relationship "${relation}" not found for ORDER BY path`);
+    }
+
+    const next = this.entityStorage.get(meta.entity() as Function);
+
+    if (!next) {
+      throw new Error(`Entity metadata not found for relation "${relation}"`);
+    }
+
+    return next;
+  }
+
+  private resolveColumn(column: string, entity: Options): string {
+    return ValueProcessor.getColumnName(column, entity);
+  }
+
+  private joinSegments(parents: string[], column: string): string {
+    if (parents.length === 0) {
+      return column;
+    }
+
+    return `${parents.join('.')}.${column}`;
   }
 
   private getTableName() {

@@ -18,19 +18,12 @@ export class Context {
 
   static async createFromRequest(url: any, request: Request, server: Server<any>) {
     const context = new Context();
-    if (request.method === 'GET') {
-      context.setQuery(url);
-    } else {
-      if (request.headers.get('content-type').includes('application/json')) {
-        context.body = await request.json();
-      } else if (request.headers.get('content-type').includes('application/x-www-form-urlencoded')) {
-        context.setBody(await request.formData());
-      } else if (request.headers.get('content-type').includes('multipart/form-data')) {
-        context.setBody(await request.formData());
-      } else {
-        context.body = { body: await request.text() };
-      }
+    context.setQuery(url);
+
+    if (request.method !== 'GET') {
+      await context.resolveBody(request);
     }
+
     context.setReq(request);
     // @ts-ignore
     context.setHeaders(request.headers);
@@ -72,5 +65,21 @@ export class Context {
 
   private buildQueryObject(query?: string) {
     return query ? Object.fromEntries(new URLSearchParams(query)) : {};
+  }
+
+  private async resolveBody(request: Request) {
+    const contentType = request.headers.get('content-type') || '';
+
+    if (contentType.includes('application/json')) {
+      this.body = await request.json();
+      return;
+    }
+
+    if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
+      this.setBody(await request.formData());
+      return;
+    }
+
+    this.body = { body: await request.text() };
   }
 }

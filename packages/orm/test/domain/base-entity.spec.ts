@@ -405,23 +405,29 @@ describe('Creation, update and deletion of entities', () => {
     })
 
     test('When find with orderBy defined', async () => {
-        await execute(DDL_ADDRESS)
+        // Given
+        await execute(DDL_ADDRESS);
         const user = await createUser();
-        const address = await Address.create({
+        await Address.create({
             address: 'Street 1',
             userOwner: user.id,
             id: 1,
         });
 
+        // When
         const result = await User.findOneOrFail({
             addresses: {
                 id: 1,
             },
-        }, {fields: ['id', 'addresses.id'], orderBy: {id: 'DESC', addresses: {address: 'DESC'}}});
+        }, {
+            fields: ['id', 'addresses.id'],
+            orderBy: {id: 'DESC', addresses: {address: 'DESC', userOwner: 'DESC'}},
+        });
 
+        // Then
         expect(result.id).toEqual(user.id);
         expect(mockLogger).toHaveBeenCalledTimes(3);
-        expect((mockLogger as jest.Mock).mock.calls[2][0]).toStartWith("SQL: SELECT u1.\"id\" as u1_id, a1.\"id\" as a1_id FROM \"public\".\"user\" u1 LEFT JOIN public.address a1 ON a1.\"user_owner\" = u1.\"id\" WHERE ((a1.id = 1)) ORDER BY u1.\"id\" DESC, a1.\"address\" DESC");
+        expect((mockLogger as jest.Mock).mock.calls[2][0]).toStartWith("SQL: SELECT u1.\"id\" as u1_id, a1.\"id\" as a1_id FROM \"public\".\"user\" u1 LEFT JOIN public.address a1 ON a1.\"user_owner\" = u1.\"id\" WHERE ((a1.id = 1)) ORDER BY u1.\"id\" DESC, a1.\"address\" DESC, a1.\"user_owner\" DESC");
     })
 
     test('When find with limit defined', async () => {
