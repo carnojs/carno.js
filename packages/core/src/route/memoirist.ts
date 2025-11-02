@@ -4,7 +4,8 @@ export interface FindResult<T> {
 }
 
 export interface ParamNode<T> {
-  paramName: string
+  paramName: string | null
+  names: Map<T, string>
   store: T | null
   inert: Node<T> | null
 }
@@ -33,11 +34,52 @@ const cloneNode = <T>(node: Node<T>, part: string) => ({
   part
 })
 
-const createParamNode = <T>(paramName: string): ParamNode<T> => ({
-  paramName,
+const createParamNode = <T>(): ParamNode<T> => ({
+  paramName: null,
+  names: new Map(),
   store: null,
   inert: null
 })
+
+const ensureSameNameForStore = <T>(param: ParamNode<T>, store: T, name: string) => {
+  const existing = param.names.get(store)
+
+  if (!existing || existing === name) return
+
+  throw new Error(`Route already registered with parameter "${existing}" for this handler`)
+}
+
+const ensureDefaultName = <T>(param: ParamNode<T>, name: string) => {
+  if (param.paramName) return
+
+  param.paramName = name
+}
+
+const persistStoreName = <T>(param: ParamNode<T>, store: T, name: string) => {
+  if (param.names.has(store)) return
+
+  param.names.set(store, name)
+}
+
+const registerParamName = <T>(param: ParamNode<T>, store: T, name: string) => {
+  ensureSameNameForStore(param, store, name)
+
+  ensureDefaultName(param, name)
+
+  persistStoreName(param, store, name)
+}
+
+const resolveParamName = <T>(param: ParamNode<T>, store: T | null) => {
+  if (store && param.names.has(store)) {
+    return param.names.get(store)!
+  }
+
+  if (param.paramName) {
+    return param.paramName
+  }
+
+  throw new Error('Unable to resolve parameter name for route')
+}
 
 export class Memoirist<T> {
   root: Record<string, Node<T>> = {}
@@ -82,13 +124,11 @@ export class Memoirist<T> {
         // Set param on the node
         const param = paramParts[paramPartsIndex++].slice(1)
 
-        if (node.params === null) node.params = createParamNode(param)
-                else if (node.params.paramName !== param)
-                  throw new Error(
-                    `Cannot create route "${path}" with parameter "${param}" ` +
-                            'because a route already exists with a different parameter name ' +
-                            `("${node.params.paramName}") in the same location`
-                            )
+        if (node.params === null) {
+          node.params = createParamNode()
+        }
+
+        registerParamName(node.params, store, param)
 
         const params = node.params
 
@@ -156,15 +196,17 @@ export class Memoirist<T> {
       const param = paramParts[paramPartsIndex]
       const paramName = param.slice(1)
 
-      if (node.params === null) node.params = createParamNode(paramName)
-            else if (node.params.paramName !== paramName)
-              throw new Error(
-                `Cannot create route "${path}" with parameter "${paramName}" ` +
-                        'because a route already exists with a different parameter name ' +
-                        `("${node.params.paramName}") in the same location`
-                        )
+      if (node.params === null) {
+        node.params = createParamNode()
+      }
 
-      if (node.params.store === null) node.params.store = store
+      registerParamName(node.params, store, paramName)
+
+      if (node.params.store === null) {
+        node.params.store = store
+      } else if (node.params.store !== store) {
+        throw new Error(`Route "${path}" already registered`)
+      }
 
       return node.params.store!
     }
@@ -246,10 +288,10 @@ const matchRoute = <T>(
       // Params cannot be empty
       if (slashIndex === -1 || slashIndex >= urlLength) {
         if (param.store !== null) {
-          // This is much faster than using a computed property
           const params: Record<string, string> = {}
+          const paramName = resolveParamName(param, param.store)
 
-          params[param.paramName] = url.substring(endIndex, urlLength)
+          params[paramName] = url.substring(endIndex, urlLength)
 
           return {
             store: param.store,
@@ -265,7 +307,9 @@ const matchRoute = <T>(
           )
 
         if (route !== null) {
-          route.params[param.paramName] = url.substring(
+          const paramName = resolveParamName(param, route.store)
+
+          route.params[paramName] = url.substring(
             endIndex,
             slashIndex
             )

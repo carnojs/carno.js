@@ -70,35 +70,52 @@ export class QueueOrchestration {
   private setupProcessors(queueMetadata: any): void {
     const processors = this.findProcessors(queueMetadata);
 
+    console.log(`🔍 Setting up processors for queue "${queueMetadata.name}": found ${processors.length} processor(s)`);
+
     if (processors.length === 0) {
+      console.log(`⚠️  No processors found for queue "${queueMetadata.name}", skipping worker creation`);
       return;
     }
 
+    console.log(`🏗️  Creating unified worker for queue "${queueMetadata.name}"`);
     this.createUnifiedWorker(queueMetadata, processors);
   }
 
   private findProcessors(queueMetadata: any): any[] {
     const all = this.discoveryService.discoverProcessors();
 
-    return all.filter(p => {
-      return p.target === queueMetadata.target.prototype;
+    console.log(`🔍 Total processors discovered: ${all.length}`);
+    console.log(`🔍 Looking for processors for queue: ${queueMetadata.name}`);
+    console.log(`🔍 Queue target.prototype:`, queueMetadata.target.prototype);
+
+    const filtered = all.filter(p => {
+      const matches = p.target === queueMetadata.target.prototype;
+      console.log(`  - Processor "${p.name || 'default'}" (method: ${p.methodName}): ${matches ? '✅ MATCH' : '❌ no match'}`);
+      return matches;
     });
+
+    return filtered;
   }
 
   private createUnifiedWorker(
     queueMetadata: any,
     processors: any[]
   ): void {
+    console.log(`🏗️  Creating unified worker for "${queueMetadata.name}" with ${processors.length} processor(s)`);
+
     const instance = this.getOrCreateInstance(queueMetadata);
+    console.log(`✅ Queue instance created:`, instance.constructor.name);
 
     const processorMap = this.buildProcessorMap(
       instance,
       processors
     );
+    console.log(`✅ Processor map built with ${processorMap.size} entries:`, Array.from(processorMap.keys()));
 
     const routerProcessor = this.createRouterProcessor(processorMap);
 
     const maxConcurrency = this.calculateMaxConcurrency(processors);
+    console.log(`✅ Max concurrency calculated: ${maxConcurrency}`);
 
     const worker = this.builderService.createWorker(
       queueMetadata.name,
@@ -106,6 +123,7 @@ export class QueueOrchestration {
       routerProcessor,
       { concurrency: maxConcurrency }
     );
+    console.log(`✅ Worker created for queue "${queueMetadata.name}"`);
 
     this.setupAllJobEvents(
       queueMetadata,
@@ -113,6 +131,7 @@ export class QueueOrchestration {
       instance,
       processors
     );
+    console.log(`✅ Job events setup complete for queue "${queueMetadata.name}"`);
   }
 
   private buildWorkerId(queueName: string, jobName: string): string {
