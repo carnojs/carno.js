@@ -157,7 +157,8 @@ export class SqlConditionBuilder<T> {
 
   private buildComparisonCondition(key: string, value: any, alias: string, operator: string, model: Function): string {
     const column = this.resolveColumnName(key, model);
-    return `${alias}.${column} ${operator} ${value}`;
+    const formattedValue = this.formatValue(value);
+    return `${alias}.${column} ${operator} ${formattedValue}`;
   }
 
   private buildNestedLogicalCondition(operator: string, value: any[], alias: string, model: Function): string {
@@ -178,7 +179,39 @@ export class SqlConditionBuilder<T> {
   }
 
   private formatValue(value: any): string {
-    return (typeof value === 'string') ? `'${value}'` : value;
+    if (value instanceof Date) return this.formatDate(value);
+
+    if (this.isNullish(value)) return 'NULL';
+
+    if (this.isPrimitive(value)) return this.formatPrimitive(value);
+
+    return this.formatJson(value);
+  }
+
+  private formatDate(value: Date): string {
+    return `'${value.toISOString()}'`;
+  }
+
+  private isNullish(value: any): boolean {
+    return value === null || value === undefined;
+  }
+
+  private isPrimitive(value: any): boolean {
+    return ['string', 'number', 'boolean', 'bigint'].includes(typeof value);
+  }
+
+  private formatPrimitive(value: string | number | boolean | bigint): string {
+    if (typeof value === 'string') return `'${this.escapeString(value)}'`;
+
+    return `${value}`;
+  }
+
+  private formatJson(value: any): string {
+    return `'${this.escapeString(JSON.stringify(value))}'`;
+  }
+
+  private escapeString(value: string): string {
+    return value.replace(/'/g, "''");
   }
 
   private findRelationship(key: string, model: Function): Relationship<any> | undefined {
