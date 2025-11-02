@@ -68,6 +68,10 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
   }
 
   protected toDatabaseValue(value: unknown): string | number | boolean {
+    if (value === null || value === undefined) {
+      return 'NULL';
+    }
+
     if (value instanceof Date) {
       return `'${value.toISOString()}'`;
     }

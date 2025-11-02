@@ -134,6 +134,7 @@ export class SqlConditionBuilder<T> {
 
   private buildSimpleCondition(key: string, value: any, alias: string, operator: string, model: Function): string {
     const column = this.resolveColumnName(key, model);
+    if (this.isNullish(value)) return this.buildNullCondition(alias, column, operator);
     const formattedValue = this.formatValue(value);
     return `${alias}.${column} ${operator} ${formattedValue}`;
   }
@@ -157,6 +158,7 @@ export class SqlConditionBuilder<T> {
 
   private buildComparisonCondition(key: string, value: any, alias: string, operator: string, model: Function): string {
     const column = this.resolveColumnName(key, model);
+    if (this.isNullish(value)) return this.buildNullCondition(alias, column, operator);
     const formattedValue = this.formatValue(value);
     return `${alias}.${column} ${operator} ${formattedValue}`;
   }
@@ -194,6 +196,11 @@ export class SqlConditionBuilder<T> {
 
   private isNullish(value: any): boolean {
     return value === null || value === undefined;
+  }
+
+  private buildNullCondition(alias: string, column: string, operator: string): string {
+    if (operator === '!=' || operator === '<>') return `${alias}.${column} IS NOT NULL`;
+    return `${alias}.${column} IS NULL`;
   }
 
   private isPrimitive(value: any): boolean {
