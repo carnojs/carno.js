@@ -227,7 +227,9 @@ export class SqlConditionBuilder<T> {
   }
 
   private isScalarValue(value: any): boolean {
-    return typeof value !== 'object' || value === null;
+    const isDate = value instanceof Date;
+
+    return typeof value !== 'object' || value === null || isDate;
   }
 
   private isArrayValue(key: string, value: any): boolean {

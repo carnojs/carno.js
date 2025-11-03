@@ -150,6 +150,19 @@ describe('Repository Pattern', () => {
     }
   }
 
+  const seedCoursesForDateFilter = async () => {
+    await execute(`
+      INSERT INTO "course" ("name", "description", "is_active", "created_at")
+      VALUES
+      ('Course Alpha', 'Alpha description', true, '2024-06-01T00:00:00.000Z'),
+      ('Course Beta', 'Beta description', true, '2024-07-01T00:00:00.000Z');
+    `);
+  };
+
+  const findCourseByCreatedAt = async (repository: CourseRepository, date: Date) => {
+    return repository.findOne({ where: { createdAt: date } });
+  };
+
   let courseRepo: CourseRepository;
   let lessonRepo: LessonRepository;
   let userCourseRepo: UserCourseRepository;
@@ -283,6 +296,19 @@ describe('Repository Pattern', () => {
 
       expect(found).toBeDefined();
       expect(found!.name).toBe('Unique Course');
+    });
+
+    test('should filter course by createdAt date', async () => {
+      // Given
+      await seedCoursesForDateFilter();
+      const targetDate = new Date('2024-06-01T00:00:00.000Z');
+
+      // When
+      const result = await findCourseByCreatedAt(courseRepo, targetDate);
+
+      // Then
+      expect(result).toBeDefined();
+      expect(result?.name).toBe('Course Alpha');
     });
 
     test('should return undefined when findOne does not match', async () => {
@@ -495,6 +521,22 @@ describe('Repository Pattern', () => {
 
       expect(updated).toBeDefined();
       expect(updated!.isPublished).toBe(true);
+    });
+
+    test('should update course using shorthand id syntax', async () => {
+      // Given
+      const course = await courseRepo.create({
+        name: 'ID Update',
+        description: 'Original',
+        isActive: true,
+      });
+
+      // When
+      await courseRepo.update(course.id, { description: 'Updated via shorthand' });
+
+      // Then
+      const updated = await courseRepo.findById(course.id);
+      expect(updated?.description).toBe('Updated via shorthand');
     });
   });
 

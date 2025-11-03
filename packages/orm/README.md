@@ -320,6 +320,15 @@ const user = await User.findOne({
  | $or | Or | Joins query clauses with a logical OR returns all documents that match the conditions of either clause. |
 | $not | Not | Inverts the effect of a query expression and returns documents that do not match the query expression. |
 
+#### Filter by Date columns
+You can filter using JavaScript `Date` instances and the ORM translates them into precise SQL comparisons:
+
+```typescript
+const reinforcement = await User.findOne({
+  updatedAt: new Date('2024-06-01T00:00:00.000Z'),
+});
+```
+
 ### [Migrations](#migrations)
 Cheetah ORM is capable of creating and running migrations.
 To do this, you need to install our cli package:
