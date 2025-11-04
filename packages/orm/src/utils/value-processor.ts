@@ -45,6 +45,12 @@ export class ValueProcessor {
         continue;
       }
 
+      if (ValueProcessor.isBaseEntity(values[value])) {
+        // @ts-ignore
+        newValue[columnName] = (values[value] as BaseEntity).id;
+        continue;
+      }
+
       newValue[columnName] = values[value];
     }
 
