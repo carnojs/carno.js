@@ -299,6 +299,12 @@ export class SqlBuilder<T> {
     }
 
     const rows = result.query.rows;
+    const hasOneToManyJoinedJoin = this.hasOneToManyJoinedJoin();
+
+    if (hasOneToManyJoinedJoin) {
+      return this.processAllOneToManyJoinedResults(rows);
+    }
+
     const results = [];
 
     for (const row of rows) {
@@ -342,6 +348,36 @@ export class SqlBuilder<T> {
     this.attachOneToManyRelations(model, relatedRows);
 
     return model as any;
+  }
+
+
+  private async processAllOneToManyJoinedResults(rows: any[]): Promise<T[]> {
+    const primaryKey = this.getPrimaryKeyName();
+    const alias = this.statements.alias!;
+    const primaryKeyColumn = `${alias}_${primaryKey}`;
+
+    const groupedRows = new Map<any, any[]>();
+
+    for (const row of rows) {
+      const pkValue = row[primaryKeyColumn];
+
+      if (!groupedRows.has(pkValue)) {
+        groupedRows.set(pkValue, []);
+      }
+
+      groupedRows.get(pkValue)!.push(row);
+    }
+
+    const results: T[] = [];
+
+    for (const [, relatedRows] of groupedRows) {
+      const model = this.modelTransformer.transform(this.model, this.statements, relatedRows[0]);
+      this.afterHooks(model);
+      this.attachOneToManyRelations(model, relatedRows);
+      results.push(model as any);
+    }
+
+    return results;
   }
 
   private attachOneToManyRelations(model: any, rows: any[]): void {
