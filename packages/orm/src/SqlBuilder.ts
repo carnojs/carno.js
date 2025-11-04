@@ -327,11 +327,54 @@ export class SqlBuilder<T> {
     }
 
     return this.statements.join.some(join => {
-      const relationship = this.entity.relations.find(
+      const originEntity = this.getOriginEntityForJoin(join);
+
+      if (!originEntity) {
+        return false;
+      }
+
+      const relationship = originEntity.relations.find(
         rel => rel.propertyKey === join.joinProperty
       );
+
       return relationship?.relation === 'one-to-many';
     });
+  }
+
+
+  private getOriginEntityForJoin(join: any): any {
+    const rootAlias = this.statements.alias!;
+
+    if (join.originAlias === rootAlias) {
+      return this.entity;
+    }
+
+    const parentJoin = this.statements.join.find(j => j.joinAlias === join.originAlias);
+
+    if (parentJoin && parentJoin.joinEntity) {
+      return this.entityStorage.get(parentJoin.joinEntity);
+    }
+
+    return null;
+  }
+
+
+  private findNestedModel(model: any, targetAlias: string): any {
+    if (!this.statements.join) {
+      return null;
+    }
+
+    for (const join of this.statements.join) {
+      if (join.joinAlias === targetAlias) {
+        const parentModel = join.originAlias === this.statements.alias! 
+          ? model 
+          : this.findNestedModel(model, join.originAlias);
+
+        return parentModel?.[join.joinProperty];
+      }
+    }
+
+    return null;
   }
 
   private async processOneToManyJoinedResult(rows: any[]): Promise<T | undefined> {
@@ -386,7 +429,13 @@ export class SqlBuilder<T> {
     }
 
     for (const join of this.statements.join) {
-      const relationship = this.entity.relations.find(
+      const originEntity = this.getOriginEntityForJoin(join);
+
+      if (!originEntity) {
+        continue;
+      }
+
+      const relationship = originEntity.relations.find(
         rel => rel.propertyKey === join.joinProperty
       );
 
@@ -396,7 +445,14 @@ export class SqlBuilder<T> {
         );
 
         const uniqueModels = this.removeDuplicatesByPrimaryKey(joinedModels, join.joinEntity);
-        model[join.joinProperty] = uniqueModels;
+
+        const targetModel = join.originAlias === this.statements.alias! 
+          ? model 
+          : this.findNestedModel(model, join.originAlias);
+
+        if (targetModel) {
+          targetModel[join.joinProperty] = uniqueModels;
+        }
       }
     }
   }

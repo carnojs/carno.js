@@ -6,11 +6,38 @@ import { PROPERTIES_METADATA, PROPERTIES_RELATIONS } from '../../src/constants';
 
 describe('Relationship entities', () => {
 
+    const DDL_COURSE = `
+        CREATE TABLE "course" (
+            "id" SERIAL PRIMARY KEY,
+            "name" varchar(255) NOT NULL
+        );
+    `;
+
+    const DDL_LESSON = `
+        CREATE TABLE "lesson" (
+            "id" SERIAL PRIMARY KEY,
+            "title" varchar(255) NOT NULL,
+            "course_id" integer REFERENCES "course" ("id")
+        );
+    `;
+
+    const DDL_ENROLLMENT = `
+        CREATE TABLE "enrollment" (
+            "id" SERIAL PRIMARY KEY,
+            "user_id" integer REFERENCES "user" ("id"),
+            "course_id" integer REFERENCES "course" ("id"),
+            "added_at" timestamp NOT NULL DEFAULT NOW()
+        );
+    `;
+
     beforeEach(async () => {
         await startDatabase();
         await execute(DLL);
         await execute(DDL_ADDRESS);
         await execute(DDL_STREET);
+        await execute(DDL_COURSE);
+        await execute(DDL_LESSON);
+        await execute(DDL_ENROLLMENT);
     })
 
     afterEach(async () => {
@@ -79,6 +106,45 @@ describe('Relationship entities', () => {
 
         @ManyToOne(() => Address)
         address: Address;
+    }
+
+    @Entity()
+    class Course extends BaseEntity {
+        @PrimaryKey()
+        id: number;
+
+        @Property()
+        name: string;
+
+        @OneToMany(() => Lesson, (lesson) => lesson.course)
+        lessons: Lesson[];
+    }
+
+    @Entity()
+    class Lesson extends BaseEntity {
+        @PrimaryKey()
+        id: number;
+
+        @Property()
+        title: string;
+
+        @ManyToOne(() => Course)
+        course: Course;
+    }
+
+    @Entity()
+    class Enrollment extends BaseEntity {
+        @PrimaryKey()
+        id: number;
+
+        @ManyToOne(() => User)
+        user: User;
+
+        @ManyToOne(() => Course)
+        course: Course;
+
+        @Property()
+        addedAt: Date;
     }
 
     it('should create a new user with address', async () => {
@@ -367,5 +433,68 @@ describe('Relationship entities', () => {
         expect(users2.addresses[1]).toBeInstanceOf(Address);
         expect(users2.addresses[1]).toBeInstanceOf(Address);
         expect(users2.addresses[2]).toBeInstanceOf(Address);
+    });
+
+    it('should return unique entities when finding with nested one-to-many joined relationships', async () => {
+        Entity()(User);
+        Entity()(Course);
+        Entity()(Lesson);
+        Entity()(Enrollment);
+
+        // Given: Create user, course with lessons, and enrollment
+        const user = new User();
+        user.email = 'student@test.com';
+        user.id = 1;
+        await user.save();
+
+        const course = await Course.create({
+            id: 1,
+            name: 'TypeScript Course',
+        });
+
+        await Lesson.create({
+            id: 1,
+            title: 'Lesson 1: Introduction',
+            course,
+        });
+
+        await Lesson.create({
+            id: 2,
+            title: 'Lesson 2: Basics',
+            course,
+        });
+
+        await Lesson.create({
+            id: 3,
+            title: 'Lesson 3: Advanced',
+            course,
+        });
+
+        await Enrollment.create({
+            id: 1,
+            user,
+            course,
+            addedAt: new Date(),
+        });
+
+        // When: Find enrollments with nested joins (course.lessons)
+        const enrollments = await Enrollment.find(
+            {user: {id: 1}},
+            {load: ['course', 'course.lessons'], orderBy: {addedAt: 'DESC'}}
+        );
+
+        // Then: Should return exactly 1 enrollment (not duplicated by lessons)
+        expect(enrollments).toHaveLength(1);
+        expect(enrollments[0]).toBeInstanceOf(Enrollment);
+        expect(enrollments[0].id).toBe(1);
+        expect(enrollments[0].course).toBeInstanceOf(Course);
+        expect(enrollments[0].course.id).toBe(1);
+        expect(enrollments[0].course.name).toBe('TypeScript Course');
+        expect(enrollments[0].course.lessons).toBeInstanceOf(Array);
+        expect(enrollments[0].course.lessons).toHaveLength(3);
+
+        // Verify all lessons are present
+        const lessonIds = enrollments[0].course.lessons.map((l: Lesson) => l.id).sort();
+        expect(lessonIds).toEqual([1, 2, 3]);
     });
 });
