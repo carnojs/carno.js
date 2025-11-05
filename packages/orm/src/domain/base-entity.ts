@@ -163,57 +163,102 @@ export abstract class BaseEntity {
   }
 
   public toJSON(): Record<string, any> {
-    let data: any = {}
-    let storage = EntityStorage.getInstance()
-    let entity = storage.get(this.constructor)
+    const storage = EntityStorage.getInstance();
+    const entity = storage.get(this.constructor);
 
-    if (entity) {
-      let allProperties = new Map<string, Property>(Object.entries(entity.properties).map(([key, value]) => [key, value]))
+    const data = entity
+      ? this.serializeWithEntity(entity)
+      : this.serializeWithMetadata();
 
-      for (const key in this) {
-        if (key.startsWith('$') || key.startsWith('_')) {
-          continue;
-        }
+    this.addComputedProperties(data);
 
-        if (!allProperties.has(key)) {
-          continue;
-        }
+    return data;
+  }
 
-        if (entity.hideProperties.includes(key)) {
-          continue;
-        }
+  private serializeWithEntity(entity: any): Record<string, any> {
+    const data: Record<string, any> = {};
+    const allProperties = new Set<string>(Object.keys(entity.properties));
+    const hidePropertiesSet = new Set<string>(entity.hideProperties);
 
-        data[key] = this[key]
-      }
-    } else {
-      const properties: { [key: string]: Property } = Metadata.get(PROPERTIES_METADATA, this.constructor) || {}
-      const hideProperties: string[] = []
-
-      for (const [key, prop] of Object.entries(properties)) {
-        if (prop.options?.hidden) {
-          hideProperties.push(key)
-        }
+    for (const key in this) {
+      if (this.shouldSkipProperty(key, allProperties, hidePropertiesSet)) {
+        continue;
       }
 
-      for (const key in this) {
-        if (key.startsWith('$') || key.startsWith('_')) {
-          continue;
-        }
+      data[key] = this[key];
+    }
 
-        if (hideProperties.includes(key)) {
-          continue;
-        }
+    return data;
+  }
 
-        data[key] = this[key]
+  private serializeWithMetadata(): Record<string, any> {
+    const data: Record<string, any> = {};
+    const hideProperties = this.getHiddenPropertiesFromMetadata();
+    const hidePropertiesSet = new Set<string>(hideProperties);
+
+    for (const key in this) {
+      if (this.shouldSkipPropertyBasic(key, hidePropertiesSet)) {
+        continue;
+      }
+
+      data[key] = this[key];
+    }
+
+    return data;
+  }
+
+  private shouldSkipProperty(
+    key: string,
+    allProperties: Set<string>,
+    hideProperties: Set<string>
+  ): boolean {
+    if (this.isInternalProperty(key)) {
+      return true;
+    }
+
+    if (!allProperties.has(key)) {
+      return true;
+    }
+
+    return hideProperties.has(key);
+  }
+
+  private shouldSkipPropertyBasic(
+    key: string,
+    hideProperties: Set<string>
+  ): boolean {
+    if (this.isInternalProperty(key)) {
+      return true;
+    }
+
+    return hideProperties.has(key);
+  }
+
+  private isInternalProperty(key: string): boolean {
+    return key.startsWith('$') || key.startsWith('_');
+  }
+
+  private getHiddenPropertiesFromMetadata(): string[] {
+    const properties: { [key: string]: Property } =
+      Metadata.get(PROPERTIES_METADATA, this.constructor) || {};
+
+    const hideProperties: string[] = [];
+
+    for (const [key, prop] of Object.entries(properties)) {
+      if (prop.options?.hidden) {
+        hideProperties.push(key);
       }
     }
 
-    const computedProperties: string[] = Metadata.get(COMPUTED_PROPERTIES, this.constructor) || [];
+    return hideProperties;
+  }
+
+  private addComputedProperties(data: Record<string, any>): void {
+    const computedProperties: string[] =
+      Metadata.get(COMPUTED_PROPERTIES, this.constructor) || [];
 
     for (const key of computedProperties) {
       data[key] = this[key as keyof this];
     }
-
-    return data;
   }
 }
