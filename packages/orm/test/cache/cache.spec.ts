@@ -236,6 +236,82 @@ describe('ORM Cache System', () => {
     });
   });
 
+  
+  describe('Cache with Date (cache: Date)', () => {
+    test('should cache query result until Date expires', async () => {
+      // Given
+      resetQueryCounter();
+      await productRepo.create({ name: 'Keyboard', price: 200 });
+      resetQueryCounter();
+
+      const expireAt = new Date(Date.now() + 150);
+
+      // When - First call (should hit database)
+      const firstCall = await productRepo.find({
+        where: { name: 'Keyboard' },
+        cache: expireAt,
+      });
+
+      const queriesAfterFirst = getQueryCount();
+
+      // When - Second call before expiry (should return from cache)
+      const secondCall = await productRepo.find({
+        where: { name: 'Keyboard' },
+        cache: expireAt,
+      });
+
+      const queriesAfterSecond = getQueryCount();
+
+      // Wait for cache to expire
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      // When - Third call after expiry (should hit database again)
+      const thirdCall = await productRepo.find({
+        where: { name: 'Keyboard' },
+        cache: expireAt,
+      });
+
+      const queriesAfterThird = getQueryCount();
+
+      // Then
+      expect(firstCall.length).toBe(1);
+      expect(secondCall.length).toBe(1);
+      expect(thirdCall.length).toBe(1);
+      expect(queriesAfterFirst).toBe(1);
+      expect(queriesAfterSecond).toBe(1);
+      expect(queriesAfterThird).toBe(2);
+    });
+
+    test('should not cache when Date is in the past', async () => {
+      // Given
+      resetQueryCounter();
+      await productRepo.create({ name: 'Old', price: 10 });
+      resetQueryCounter();
+
+      const past = new Date(Date.now() - 1000);
+
+      // When - First call (should hit database)
+      await productRepo.find({
+        where: { name: 'Old' },
+        cache: past,
+      });
+
+      const queriesAfterFirst = getQueryCount();
+
+      // When - Second call (should hit database again, no cache)
+      await productRepo.find({
+        where: { name: 'Old' },
+        cache: past,
+      });
+
+      const queriesAfterSecond = getQueryCount();
+
+      // Then
+      expect(queriesAfterFirst).toBe(1);
+      expect(queriesAfterSecond).toBe(2);
+    });
+  });
+
   describe('Cache infinite (cache: true)', () => {
     test('should cache query result infinitely', async () => {
       // Given

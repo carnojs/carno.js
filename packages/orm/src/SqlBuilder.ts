@@ -183,8 +183,9 @@ export class SqlBuilder<T> {
     return this;
   }
 
-  cache(cache: boolean | number | undefined): SqlBuilder<T> {
+  cache(cache: boolean | number | Date | undefined): SqlBuilder<T> {
     this.statements.cache = cache;
+
     return this;
   }
 
@@ -220,13 +221,26 @@ export class SqlBuilder<T> {
   }
 
   private shouldUseCache(): boolean {
-    return this.statements.cache !== undefined &&
-           this.statements.statement === 'select';
+    if (this.statements.statement !== 'select') {
+      return false;
+    }
+
+    if (this.statements.cache instanceof Date) {
+      return this.statements.cache.getTime() > Date.now();
+    }
+
+    return this.statements.cache !== undefined;
   }
 
   private getCacheTtl(): number | undefined {
     if (this.statements.cache === true) {
       return undefined;
+    }
+
+    if (this.statements.cache instanceof Date) {
+      const diff = this.statements.cache.getTime() - Date.now();
+
+      return diff > 0 ? diff : 0;
     }
 
     return this.statements.cache as number;
@@ -246,6 +260,11 @@ export class SqlBuilder<T> {
     }
 
     const ttl = this.getCacheTtl();
+
+    if (ttl === 0) {
+      return;
+    }
+
     await this.cacheManager.set(this.statements, result, ttl);
   }
 

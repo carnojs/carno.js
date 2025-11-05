@@ -129,7 +129,7 @@ export type Statement<T> = {
   offset?: number;
   hooks?: { type: string, propertyName: string }[];
   instance?: InstanceOf<T>;
-  cache?: boolean | number;
+  cache?: boolean | number | Date;
 
   joinProperty?: string
   fkKey?: string;
@@ -365,7 +365,7 @@ export interface FindOptions<T, P extends string = never> {
   orderBy?: (QueryOrderMap<T> & {
     0?: never;
   }) | QueryOrderMap<T>[];
-  cache?: boolean | number;
+  cache?: boolean | number | Date;
   limit?: number;
   offset?: number;
   fields?: readonly EntityField<T, P>[];
