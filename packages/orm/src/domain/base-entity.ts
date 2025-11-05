@@ -66,6 +66,7 @@ export abstract class BaseEntity {
       .limit(options?.limit)
       .offset(options?.offset)
       .orderBy(options?.orderBy as string[])
+      .cache(options?.cache)
       .executeAndReturnAll();
   }
 
@@ -79,6 +80,7 @@ export abstract class BaseEntity {
       .setStrategy(options?.loadStrategy)
       .load(options?.load as any[])
       .where(where)
+      .cache(options?.cache)
       .executeAndReturnFirst();
   }
 
@@ -101,6 +103,7 @@ export abstract class BaseEntity {
       .load(options?.load as any[])
       .where(where)
       .orderBy(options?.orderBy as string[])
+      .cache(options?.cache)
       .executeAndReturnFirstOrFail();
   }
 
@@ -117,7 +120,8 @@ export abstract class BaseEntity {
       .load(options?.load as any[])
       .offset(options?.offset)
       .limit(options.limit)
-      .orderBy(options?.orderBy as string[]);
+      .orderBy(options?.orderBy as string[])
+      .cache(options?.cache);
 
     return builder.executeAndReturnAll();
   }

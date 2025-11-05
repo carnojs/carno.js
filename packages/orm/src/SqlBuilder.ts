@@ -10,7 +10,7 @@ import {
 } from './driver/driver.interface';
 import { EntityStorage, Options } from './domain/entities';
 import { Orm } from './orm';
-import { LoggerService } from '@cheetah.js/core';
+import { LoggerService, CacheService } from '@cheetah.js/core';
 import { ValueObject } from './common/value-object';
 import { BaseEntity } from './domain/base-entity';
 import { extendsFrom } from './utils';
@@ -19,6 +19,7 @@ import { SqlConditionBuilder } from './query/sql-condition-builder';
 import { ModelTransformer } from './query/model-transformer';
 import { SqlColumnManager } from './query/sql-column-manager';
 import { SqlJoinManager } from './query/sql-join-manager';
+import { QueryCacheManager } from './cache/query-cache-manager';
 
 export class SqlBuilder<T> {
   private readonly driver: DriverInterface;
@@ -34,12 +35,15 @@ export class SqlBuilder<T> {
   private modelTransformer!: ModelTransformer;
   private columnManager!: SqlColumnManager;
   private joinManager!: SqlJoinManager<T>;
+  private cacheManager?: QueryCacheManager;
 
   constructor(model: new () => T) {
     const orm = Orm.getInstance();
     this.driver = orm.driverInstance;
     this.logger = orm.logger;
     this.entityStorage = EntityStorage.getInstance();
+
+    this.initializeCacheManager();
 
     this.getEntity(model);
     this.statements.hooks = this.entity.hooks;
@@ -74,6 +78,15 @@ export class SqlBuilder<T> {
       () => this.originalColumns,
       this.getAlias.bind(this),
     );
+  }
+
+  private initializeCacheManager(): void {
+    try {
+      const orm = Orm.getInstance();
+      this.cacheManager = orm.queryCacheManager;
+    } catch (error) {
+      this.cacheManager = undefined;
+    }
   }
 
   select(columns?: AutoPath<T, never, '*'>[]): SqlBuilder<T> {
@@ -170,6 +183,11 @@ export class SqlBuilder<T> {
     return this;
   }
 
+  cache(cache: boolean | number | undefined): SqlBuilder<T> {
+    this.statements.cache = cache;
+    return this;
+  }
+
   load(load: string[]): SqlBuilder<T> {
     load?.forEach(relationshipPath => {
       this.joinManager.addJoinForRelationshipPath(relationshipPath);
@@ -201,17 +219,85 @@ export class SqlBuilder<T> {
     return 'id';
   }
 
-  async execute(): Promise<{ query: any; startTime: number; sql: string }> {
-    if (!this.statements.columns) {
-      this.statements.columns = this.columnManager.generateColumns(this.model, this.updatedColumns);
-    } else {
-      this.statements.columns = [...this.columnManager.processUserColumns(this.statements.columns), ...this.updatedColumns];
+  private shouldUseCache(): boolean {
+    return this.statements.cache !== undefined &&
+           this.statements.statement === 'select';
+  }
+
+  private getCacheTtl(): number | undefined {
+    if (this.statements.cache === true) {
+      return undefined;
     }
+
+    return this.statements.cache as number;
+  }
+
+  private async getCachedResult(): Promise<any> {
+    if (!this.cacheManager) {
+      return undefined;
+    }
+
+    return this.cacheManager.get(this.statements);
+  }
+
+  private async setCachedResult(result: any): Promise<void> {
+    if (!this.cacheManager) {
+      return;
+    }
+
+    const ttl = this.getCacheTtl();
+    await this.cacheManager.set(this.statements, result, ttl);
+  }
+
+  async execute(): Promise<{ query: any; startTime: number; sql: string }> {
+    this.prepareColumns();
     this.statements.join = this.statements.join?.reverse();
+
+    if (this.shouldUseCache()) {
+      const cached = await this.getCachedResult();
+
+      if (cached) {
+        return cached;
+      }
+    }
+
     this.beforeHooks();
     const result = await this.driver.executeStatement(this.statements);
     this.logExecution(result);
+
+    if (this.shouldUseCache()) {
+      await this.setCachedResult(result);
+    }
+
     return result;
+  }
+
+  private isWriteOperation(): boolean {
+    const writeOps = ['insert', 'update', 'delete'];
+    return writeOps.includes(this.statements.statement || '');
+  }
+
+  private async invalidateCache(): Promise<void> {
+    if (!this.cacheManager) {
+      return;
+    }
+
+    await this.cacheManager.invalidate(this.statements);
+  }
+
+  private prepareColumns(): void {
+    if (!this.statements.columns) {
+      this.statements.columns = this.columnManager.generateColumns(
+        this.model,
+        this.updatedColumns
+      );
+      return;
+    }
+
+    this.statements.columns = [
+      ...this.columnManager.processUserColumns(this.statements.columns),
+      ...this.updatedColumns
+    ];
   }
 
   private beforeHooks() {

@@ -1,15 +1,27 @@
 import { ConnectionSettings, DriverInterface } from './driver/driver.interface';
-import { LoggerService, Service } from '@cheetah.js/core';
+import { LoggerService, Service, CacheService } from '@cheetah.js/core';
 import { SqlBuilder } from './SqlBuilder';
+import { QueryCacheManager } from './cache/query-cache-manager';
 
 @Service()
 export class Orm<T extends DriverInterface = DriverInterface> {
   driverInstance: T;
   static instance: Orm<any>
   public connection: ConnectionSettings<T>
+  public queryCacheManager?: QueryCacheManager;
 
-  constructor(public logger: LoggerService) {
+  constructor(
+    public logger: LoggerService,
+    public cacheService?: CacheService
+  ) {
     Orm.instance = this
+    this.initializeQueryCacheManager();
+  }
+
+  private initializeQueryCacheManager(): void {
+    if (this.cacheService) {
+      this.queryCacheManager = new QueryCacheManager(this.cacheService);
+    }
   }
 
   static getInstance(): Orm<any> {

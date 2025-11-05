@@ -1,14 +1,17 @@
 import {EntityStorage} from 'packages/orm/src/domain/entities';
-import {LoggerService} from '@cheetah.js/core';
+import {LoggerService, BentoCacheDriver} from '@cheetah.js/core';
 import {spyOn} from 'bun:test';
 import {Orm, OrmService, BunPgDriver} from "../src";
 
 const loggerInstance = new LoggerService({applicationConfig: {logger: { level: 'info'}}} as any)
+const cacheService = new BentoCacheDriver(loggerInstance)
+
 export let app: Orm<BunPgDriver>
 export const mockLogger = spyOn(loggerInstance, 'debug')
+export { cacheService }
 
 export async function startDatabase(entityFile: string | undefined = undefined, logger: LoggerService = loggerInstance) {
-  app = new Orm(logger)
+  app = new Orm(logger, cacheService)
   const service = new OrmService(app, new EntityStorage(), entityFile)
   await service.onInit({
     host: 'localhost',

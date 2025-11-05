@@ -1,12 +1,12 @@
 import { Service } from '../commons/decorators/service.decorator';
 import { LoggerService } from '../services/logger.service';
-import { CachePort } from './cache.port';
+import { CacheService } from './cache.service';
 import { BentoCache, bentostore } from 'bentocache';
 // @ts-ignore
 import { memoryDriver } from 'bentocache/drivers/memory';
 
-@Service({ provide: CachePort })
-export class BentoCacheDriver extends CachePort {
+@Service({ provide: CacheService })
+export class BentoCacheDriver extends CacheService {
   private cache: BentoCache<any>
 
   constructor(private readonly logger: LoggerService) {
@@ -35,6 +35,10 @@ export class BentoCacheDriver extends CachePort {
 
   has(key: string): Promise<boolean> {
     return this.cache.has({key})
+  }
+
+  clear(): Promise<void> {
+    return this.cache.clear()
   }
 
   getOrSet(key: string, cb: () => Promise<any>, ttl?: number): Promise<any> {

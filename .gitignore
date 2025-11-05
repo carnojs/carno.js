@@ -4,3 +4,5 @@ node_modules/
 *.d.ts
 *.js.map
 .claude
+tsconfig.tsbuildinfo
+**/tsconfig.tsbuildinfo
