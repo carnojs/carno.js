@@ -1,5 +1,5 @@
 import { ConnectionSettings, DriverInterface } from './driver/driver.interface';
-import { LoggerService, Service } from '@cheetah.js/core';
+import { LoggerService, Service, CacheService } from '@cheetah.js/core';
 import { SqlBuilder } from './SqlBuilder';
 
 @Service()
@@ -8,7 +8,10 @@ export class Orm<T extends DriverInterface = DriverInterface> {
   static instance: Orm<any>
   public connection: ConnectionSettings<T>
 
-  constructor(public logger: LoggerService) {
+  constructor(
+    public logger: LoggerService,
+    public cacheService?: CacheService
+  ) {
     Orm.instance = this
   }
 

@@ -15,7 +15,7 @@ import { ProviderScope } from "../domain/provider-scope";
 import { EventType, OnEvent } from "../events/on-event";
 import Memoirist from "../route/memoirist";
 import { LoggerService } from "../services/logger.service";
-import { CachePort } from "../cache/cache.port";
+import { CacheService } from "../cache/cache.service";
 import { isPrimitiveType } from "../utils/isPrimitiveType";
 import { nameOf } from "../utils/nameOf";
 import {
@@ -164,7 +164,7 @@ export class InjectorService {
       Context,
       LoggerService,
       DefaultRoutesCheetah,
-      CachePort,
+      CacheService,
     ];
 
     this.applicationConfig.providers = this.applicationConfig.providers || [];

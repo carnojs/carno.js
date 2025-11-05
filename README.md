@@ -250,11 +250,11 @@ new Cheetah()
 Simple caching with BentoCache:
 
 ```typescript
-import { Service, CachePort } from '@cheetah.js/core';
+import { Service, CacheService } from '@cheetah.js/core';
 
 @Service()
 export class UserService {
-  constructor(private cache: CachePort) {}
+  constructor(private cache: CacheService) {}
 
   async getUser(id: string) {
     const cached = await this.cache.get(`user:${id}`);
@@ -274,10 +274,10 @@ export class UserService {
 Custom cache driver:
 
 ```typescript
-import { CachePort, Service } from '@cheetah.js/core';
+import { CacheService, Service } from '@cheetah.js/core';
 
-@Service({ provide: CachePort })
-export class RedisCache implements CachePort {
+@Service({ provide: CacheService })
+export class RedisCache implements CacheService {
   async get(key: string) {
     // Redis implementation
   }
