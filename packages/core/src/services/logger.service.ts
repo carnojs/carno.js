@@ -1,5 +1,4 @@
 import Pino from "pino";
-import { Service } from "../commons/decorators/service.decorator";
 import { InjectorService } from "../container/InjectorService";
 
 export interface LoggerAdapter {

@@ -1,10 +1,7 @@
 import { ApplicationConfig } from "../Cheetah";
 import { Injectable } from "../commons/decorators/Injectable.decorator";
 import { registerProvider } from "../commons";
-import {
-  GlobalProvider,
-  TokenProvider,
-} from "../commons/registries/ProviderControl";
+import { GlobalProvider, TokenProvider, } from "../commons/registries/ProviderControl";
 import { CONTROLLER_EVENTS } from "../constants";
 import { DefaultRoutesCheetah } from "../default-routes-cheetah";
 import { Context } from "../domain/Context";
@@ -18,15 +15,13 @@ import { LoggerService } from "../services/logger.service";
 import { CacheService } from "../cache/cache.service";
 import { isPrimitiveType } from "../utils/isPrimitiveType";
 import { nameOf } from "../utils/nameOf";
-import {
-  ContainerConfiguration,
-  TokenRouteWithProvider,
-} from "./ContainerConfiguration";
+import { ContainerConfiguration, TokenRouteWithProvider, } from "./ContainerConfiguration";
 import { Container } from "./container";
 import { MiddlewareRes } from "./middleware.resolver";
 import { RouteResolver } from "./RouteResolver";
 import { DependencyResolver } from "./DependencyResolver";
 import { MethodInvoker } from "./MethodInvoker";
+import { RequestLogger } from "@cheetah.js/core/services/request-logger.service";
 
 @Injectable()
 export class InjectorService {
@@ -165,6 +160,7 @@ export class InjectorService {
       LoggerService,
       DefaultRoutesCheetah,
       CacheService,
+        RequestLogger
     ];
 
     this.applicationConfig.providers = this.applicationConfig.providers || [];
