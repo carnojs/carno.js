@@ -18,17 +18,7 @@ export class RequestLogger implements LoggerAdapter {
 
 
   private initializeChildLogger() {
-    const pinoLogger = this.logger.getLogger();
-    const childPinoLogger = pinoLogger.child({ trackingId: this.context.trackingId });
-
-    this.childLogger = {
-      info: (message: string, ...args: any[]) => childPinoLogger.info(message, ...args),
-      warn: (message: string, ...args: any[]) => childPinoLogger.warn(message, ...args),
-      error: (message: string, ...args: any[]) => childPinoLogger.error(message, ...args),
-      debug: (message: string, ...args: any[]) => childPinoLogger.debug(message, ...args),
-      fatal: (message: string, ...args: any[]) => childPinoLogger.fatal(message, ...args),
-      trace: (message: string, ...args: any[]) => childPinoLogger.trace(message, ...args),
-    };
+    this.childLogger = this.logger.child({ trackingId: this.context.trackingId });
   }
 
 
