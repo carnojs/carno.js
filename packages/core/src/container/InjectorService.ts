@@ -21,7 +21,7 @@ import { MiddlewareRes } from "./middleware.resolver";
 import { RouteResolver } from "./RouteResolver";
 import { DependencyResolver } from "./DependencyResolver";
 import { MethodInvoker } from "./MethodInvoker";
-import { RequestLogger } from "@cheetah.js/core/services/request-logger.service";
+import { RequestLogger } from "../services/request-logger.service";
 
 @Injectable()
 export class InjectorService {
