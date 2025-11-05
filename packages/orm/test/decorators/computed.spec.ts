@@ -42,7 +42,7 @@ describe('@Computed Decorator', () => {
 
         @Computed()
         get excerpt() {
-          return this.body?.substring(0, 50) || '';
+          return this.body?.substring(0, 48) || '';
         }
 
         @Computed()
@@ -118,7 +118,7 @@ describe('@Computed Decorator', () => {
 
       @Computed()
       get excerpt() {
-        return this.body?.substring(0, 50) || '';
+        return this.body?.substring(0, 48) || '';
       }
     }
 
@@ -135,7 +135,7 @@ describe('@Computed Decorator', () => {
       expect(json.id).toBe(1);
       expect(json.title).toBe('Test Article');
       expect(json.body).toBe('This is a long body text that will be truncated in the excerpt property.');
-      expect(json.excerpt).toBe('This is a long body text that will be truncated');
+      expect(json.excerpt).toBe('This is a long body text that will be truncated ');
     });
 
     it('should include multiple computed properties in toJSON', () => {

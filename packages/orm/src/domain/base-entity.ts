@@ -2,7 +2,7 @@ import { SqlBuilder } from '../SqlBuilder';
 import { FilterQuery, FindOneOption, FindOptions, ValueOrInstance } from '../driver/driver.interface';
 import { EntityStorage, Property } from './entities';
 import { Metadata } from '@cheetah.js/core';
-import { COMPUTED_PROPERTIES } from '../constants';
+import { COMPUTED_PROPERTIES, PROPERTIES_METADATA } from '../constants';
 
 export abstract class BaseEntity {
   private _oldValues: any = {};
@@ -166,22 +166,46 @@ export abstract class BaseEntity {
     let data: any = {}
     let storage = EntityStorage.getInstance()
     let entity = storage.get(this.constructor)
-    let allProperties = new Map<string, Property>(Object.entries(entity.properties).map(([key, value]) => [key, value]))
 
-    for (const key in this) {
-      if (key.startsWith('$') || key.startsWith('_')) {
-        continue;
+    if (entity) {
+      let allProperties = new Map<string, Property>(Object.entries(entity.properties).map(([key, value]) => [key, value]))
+
+      for (const key in this) {
+        if (key.startsWith('$') || key.startsWith('_')) {
+          continue;
+        }
+
+        if (!allProperties.has(key)) {
+          continue;
+        }
+
+        if (entity.hideProperties.includes(key)) {
+          continue;
+        }
+
+        data[key] = this[key]
+      }
+    } else {
+      const properties: { [key: string]: Property } = Metadata.get(PROPERTIES_METADATA, this.constructor) || {}
+      const hideProperties: string[] = []
+
+      for (const [key, prop] of Object.entries(properties)) {
+        if (prop.options?.hidden) {
+          hideProperties.push(key)
+        }
       }
 
-      if (!allProperties.has(key)) {
-        continue;
-      }
+      for (const key in this) {
+        if (key.startsWith('$') || key.startsWith('_')) {
+          continue;
+        }
 
-      if (entity.hideProperties.includes(key)) {
-        continue;
-      }
+        if (hideProperties.includes(key)) {
+          continue;
+        }
 
-      data[key] = this[key]
+        data[key] = this[key]
+      }
     }
 
     const computedProperties: string[] = Metadata.get(COMPUTED_PROPERTIES, this.constructor) || [];
