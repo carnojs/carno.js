@@ -264,6 +264,26 @@ const name2 = Name.from('John Doe'); // Same as above
 console.log(name.equals(name2)); // true
 
 ```
+
+### Caching
+You can cache SELECT queries by providing the `cache` option in find methods or QueryBuilder:
+
+- `cache: true` keeps the result cached using the driver default policy
+- `cache: number` sets a TTL in milliseconds
+- `cache: Date` sets an absolute expiration date
+
+Examples:
+
+```ts
+// Cache with TTL (5 seconds)
+await repo.find({ where: { name: 'John' }, cache: 5000 });
+
+// Cache until a specific date
+await repo.find({ where: { name: 'John' }, cache: new Date(Date.now() + 60_000) });
+
+// Infinite/driver-default cache
+await repo.find({ where: { name: 'John' }, cache: true });
+```
 Is Required to implement the validate method, that returns a boolean value.
 To use the Value Object in the Entity, just add the ValueObject type to the property:
 
@@ -400,4 +420,3 @@ This command will create a migration file in the path defined in the configurati
 bunx cli cheetah-orm migration:run
 ```
 This command will run all migrations that have not yet been run.
-
