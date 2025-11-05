@@ -168,8 +168,17 @@ export class QueueOrchestration {
         );
       }
 
+      this.restoreTrackingIdToJob(job);
+
       return processor(job);
     };
+  }
+
+
+  private restoreTrackingIdToJob(job: any): void {
+    if (job.data?.__trackingId) {
+      job.trackingId = job.data.__trackingId;
+    }
   }
 
   private calculateMaxConcurrency(processors: any[]): number {
