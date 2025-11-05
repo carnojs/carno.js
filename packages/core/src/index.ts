@@ -10,6 +10,7 @@ export * from "./constants";
 export * from "./utils";
 export * from "./default-routes-cheetah";
 export * from "./services/logger.service";
+export * from "./services/request-logger.service";
 export * from "./cache/cache.service";
 export * from "./cache/bento-cache.driver";
 export * from "./testing";

@@ -11,6 +11,7 @@ export interface LoggerAdapter {
   trace(message: string, ...args: any[]): void;
 }
 
+@Service()
 export class LoggerService implements LoggerAdapter {
   private logger: Pino.Logger;
 
@@ -25,6 +26,19 @@ export class LoggerService implements LoggerAdapter {
     }
 
     this.logger = Pino(pinoConfig);
+  }
+
+  child(bindings: Record<string, any>): LoggerAdapter {
+    const child = this.logger.child(bindings);
+
+    return {
+      info: (message: string, ...args: any[]) => child.info(message, ...args),
+      warn: (message: string, ...args: any[]) => child.warn(message, ...args),
+      error: (message: string, ...args: any[]) => child.error(message, ...args),
+      debug: (message: string, ...args: any[]) => child.debug(message, ...args),
+      fatal: (message: string, ...args: any[]) => child.fatal(message, ...args),
+      trace: (message: string, ...args: any[]) => child.trace(message, ...args),
+    };
   }
 
   info(message: string, ...args: any[]) {

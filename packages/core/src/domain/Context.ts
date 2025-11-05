@@ -12,6 +12,7 @@ export class Context {
   req: Record<string, any> = {};
   headers: Record<string, any> = {};
   locals: Record<string, any> = {};
+  trackingId: string;
 
   private resultStatus: number;
   private constructor() {}
@@ -27,6 +28,8 @@ export class Context {
     context.setReq(request);
     // @ts-ignore
     context.setHeaders(request.headers);
+    context.setTrackingId(request);
+
     return context;
   }
 
@@ -49,6 +52,17 @@ export class Context {
     for (const [key, value] of headers.entries()) {
       this.headers[key] = value;
     }
+  }
+
+  private setTrackingId(request: Request) {
+    const headerTrackingId = request.headers.get('x-tracking-id');
+
+    if (headerTrackingId) {
+      this.trackingId = headerTrackingId;
+      return;
+    }
+
+    this.trackingId = crypto.randomUUID();
   }
 
   setParam(param: Record<string, any>) {
