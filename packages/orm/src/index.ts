@@ -5,6 +5,7 @@ export * from './decorators/one-many.decorator';
 export * from './decorators/index.decorator';
 export * from './decorators/event-hook.decorator';
 export * from './decorators/enum.decorator';
+export * from './decorators/computed.decorator';
 export * from './orm'
 export * from './orm.service'
 export * from './domain/base-entity'

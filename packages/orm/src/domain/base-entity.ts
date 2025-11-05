@@ -1,6 +1,8 @@
 import { SqlBuilder } from '../SqlBuilder';
 import { FilterQuery, FindOneOption, FindOptions, ValueOrInstance } from '../driver/driver.interface';
 import { EntityStorage, Property } from './entities';
+import { Metadata } from '@cheetah.js/core';
+import { COMPUTED_PROPERTIES } from '../constants';
 
 export abstract class BaseEntity {
   private _oldValues: any = {};
@@ -167,7 +169,6 @@ export abstract class BaseEntity {
     let allProperties = new Map<string, Property>(Object.entries(entity.properties).map(([key, value]) => [key, value]))
 
     for (const key in this) {
-      // if starts with $ or _, ignore
       if (key.startsWith('$') || key.startsWith('_')) {
         continue;
       }
@@ -182,6 +183,13 @@ export abstract class BaseEntity {
 
       data[key] = this[key]
     }
+
+    const computedProperties: string[] = Metadata.get(COMPUTED_PROPERTIES, this.constructor) || [];
+
+    for (const key of computedProperties) {
+      data[key] = this[key as keyof this];
+    }
+
     return data;
   }
 }

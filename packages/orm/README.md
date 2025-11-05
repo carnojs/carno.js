@@ -170,6 +170,56 @@ export class User {
 | onUpdate | string | Define the action to be taken for this property when updating the entity in the database   |
 | onInsert | string | Defines the action to be taken for this property when inserting the entity in the database |
 
+#### Computed Properties
+The `@Computed` decorator allows you to define properties that are included in serialization but NOT persisted to the database. This is useful for derived values, formatted data, or any computation based on existing properties.
+
+Computed properties are evaluated when the entity is serialized (e.g., `JSON.stringify()`) and are perfect for transforming or combining existing data.
+
+##### Example:
+```javascript
+import { Entity, PrimaryKey, Property, Computed } from '@cheetah.js/orm';
+
+@Entity()
+export class Article {
+  @PrimaryKey()
+  id: number;
+
+  @Property()
+  title: string;
+
+  @Property()
+  body: string;
+
+  @Computed()
+  get excerpt() {
+    return this.body?.substring(0, 50) || '';
+  }
+
+  @Computed()
+  get titleUppercase() {
+    return this.title?.toUpperCase() || '';
+  }
+}
+```
+
+When you serialize an article:
+```javascript
+const article = await Article.create({
+  title: 'My Article',
+  body: 'This is the full body text of the article...'
+});
+
+console.log(JSON.stringify(article));
+// Output: {"id":1,"title":"My Article","body":"This is the full body text of the article...","excerpt":"This is the full body text of the article...","titleUppercase":"MY ARTICLE"}
+```
+
+**Important Notes:**
+- Computed properties are **NOT** stored in the database
+- They are evaluated during serialization (toJSON)
+- Best used with getter functions
+- Can access other properties and even other computed properties
+- Can return any JSON-serializable type (string, number, object, array, etc.)
+
 ### [Hooks](#hooks)
 Cheetah ORM supports hooks for entities. The available hooks are: BeforeCreate, AfterCreate, BeforeUpdate, AfterUpdate, BeforeDelete, AfterDelete.
 Hooks is only for modify the entity, not for create, update or delete another entities statements in database.
