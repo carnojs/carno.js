@@ -45,6 +45,7 @@ Any changes to the feature must be updated or the doc created.
 11. The AI MUST ensure classes are small (≤ 50 lines).
 12. The AI MUST ensure methods/functions are small (≤ 5 lines).
 13. The AI MUST write optimized queries. It MUST prefer **JOINs** instead of separate queries. It MUST NOT run queries inside loops and MUST use batches when possible.
+14. You should ALWAYS start with the tests. TDD is MANDATORY.
 
 ⚠️ IMPORTANT: The AI MUST separate logical blocks with **blank spaces**.
 
