@@ -11,7 +11,6 @@ export interface LoggerAdapter {
   trace(message: string, ...args: any[]): void;
 }
 
-@Service()
 export class LoggerService implements LoggerAdapter {
   private logger: Pino.Logger;
 
