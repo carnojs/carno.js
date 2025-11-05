@@ -58,7 +58,7 @@ export class CacheKeyGenerator {
   private addJoins(parts: string[], statement: Statement<any>): void {
     if (statement.join?.length) {
       const joinStr = statement.join
-        .map((j) => `${j.table}:${j.type}:${j.on}`)
+        .map((j) => `${j.joinTable}:${j.type}:${j.on}`)
         .join('|');
       parts.push(`join:${joinStr}`);
     }

@@ -7,6 +7,8 @@ export abstract class CacheService {
 
   abstract has(key: string): Promise<boolean>;
 
+  abstract clear(): Promise<void>;
+
   abstract getOrSet<T>(
     key: string,
     cb: () => Promise<T>,

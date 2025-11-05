@@ -83,11 +83,7 @@ export class SqlBuilder<T> {
   private initializeCacheManager(): void {
     try {
       const orm = Orm.getInstance();
-      const cacheService = (orm as any).cacheService;
-
-      if (cacheService) {
-        this.cacheManager = new QueryCacheManager(cacheService);
-      }
+      this.cacheManager = orm.queryCacheManager;
     } catch (error) {
       this.cacheManager = undefined;
     }
@@ -268,10 +264,6 @@ export class SqlBuilder<T> {
     this.beforeHooks();
     const result = await this.driver.executeStatement(this.statements);
     this.logExecution(result);
-
-    if (this.isWriteOperation()) {
-      await this.invalidateCache();
-    }
 
     if (this.shouldUseCache()) {
       await this.setCachedResult(result);

@@ -37,6 +37,10 @@ export class BentoCacheDriver extends CacheService {
     return this.cache.has({key})
   }
 
+  clear(): Promise<void> {
+    return this.cache.clear()
+  }
+
   getOrSet(key: string, cb: () => Promise<any>, ttl?: number): Promise<any> {
     return this.cache.getOrSet({key, factory: cb, ttl: ttl ?? '1h'})
   }

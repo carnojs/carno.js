@@ -7,12 +7,21 @@ export class Orm<T extends DriverInterface = DriverInterface> {
   driverInstance: T;
   static instance: Orm<any>
   public connection: ConnectionSettings<T>
+  public queryCacheManager?: any;
 
   constructor(
     public logger: LoggerService,
     public cacheService?: CacheService
   ) {
     Orm.instance = this
+    this.initializeQueryCacheManager();
+  }
+
+  private initializeQueryCacheManager(): void {
+    if (this.cacheService) {
+      const { QueryCacheManager } = require('./cache/query-cache-manager');
+      this.queryCacheManager = new QueryCacheManager(this.cacheService);
+    }
   }
 
   static getInstance(): Orm<any> {
