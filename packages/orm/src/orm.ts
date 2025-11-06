@@ -45,4 +45,12 @@ export class Orm<T extends DriverInterface = DriverInterface> {
   disconnect(): Promise<void> {
     return this.driverInstance.disconnect()
   }
+
+  async transaction<ResultType>(operation: (tx: unknown) => Promise<ResultType>): Promise<ResultType> {
+    if (!this.driverInstance) {
+      throw new Error('Driver instance not initialized')
+    }
+
+    return this.driverInstance.transaction(operation)
+  }
 }

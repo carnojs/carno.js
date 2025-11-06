@@ -375,6 +375,19 @@ const user = await User.findOne({
 });
 ```
 
+#### Transactions
+```typescript
+import { Orm } from '@cheetah.js/orm';
+
+const orm = Orm.getInstance();
+
+await orm.transaction(async (tx) => {
+  await tx`INSERT INTO users (name) VALUES (${ 'Jane Doe' })`;
+  await tx`UPDATE accounts SET balance = balance - 100 WHERE user_id = ${ 1 }`;
+});
+```
+The `transaction` method leverages the active driver implementation, ensuring consistent transactional semantics across supported databases.
+
 #### List of supported operators
 | Operator |Name | Description |
 | ------ | ---- |--------------------------------------------------------------------------------------------|
