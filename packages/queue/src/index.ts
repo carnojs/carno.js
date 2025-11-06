@@ -12,5 +12,6 @@ export { QueueBuilderService } from './services/queue-builder.service';
 export { EventBinderService } from './services/event-binder.service';
 export { ConnectionManagerService } from './services/connection-manager.service';
 export { QueueClient } from './services/queue-client.service';
+export { QueueClientProxy } from './services/queue-client-proxy.service';
 
 export { Queue as BullQueue, Worker, Job } from 'bullmq';
