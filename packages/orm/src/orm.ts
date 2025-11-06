@@ -2,6 +2,7 @@ import { ConnectionSettings, DriverInterface } from './driver/driver.interface';
 import { LoggerService, Service, CacheService } from '@cheetah.js/core';
 import { SqlBuilder } from './SqlBuilder';
 import { QueryCacheManager } from './cache/query-cache-manager';
+import { transactionContext } from './transaction/transaction-context';
 
 @Service()
 export class Orm<T extends DriverInterface = DriverInterface> {
@@ -51,6 +52,8 @@ export class Orm<T extends DriverInterface = DriverInterface> {
       throw new Error('Driver instance not initialized')
     }
 
-    return this.driverInstance.transaction(operation)
+    return this.driverInstance.transaction(async (tx) => {
+      return transactionContext.run(tx as any, () => operation(tx));
+    });
   }
 }
