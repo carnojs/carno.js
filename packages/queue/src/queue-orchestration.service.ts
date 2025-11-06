@@ -5,12 +5,14 @@ import {
   InjectorService,
   Context,
   LocalsContainer,
+  ProviderScope,
 } from '@cheetah.js/core';
 import { QueueRegistry } from './queue.registry';
 import { QueueDiscoveryService } from './services/queue-discovery.service';
 import { QueueBuilderService } from './services/queue-builder.service';
 import { EventBinderService } from './services/event-binder.service';
 import { getQueueToken } from './decorators/inject-queue.decorator';
+import { createQueueProxyFactory } from './services/queue-proxy-factory.service';
 
 @Service()
 export class QueueOrchestration {
@@ -338,11 +340,12 @@ export class QueueOrchestration {
 
   private registerQueueProvider(name: string, queue: any): void {
     const token = getQueueToken(name);
+    const ProxyFactory = createQueueProxyFactory(queue);
 
     this.injector.container.addProvider(token, {
       provide: token,
-      useValue: () => queue,
-      instance: queue,
+      useClass: ProxyFactory,
+      scope: ProviderScope.REQUEST,
     });
   }
 }
