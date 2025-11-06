@@ -3,6 +3,8 @@ import {
   OnApplicationInit,
   OnApplicationShutdown,
   InjectorService,
+  Context,
+  LocalsContainer,
 } from '@cheetah.js/core';
 import { QueueRegistry } from './queue.registry';
 import { QueueDiscoveryService } from './services/queue-discovery.service';
@@ -100,7 +102,10 @@ export class QueueOrchestration {
       processors
     );
 
-    const routerProcessor = this.createRouterProcessor(processorMap);
+    const routerProcessor = this.createRouterProcessor(
+      queueMetadata,
+      processorMap
+    );
 
     const maxConcurrency = this.calculateMaxConcurrency(processors);
 
@@ -150,6 +155,7 @@ export class QueueOrchestration {
   }
 
   private createRouterProcessor(
+    queueMetadata: any,
     processorMap: Map<string, Function>
   ): (job: any) => Promise<any> {
     return async (job: any) => {
@@ -160,25 +166,70 @@ export class QueueOrchestration {
         const defaultProcessor = processorMap.get('__default__');
 
         if (defaultProcessor) {
-          return defaultProcessor(job);
+          return this.executeProcessorWithContext(
+            queueMetadata,
+            defaultProcessor,
+            job
+          );
         }
 
         throw new Error(
-          `No processor found for job "${jobName}"`
+          `No processor found for job \"${jobName}\"`
         );
       }
 
-      this.restoreTrackingIdToJob(job);
-
-      return processor(job);
+      return this.executeProcessorWithContext(
+        queueMetadata,
+        processor,
+        job
+      );
     };
   }
 
 
-  private restoreTrackingIdToJob(job: any): void {
-    if (job.data?.__trackingId) {
-      job.trackingId = job.data.__trackingId;
+  private executeProcessorWithContext(
+    queueMetadata: any,
+    processor: Function,
+    job: any
+  ): Promise<any> {
+    const context = Context.createFromJob(job);
+
+    const locals = new LocalsContainer();
+    locals.set(Context, context);
+
+    const instance = this.injector.invoke(
+      queueMetadata.target,
+      locals
+    );
+
+    const boundProcessor = instance[this.findProcessorMethodName(
+      queueMetadata,
+      job.name
+    )].bind(instance);
+
+    return boundProcessor(job);
+  }
+
+
+  private findProcessorMethodName(
+    queueMetadata: any,
+    jobName: string
+  ): string {
+    const processors = this.findProcessors(queueMetadata);
+
+    const processor = processors.find(
+      p => (p.name || '__default__') === jobName
+    );
+
+    if (!processor) {
+      const defaultProcessor = processors.find(
+        p => !p.name || p.name === '__default__'
+      );
+
+      return defaultProcessor?.methodName;
     }
+
+    return processor.methodName;
   }
 
   private calculateMaxConcurrency(processors: any[]): number {

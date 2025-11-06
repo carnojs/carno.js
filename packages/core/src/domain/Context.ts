@@ -33,6 +33,15 @@ export class Context {
     return context;
   }
 
+
+  static createFromJob(job: any): Context {
+    const context = new Context();
+
+    context.setTrackingIdFromJob(job);
+
+    return context;
+  }
+
   // @ts-ignore
   private setQuery({ query }: { query?: string }) {
     this.query = this.buildQueryObject(query);
@@ -59,6 +68,25 @@ export class Context {
 
     if (headerTrackingId) {
       this.trackingId = headerTrackingId;
+      return;
+    }
+
+    this.trackingId = crypto.randomUUID();
+  }
+
+
+  private setTrackingIdFromJob(job: any) {
+    const trackingIdFromData = job.data?.__trackingId;
+
+    if (trackingIdFromData) {
+      this.trackingId = trackingIdFromData;
+      return;
+    }
+
+    const trackingIdFromProperty = job.trackingId;
+
+    if (trackingIdFromProperty) {
+      this.trackingId = trackingIdFromProperty;
       return;
     }
 
