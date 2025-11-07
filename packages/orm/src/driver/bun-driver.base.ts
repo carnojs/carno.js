@@ -6,6 +6,7 @@ import {
   SnapshotConstraintInfo,
   ColDiff,
 } from './driver.interface';
+import { transactionContext } from '../transaction/transaction-context';
 
 export abstract class BunDriverBase implements Partial<DriverInterface> {
   protected sql: SQL;
@@ -52,11 +53,23 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
   }
 
   async executeSql(sqlString: string): Promise<any> {
+    const context = this.getExecutionContext();
+
+    return await context.unsafe(sqlString);
+  }
+
+  private getExecutionContext(): SQL {
+    const txContext = transactionContext.getContext();
+
+    if (txContext) {
+      return txContext;
+    }
+
     if (!this.sql) {
       throw new Error('Database not connected');
     }
 
-    return await this.sql.unsafe(sqlString);
+    return this.sql;
   }
 
   async transaction<T>(callback: (tx: SQL) => Promise<T>): Promise<T> {
@@ -183,15 +196,16 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
     statement: Statement<any>
   ): Promise<{ query: any; startTime: number; sql: string }> {
     const startTime = Date.now();
+    const context = this.getExecutionContext();
 
     if (statement.statement === 'insert') {
       const sql = this.buildInsertSqlWithReturn(statement);
-      const result = await this.sql.unsafe(sql);
+      const result = await context.unsafe(sql);
       return this.handleInsertReturn(statement, result, sql, startTime);
     }
 
     const sql = this.buildStatementSql(statement);
-    const result = await this.sql.unsafe(sql);
+    const result = await context.unsafe(sql);
 
     return {
       query: { rows: Array.isArray(result) ? result : [] },
