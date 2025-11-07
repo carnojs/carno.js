@@ -1,8 +1,27 @@
-import { afterEach, beforeEach, describe, expect, jest, mock, test } from 'bun:test';
-import { BaseEntity, Entity, Orm, PrimaryKey, Property } from '../../src';
-import { SQL } from 'bun';
+import { describe, expect, test } from 'bun:test';
+import { withDatabase } from '../../src/testing';
+import { BaseEntity } from '../../src/domain/base-entity';
+import { Entity } from '../../src/decorators/entity.decorator';
+import { Property } from '../../src/decorators/property.decorator';
+import { PrimaryKey } from '../../src/decorators/primary-key.decorator';
 
-@Entity()
+const USER_TABLE = `
+  CREATE TABLE "test_user" (
+    "id" SERIAL PRIMARY KEY,
+    "name" VARCHAR(255) NOT NULL,
+    "email" VARCHAR(255) NOT NULL
+  );
+`;
+
+const ORDER_TABLE = `
+  CREATE TABLE "test_order" (
+    "id" SERIAL PRIMARY KEY,
+    "user_id" INTEGER NOT NULL,
+    "total" NUMERIC(10,2) NOT NULL
+  );
+`;
+
+@Entity({ tableName: 'test_user' })
 class TestUser extends BaseEntity {
   @PrimaryKey()
   id: number;
@@ -14,200 +33,170 @@ class TestUser extends BaseEntity {
   email: string;
 }
 
+@Entity({ tableName: 'test_order' })
+class TestOrder extends BaseEntity {
+  @PrimaryKey()
+  id: number;
+
+  @Property()
+  userId: number;
+
+  @Property()
+  total: number;
+}
+
 describe('Transaction System', () => {
-  let orm: Orm;
-  let mockExecuteStatement: any;
-  let mockTransaction: any;
-  let mockSqlInstance: any;
-
-  beforeEach(() => {
-    // Mock SQL instance
-    mockSqlInstance = {
-      unsafe: jest.fn().mockResolvedValue([]),
-      begin: jest.fn(),
-      close: jest.fn(),
-    };
-
-    // Mock driver's executeStatement
-    mockExecuteStatement = jest.fn().mockResolvedValue({
-      query: { rows: [{ id: 1, name: 'Test', email: 'test@test.com' }] },
-      startTime: Date.now(),
-      sql: 'MOCK SQL',
-    });
-
-    // Mock transaction
-    mockTransaction = jest.fn();
-
-    // Create ORM instance with mocked driver
-    orm = Orm.getInstance();
-
-    // @ts-ignore - accessing private member for testing
-    orm.driverInstance = {
-      executeStatement: mockExecuteStatement,
-      transaction: mockTransaction,
-      sql: mockSqlInstance,
-    };
-
-    // @ts-ignore - set mock logger
-    orm.logger = { log: jest.fn() };
-  });
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
   test('Given - Entity.save dentro de transação / When - Executar save / Then - Deve usar contexto transacional', async () => {
-    // Given
-    const user = new TestUser();
-    user.id = 1;
-    user.name = 'John';
-    user.email = 'john@test.com';
+    await withDatabase(
+      [USER_TABLE],
+      async (context) => {
+        // Given
+        const user = new TestUser();
+        user.id = 1;
+        user.name = 'John';
+        user.email = 'john@test.com';
 
-    let txContext: any;
-    mockTransaction.mockImplementation(async (callback: any) => {
-      const mockTx = {
-        unsafe: jest.fn().mockResolvedValue([]),
-        isTransaction: true,
-      };
-      txContext = mockTx;
-      return await callback(mockTx);
-    });
+        // When
+        await context.orm.transaction(async (tx) => {
+          await user.save();
+        });
 
-    // When
-    await orm.transaction(async (tx) => {
-      await user.save();
-    });
-
-    // Then
-    // O problema atual é que executeStatement é chamado sem o contexto tx
-    // O que queremos é que seja passado o tx para executeStatement
-    expect(mockTransaction).toHaveBeenCalledTimes(1);
-    expect(mockExecuteStatement).toHaveBeenCalledTimes(1);
-
-    // ❌ FALHA ESPERADA: executeStatement não recebe o contexto transacional
-    // Este teste deve falhar inicialmente, provando o bug
+        // Then
+        const saved = await context.executeSql('SELECT * FROM "test_user" WHERE id = 1');
+        expect(saved.rows).toHaveLength(1);
+        expect(saved.rows[0].name).toBe('John');
+        expect(saved.rows[0].email).toBe('john@test.com');
+      },
+      {
+        entityFile: 'packages/orm/test/transaction/transaction.spec.ts',
+        connection: { port: 5433 },
+      }
+    );
   });
 
   test('Given - Múltiplas operações em transação / When - Uma falha / Then - Todas devem fazer rollback', async () => {
-    // Given
-    const user1 = new TestUser();
-    user1.id = 1;
-    user1.name = 'User 1';
-    user1.email = 'user1@test.com';
+    await withDatabase(
+      [USER_TABLE],
+      async (context) => {
+        // Given
+        const user1 = new TestUser();
+        user1.id = 1;
+        user1.name = 'User 1';
+        user1.email = 'user1@test.com';
 
-    const user2 = new TestUser();
-    user2.id = 2;
-    user2.name = 'User 2';
-    user2.email = 'user2@test.com';
+        // When / Then
+        try {
+          await context.orm.transaction(async (tx) => {
+            await user1.save(); // Sucesso
+            throw new Error('Simulated error'); // Erro forçado
+          });
 
-    let rollbackCalled = false;
-    mockTransaction.mockImplementation(async (callback: any) => {
-      const mockTx = {
-        unsafe: jest.fn().mockResolvedValue([]),
-        isTransaction: true,
-      };
+          // Não deve chegar aqui
+          expect(true).toBe(false);
+        } catch (error: any) {
+          expect(error.message).toBe('Simulated error');
+        }
 
-      try {
-        await callback(mockTx);
-      } catch (error) {
-        rollbackCalled = true;
-        throw error;
+        // Then - Verificar que o usuário NÃO foi salvo (rollback)
+        const result = await context.executeSql('SELECT * FROM "test_user" WHERE id = 1');
+        expect(result.rows).toHaveLength(0);
+      },
+      {
+        entityFile: 'packages/orm/test/transaction/transaction.spec.ts',
+        connection: { port: 5433 },
       }
-    });
-
-    mockExecuteStatement
-      .mockResolvedValueOnce({
-        query: { rows: [{ id: 1, name: 'User 1', email: 'user1@test.com' }] },
-        startTime: Date.now(),
-        sql: 'INSERT 1',
-      })
-      .mockRejectedValueOnce(new Error('Database error'));
-
-    // When / Then
-    try {
-      await orm.transaction(async (tx) => {
-        await user1.save(); // Sucesso
-        await user2.save(); // Erro
-      });
-
-      // Não deve chegar aqui
-      expect(true).toBe(false);
-    } catch (error) {
-      // Then
-      expect(error.message).toBe('Database error');
-      expect(rollbackCalled).toBe(true);
-    }
+    );
   });
 
-  test('Given - Entity.save e Repository.create na mesma transação / When - Executar ambos / Then - Devem usar mesmo contexto transacional', async () => {
-    // Given
-    const user = new TestUser();
-    user.id = 1;
-    user.name = 'John';
-    user.email = 'john@test.com';
+  test('Given - Entity.save e static create na mesma transação / When - Executar ambos / Then - Devem usar mesmo contexto transacional', async () => {
+    await withDatabase(
+      [USER_TABLE],
+      async (context) => {
+        // Given
+        const user1 = new TestUser();
+        user1.id = 1;
+        user1.name = 'John';
+        user1.email = 'john@test.com';
 
-    let txContext: any;
-    mockTransaction.mockImplementation(async (callback: any) => {
-      const mockTx = {
-        unsafe: jest.fn().mockResolvedValue([{ id: 2, name: 'Jane', email: 'jane@test.com' }]),
-        isTransaction: true,
-      };
-      txContext = mockTx;
-      return await callback(mockTx);
-    });
+        // When
+        await context.orm.transaction(async (tx) => {
+          await user1.save(); // Usando instance method
+          await TestUser.create({ id: 2, name: 'Jane', email: 'jane@test.com' }); // Usando static method
+        });
 
-    mockExecuteStatement.mockResolvedValue({
-      query: { rows: [{ id: 1, name: 'John', email: 'john@test.com' }] },
-      startTime: Date.now(),
-      sql: 'INSERT',
-    });
-
-    // When
-    await orm.transaction(async (tx) => {
-      await user.save(); // Usando Entity
-      await TestUser.create({ id: 2, name: 'Jane', email: 'jane@test.com' }); // Usando static method
-    });
-
-    // Then
-    expect(mockTransaction).toHaveBeenCalledTimes(1);
-    expect(mockExecuteStatement).toHaveBeenCalledTimes(2);
-
-    // ❌ FALHA ESPERADA: Ambas as operações não compartilham o mesmo tx
-    // Ambas devem usar txContext, mas atualmente usam driver.sql diretamente
+        // Then
+        const users = await context.executeSql('SELECT * FROM "test_user" ORDER BY id');
+        expect(users.rows).toHaveLength(2);
+        expect(users.rows[0].name).toBe('John');
+        expect(users.rows[1].name).toBe('Jane');
+      },
+      {
+        entityFile: 'packages/orm/test/transaction/transaction.spec.ts',
+        connection: { port: 5433 },
+      }
+    );
   });
 
   test('Given - Transação bem-sucedida / When - Não houver erros / Then - Deve fazer commit automaticamente', async () => {
-    // Given
-    const user = new TestUser();
-    user.id = 1;
-    user.name = 'Test User';
-    user.email = 'test@test.com';
+    await withDatabase(
+      [USER_TABLE],
+      async (context) => {
+        // Given
+        const user = new TestUser();
+        user.id = 1;
+        user.name = 'Test User';
+        user.email = 'test@test.com';
 
-    let commitCalled = false;
-    mockTransaction.mockImplementation(async (callback: any) => {
-      const mockTx = {
-        unsafe: jest.fn().mockResolvedValue([]),
-        isTransaction: true,
-      };
+        // When
+        await context.orm.transaction(async (tx) => {
+          await user.save();
+        });
 
-      await callback(mockTx);
-      commitCalled = true; // Simula commit automático do Bun
-      return;
-    });
+        // Then
+        const saved = await context.executeSql('SELECT * FROM "test_user" WHERE id = 1');
+        expect(saved.rows).toHaveLength(1);
+        expect(saved.rows[0].name).toBe('Test User');
+      },
+      {
+        entityFile: 'packages/orm/test/transaction/transaction.spec.ts',
+        connection: { port: 5433 },
+      }
+    );
+  });
 
-    mockExecuteStatement.mockResolvedValue({
-      query: { rows: [{ id: 1, name: 'Test User', email: 'test@test.com' }] },
-      startTime: Date.now(),
-      sql: 'INSERT',
-    });
+  test('Given - Múltiplas entidades em transação / When - Salvar em ordem / Then - Devem compartilhar contexto', async () => {
+    await withDatabase(
+      [USER_TABLE, ORDER_TABLE],
+      async (context) => {
+        // Given
+        const user = new TestUser();
+        user.id = 1;
+        user.name = 'Customer';
+        user.email = 'customer@test.com';
 
-    // When
-    await orm.transaction(async (tx) => {
-      await user.save();
-    });
+        const order = new TestOrder();
+        order.id = 1;
+        order.userId = 1;
+        order.total = 100.50;
 
-    // Then
-    expect(commitCalled).toBe(true);
-    expect(mockTransaction).toHaveBeenCalledTimes(1);
+        // When
+        await context.orm.transaction(async (tx) => {
+          await user.save();
+          await order.save();
+        });
+
+        // Then
+        const savedUser = await context.executeSql('SELECT * FROM "test_user" WHERE id = 1');
+        const savedOrder = await context.executeSql('SELECT * FROM "test_order" WHERE id = 1');
+
+        expect(savedUser.rows).toHaveLength(1);
+        expect(savedOrder.rows).toHaveLength(1);
+        expect(savedOrder.rows[0].user_id).toBe(1);
+      },
+      {
+        entityFile: 'packages/orm/test/transaction/transaction.spec.ts',
+        connection: { port: 5433 },
+      }
+    );
   });
 });
