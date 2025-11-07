@@ -103,6 +103,7 @@ The `@cheetah.js/core/testing` module provides an opinionated harness tailored f
 
 - Bootstraps a `Cheetah` application with the supplied `ApplicationConfig`.
 - Starts an HTTP server when `listen` is `true` or a port number, and returns the actual port used.
+- Accepts `plugins`, an array of `Cheetah` plugins or factories `() => Cheetah`, mirroring `app.use()` calls from production code.
 - Returns an object containing:
   - `app`: the running `Cheetah` instance.
   - `injector`: access to the DI container.
@@ -131,9 +132,13 @@ await withCoreApplication(async ({request, resolve}) => {
   expect(controller).toBeInstanceOf(StatusController);
 }, {
   listen: true,
+  plugins: [CheetahOrm],
   config: {providers: [StatusController]},
 });
 ```
+
+- Plugins passed to `withCoreApplication` follow the same contract as `createCoreTestHarness`. Use this to register ORM, queue, or schedule plugins so the DI container matches runtime wiring.
+- The helper resolves the plugins before initialization, ensuring lifecycle hooks fire during `app.init()`.
 
 ### Best practices
 

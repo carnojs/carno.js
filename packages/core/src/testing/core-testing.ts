@@ -6,7 +6,10 @@ export type CoreTestOptions = {
   config?: ApplicationConfig;
   listen?: boolean | number;
   port?: number;
+  plugins?: CoreTestPlugin[];
 };
+
+export type CoreTestPlugin = Cheetah | (() => Cheetah);
 
 export type CoreTestHarness = {
   app: Cheetah;
@@ -22,6 +25,7 @@ export type CoreTestRoutine = (harness: CoreTestHarness) => Promise<void>;
 
 export async function createCoreTestHarness(options: CoreTestOptions = {}): Promise<CoreTestHarness> {
   const app = new Cheetah(options.config);
+  applyPlugins(app, options.plugins);
   const boot = await bootApplication(app, options);
   const injector = app.getInjector();
   const resolve = <T>(token: any): T => injector.invoke(token);
@@ -128,4 +132,19 @@ async function shutdown(app: Cheetah, server?: Server<any>): Promise<void> {
   }
 
   app.close(true);
+}
+
+function applyPlugins(app: Cheetah, plugins?: CoreTestPlugin[]): void {
+  if (!plugins?.length) {
+    return;
+  }
+  plugins.forEach((plugin) => app.use(resolvePlugin(plugin)));
+}
+
+function resolvePlugin(entry: CoreTestPlugin): Cheetah {
+  if (typeof entry === 'function') {
+    return entry();
+  }
+
+  return entry;
 }
