@@ -334,7 +334,8 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
 
     return constraints
       .filter((c) => this.isForeignKeyConstraint(c, columnName))
-      .map((c) => this.parseForeignKeyDefinition(c.consDef));
+      .map((c) => this.parseForeignKeyDefinition(c.consDef))
+      .filter(Boolean);
   }
 
   protected isForeignKeyConstraint(
@@ -347,26 +348,34 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
     );
   }
 
-  protected parseForeignKeyDefinition(consDef: string): {
+  protected parseForeignKeyDefinition(
+    consDef: string
+  ): {
     referencedColumnName: string;
     referencedTableName: string;
-  } {
-    const q = this.getIdentifierQuote();
-    const pattern = new RegExp(
-      `REFERENCES\\s+${q}([^${q}]+)${q}\\s*\\(([^)]+)\\)`
-    );
-    const filter = consDef.match(pattern);
+  } | null {
+    const quote = this.getIdentifierQuote();
+    const escapedQuote = this.escapeRegex(quote);
 
-    if (!filter) {
-      throw new Error('Invalid constraint definition');
-    }
+    const pattern = new RegExp(
+      `REFERENCES\\s+(?:${escapedQuote}([^${escapedQuote}]+)${escapedQuote}|([\\w.]+))\\s*\\(([^)]+)\\)`,
+      'i'
+    );
+
+    const match = consDef.match(pattern);
+
+    if (!match) return null;
+
+    const tableName = (match[1] || match[2]).trim();
+    const columnName = match[3].split(',')[0].trim().replace(new RegExp(escapedQuote, 'g'), '');
 
     return {
-      referencedColumnName: filter[2]
-        .split(',')[0]
-        .trim()
-        .replace(new RegExp(q, 'g'), ''),
-      referencedTableName: filter[1],
+      referencedColumnName: columnName,
+      referencedTableName: tableName
     };
+  }
+
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 }
