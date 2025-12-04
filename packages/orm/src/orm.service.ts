@@ -50,10 +50,11 @@ export class OrmService {
 
     const enumDeclaration =
       initializer.getSourceFile().getEnum(enumName) ||
-    return (
-      this.resolveLiteralDefault(initializer) ??
-      this.resolveEnumDefault(initializer)
-    );
+      initializer.getSourceFile().getProject().getSourceFiles()
+        .map(file => file.getEnum(enumName))
+        .find(item => item);
+    if (!enumDeclaration) return;
+
     const member = enumDeclaration.getMember(memberName);
     if (!member) return;
 
