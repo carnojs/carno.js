@@ -4,6 +4,7 @@ import { ENTITIES, EVENTS_METADATA, PROPERTIES_METADATA, PROPERTIES_RELATIONS } 
 import { Project, SyntaxKind } from 'ts-morph';
 import { Orm } from './orm';
 import * as globby from 'globby';
+import { Relationship } from './driver/driver.interface';
 
 
 @Service()
@@ -289,7 +290,7 @@ export class OrmService {
     for (const entity of entities) {
       const nullableDefaultEntity = this.allEntities.get(entity.target.name);
       const propertiesFromMetadata: { [key: string]: Property } = Metadata.get(PROPERTIES_METADATA, entity.target);
-      const relationship = Metadata.get(PROPERTIES_RELATIONS, entity.target);
+      const relationshipsFromMetadata: Relationship<any>[] = Metadata.get(PROPERTIES_RELATIONS, entity.target) || [];
       const hooks = Metadata.get(EVENTS_METADATA, entity.target)
 
       // Cria uma cópia profunda das propriedades para evitar mutação compartilhada
@@ -312,7 +313,17 @@ export class OrmService {
         }
       }
 
-      this.storage.add(entity, properties, relationship, hooks);
+      const relationships = relationshipsFromMetadata.map((relation) => ({ ...relation }));
+
+      for (const relation of relationships) {
+        const relationKey = String(relation.propertyKey);
+
+        if (nullableDefaultEntity?.nullables.includes(relationKey)) {
+          relation.nullable = true;
+        }
+      }
+
+      this.storage.add(entity, properties, relationships, hooks);
     }
   }
 
