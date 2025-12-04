@@ -11,66 +11,6 @@ import { Relationship } from './driver/driver.interface';
 export class OrmService {
   private allEntities = new Map<string, { nullables: string[], defaults: { [key: string]: any } }>();
 
-  private resolveLiteralDefault(initializer: any) {
-    const kind = initializer.getKind();
-
-    if (kind === SyntaxKind.StringLiteral) return initializer.getText();
-    if (kind === SyntaxKind.NumericLiteral) return parseFloat(initializer.getText());
-    if (kind === SyntaxKind.TrueKeyword) return true;
-    if (kind === SyntaxKind.FalseKeyword) return false;
-
-    if (kind !== SyntaxKind.ArrayLiteralExpression) return;
-
-    const elements = initializer.getElements();
-
-    return elements
-      .map((element: any) => {
-        const kind = element.getKind();
-        if (
-          kind === SyntaxKind.StringLiteral ||
-          kind === SyntaxKind.NumericLiteral ||
-          kind === SyntaxKind.TrueKeyword ||
-          kind === SyntaxKind.FalseKeyword ||
-          kind === SyntaxKind.ArrayLiteralExpression
-        ) {
-          return this.resolveLiteralDefault(element);
-        } else if (kind === SyntaxKind.PropertyAccessExpression) {
-          return this.resolveEnumDefault(element);
-        }
-        return undefined;
-      })
-      .filter((value: any) => typeof value !== 'undefined');
-  }
-
-  private resolveEnumDefault(initializer: any) {
-    if (initializer.getKind() !== SyntaxKind.PropertyAccessExpression) return;
-
-    const [enumName, memberName] = initializer.getText().split('.');
-    if (!enumName || !memberName) return;
-
-    const enumDeclaration =
-      initializer.getSourceFile().getEnum(enumName) ||
-      initializer.getSourceFile().getProject().getSourceFiles()
-        .map(file => file.getEnum(enumName))
-        .find(item => item);
-    if (!enumDeclaration) return;
-
-    const member = enumDeclaration.getMember(memberName);
-    if (!member) return;
-
-    const value = member.getValue();
-
-    return typeof value === 'undefined' ? member.getName() : value;
-  }
-
-  private resolveDefaultValue(initializer: any) {
-    const value =
-      this.resolveLiteralDefault(initializer) ??
-      this.resolveEnumDefault(initializer);
-
-    return value;
-  }
-
   constructor(private orm: Orm, private storage: EntityStorage, entityFile?: string) {
     const files = new Project({skipLoadingLibFiles: true}).addSourceFilesAtPaths(entityFile ?? this.getSourceFilePaths())
     files.forEach(file => {
@@ -95,10 +35,20 @@ export class OrmService {
               nullables.push(propertyName);
             }
             if (initializer) {
-              const defaultValue = this.resolveDefaultValue(initializer);
+              const initializerKind = initializer.getKind();
 
-              if (typeof defaultValue !== 'undefined') {
-                defaults[propertyName] = defaultValue;
+              switch (initializerKind) {
+                case SyntaxKind.StringLiteral:
+                  defaults[propertyName] = initializer.getText();
+                  break;
+                case SyntaxKind.NumericLiteral:
+                  defaults[propertyName] = parseFloat(initializer.getText());
+                  break;
+                case SyntaxKind.NewExpression:
+                case SyntaxKind.CallExpression:
+                  break;
+                default:
+                  break;
               }
             }
 
