@@ -115,15 +115,15 @@ export class Context {
     this.rawBody = await request.clone().arrayBuffer();
 
     if (contentType.includes('application/json')) {
-      this.body = await request.json();
+      this.body = await request.clone().json();
       return;
     }
 
     if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
-      this.setBody(await request.formData());
+      this.setBody(await request.clone().formData());
       return;
     }
 
-    this.body = { body: await request.text() };
+    this.body = { body: await request.clone().text() };
   }
 }
