@@ -8,6 +8,7 @@ export class Context {
 
   query: Record<string, any> = {}
   body: Record<string, any> = {}
+  rawBody?: ArrayBuffer;
   param: Record<string, any> = {}
   req: Record<string, any> = {};
   headers: Record<string, any> = {};
@@ -111,6 +112,7 @@ export class Context {
 
   private async resolveBody(request: Request) {
     const contentType = request.headers.get('content-type') || '';
+    this.rawBody = await request.clone().arrayBuffer();
 
     if (contentType.includes('application/json')) {
       this.body = await request.json();
