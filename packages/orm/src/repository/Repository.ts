@@ -205,6 +205,7 @@ export abstract class Repository<T extends BaseEntity> {
   async count(where?: FilterQuery<T>): Promise<number> {
     return this.createQueryBuilder()
       .count()
+      .setStrategy('joined')
       .where(where || {})
       .executeCount();
   }
