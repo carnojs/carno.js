@@ -182,10 +182,11 @@ export abstract class BaseEntity {
   private serializeWithEntity(entity: any): Record<string, any> {
     const data: Record<string, any> = {};
     const allProperties = new Set<string>(Object.keys(entity.properties));
+    const allRelations = new Set<string>((entity.relations || []).map((relation: any) => relation.propertyKey));
     const hidePropertiesSet = new Set<string>(entity.hideProperties);
 
     for (const key in this) {
-      if (this.shouldSkipProperty(key, allProperties, hidePropertiesSet)) {
+      if (this.shouldSkipProperty(key, allProperties, allRelations, hidePropertiesSet)) {
         continue;
       }
 
@@ -214,13 +215,14 @@ export abstract class BaseEntity {
   private shouldSkipProperty(
     key: string,
     allProperties: Set<string>,
+    allRelations: Set<string>,
     hideProperties: Set<string>
   ): boolean {
     if (this.isInternalProperty(key)) {
       return true;
     }
 
-    if (!allProperties.has(key)) {
+    if (!allProperties.has(key) && !allRelations.has(key)) {
       return true;
     }
 

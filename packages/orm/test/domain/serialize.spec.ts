@@ -1,11 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from 'bun:test';
 import { app, execute, mockLogger, purgeDatabase, startDatabase } from '../node-database';
-import { BaseEntity, Entity, PrimaryKey, Property } from '../../src';
+import { BaseEntity, Entity, ManyToOne, OneToMany, PrimaryKey, Property } from '../../src';
+import { EntityStorage } from '../../src/domain/entities';
 
 describe('serialize', () => {
   beforeEach(async () => {
+    EntityStorage.getInstance()?.['entities']?.clear?.();
     await startDatabase();
     await execute(DLL);
+    await execute(DDL_CUSTOMER);
+    await execute(DDL_LOCATION);
   })
 
   afterEach(async () => {
@@ -22,6 +26,23 @@ describe('serialize', () => {
       );
   `;
 
+  const DDL_CUSTOMER = `
+      CREATE TABLE "customer"
+      (
+          "id"    SERIAL PRIMARY KEY,
+          "name"  varchar(255) NOT NULL
+      );
+  `;
+
+  const DDL_LOCATION = `
+      CREATE TABLE "location"
+      (
+          "id"          SERIAL PRIMARY KEY,
+          "street"      varchar(255) NOT NULL,
+          "customer_id" integer REFERENCES "customer" ("id")
+      );
+  `;
+
   @Entity()
   class User extends BaseEntity {
     @PrimaryKey()
@@ -33,6 +54,30 @@ describe('serialize', () => {
     propertyHidden = 'propertyHidden';
   }
 
+  @Entity()
+  class Customer extends BaseEntity {
+    @PrimaryKey()
+    id: number;
+
+    @Property()
+    name: string;
+
+    @OneToMany(() => Location, (location) => location.customer)
+    locations: Location[];
+  }
+
+  @Entity()
+  class Location extends BaseEntity {
+    @PrimaryKey()
+    id: number;
+
+    @Property()
+    street: string;
+
+    @ManyToOne(() => Customer)
+    customer: Customer;
+  }
+
   it('should serialize', async () => {
     Entity()(User);
 
@@ -41,5 +86,58 @@ describe('serialize', () => {
     user.id = 1;
 
     expect(JSON.stringify(user)).toEqual('{"id":1}')
+  });
+
+  it('should serialize loaded many-to-one relation payloads', async () => {
+    Entity()(Customer);
+    Entity()(Location);
+
+    const customer = await Customer.create({
+      id: 1,
+      name: 'Acme Corp',
+    });
+
+    await Location.create({
+      id: 1,
+      street: 'Main St',
+      customer,
+    });
+
+    const location = await Location.findOneOrFail({ id: 1 }, { load: ['customer'] });
+    const serialized = JSON.parse(JSON.stringify(location));
+
+    expect(serialized).toEqual({
+      id: 1,
+      street: 'Main St',
+      customer: {
+        id: 1,
+        name: 'Acme Corp',
+      },
+    });
+  });
+
+  it('should serialize loaded one-to-many relation payloads', async () => {
+    Entity()(Customer);
+    Entity()(Location);
+
+    const customer = await Customer.create({
+      id: 2,
+      name: 'Globex',
+    });
+
+    await Location.create({ id: 2, street: '1st Ave', customer });
+    await Location.create({ id: 3, street: '2nd Ave', customer });
+
+    const loadedCustomer = await Customer.findOneOrFail({ id: 2 }, { load: ['locations'] });
+    const serialized = JSON.parse(JSON.stringify(loadedCustomer));
+
+    expect(serialized).toEqual({
+      id: 2,
+      name: 'Globex',
+      locations: [
+        { id: 2, street: '1st Ave', customer: 2 },
+        { id: 3, street: '2nd Ave', customer: 2 },
+      ],
+    });
   });
 });

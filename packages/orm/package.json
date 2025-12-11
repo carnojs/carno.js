@@ -1,6 +1,6 @@
 {
   "name": "@cheetah.js/orm",
-  "version": "0.1.115",
+  "version": "0.1.127",
   "description": "A simple ORM for Cheetah.js",
   "type": "commonjs",
   "main": "dist/index.js",
@@ -55,5 +55,5 @@
     "bun",
     "value-object"
   ],
-  "gitHead": "726879b8d699b9abf35e80aa64ada630c8ced14d"
+  "gitHead": "7b16769532fa903ea9207b14af9268d842170afd"
 }

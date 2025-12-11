@@ -254,7 +254,9 @@ async function loadStatementsFromMigrations(options: DatabaseTestOptions): Promi
     return [];
   }
 
-  return extractStatementsFromFiles(files);
+  const orderedFiles = sortMigrationFiles(files);
+
+  return extractStatementsFromFiles(orderedFiles);
 }
 
 async function resolveMigrationPatterns(
@@ -368,6 +370,12 @@ function extractStatements(payload: string): string[] {
     ) ?? [];
 
   return matches.map((statement) => statement.replace(/\s+/g, ' ').trim());
+}
+
+function sortMigrationFiles(files: string[]): string[] {
+  return [...files].sort((first, second) =>
+    path.basename(first).localeCompare(path.basename(second), undefined, {numeric: true}),
+  );
 }
 
 async function prepareSchema(context: DatabaseTestContext, schema: string): Promise<void> {

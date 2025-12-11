@@ -8,6 +8,7 @@ export class Context {
 
   query: Record<string, any> = {}
   body: Record<string, any> = {}
+  rawBody?: ArrayBuffer;
   param: Record<string, any> = {}
   req: Record<string, any> = {};
   headers: Record<string, any> = {};
@@ -111,17 +112,18 @@ export class Context {
 
   private async resolveBody(request: Request) {
     const contentType = request.headers.get('content-type') || '';
+    this.rawBody = await request.clone().arrayBuffer();
 
     if (contentType.includes('application/json')) {
-      this.body = await request.json();
+      this.body = await request.clone().json();
       return;
     }
 
     if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
-      this.setBody(await request.formData());
+      this.setBody(await request.clone().formData());
       return;
     }
 
-    this.body = { body: await request.text() };
+    this.body = { body: await request.clone().text() };
   }
 }

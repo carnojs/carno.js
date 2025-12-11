@@ -335,6 +335,17 @@ describe('COUNT Operations', () => {
       expect(count).toBe(2);
     });
 
+    test('should count posts by relationship filter object', async () => {
+      // Given: An existing user loaded through repository
+      const user1 = await userRepo.findOne({ where: { email: 'user1@test.com' } });
+
+      // When: Counting posts using relationship filter
+      const count = await postRepo.count({ user: { id: user1!.id } });
+
+      // Then: Should return 2
+      expect(count).toBe(2);
+    });
+
     test('should count published posts', async () => {
       // When: Counting published posts
       const count = await postRepo.count({ isPublished: true });
