@@ -13,7 +13,7 @@ export abstract class BaseEntity {
     return new Proxy(this, {
       set(target: any, p: string, newValue: any): boolean {
 
-        if (p.startsWith('$')) {
+        if (p.startsWith('$') || p.startsWith('_')) {
           target[p] = newValue;
           return true;
         }
