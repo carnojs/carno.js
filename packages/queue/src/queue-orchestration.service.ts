@@ -24,7 +24,7 @@ export class QueueOrchestration {
     private injector: InjectorService
   ) {}
 
-  @OnApplicationInit()
+  @OnApplicationInit(100)
   async onApplicationInit(): Promise<void> {
     this.setupQueues();
   }

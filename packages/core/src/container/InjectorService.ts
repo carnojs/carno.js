@@ -128,7 +128,15 @@ export class InjectorService {
       return [];
     }
 
-    return hooks.filter((hook: OnEvent) => hook.eventName === event);
+    const filtered = hooks.filter((hook: OnEvent) => hook.eventName === event);
+
+    return this.sortHooksByPriority(filtered);
+  }
+
+  private sortHooksByPriority(hooks: OnEvent[]): OnEvent[] {
+    return hooks.slice().sort((first, second) => {
+      return (second.priority ?? 0) - (first.priority ?? 0);
+    });
   }
 
   private async runHookHandlers(hooks: OnEvent[], data: unknown): Promise<void> {

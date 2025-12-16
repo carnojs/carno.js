@@ -263,6 +263,12 @@ export class RedisCache implements CacheService {
 - `@Service()` - Injectable service
 - `@Middleware()` - Apply middleware
 
+## Lifecycle Hooks
+
+- `@OnApplicationInit(priority?: number)` - Executed during init. Higher priority runs first (default `0`). Use to ensure dependencies like queues are registered before other hooks.
+- `@OnApplicationShutdown(priority?: number)` - Executed during shutdown with the same priority ordering.
+- `@OnApplicationBoot(priority?: number)` - Executed on bootstrap with priority support.
+
 ## License
 
 MIT

@@ -9,5 +9,6 @@ export enum EventType {
 export interface OnEvent {
     methodName: string;
     eventName: EventType;
-    target: Object
+    target: Object;
+    priority: number;
 }
