@@ -1,17 +1,11 @@
-import { Injectable, Context } from '@cheetah.js/core';
-import { ProviderScope } from '@cheetah.js/core';
-import { Queue, JobsOptions } from 'bullmq';
-import { QueueRegistry } from '../queue.registry';
+import { Injectable } from "@cheetah.js/core";
+import { ProviderScope } from "@cheetah.js/core";
+import { Queue, JobsOptions } from "bullmq";
+import { QueueRegistry } from "../queue.registry";
 
-
-@Injectable({ scope: ProviderScope.REQUEST })
+@Injectable({ scope: ProviderScope.SINGLETON })
 export class QueueClient {
-
-  constructor(
-    private queueRegistry: QueueRegistry,
-    private context: Context
-  ) {}
-
+  constructor(private queueRegistry: QueueRegistry) {}
 
   async add(
     queueName: string,
@@ -21,11 +15,8 @@ export class QueueClient {
   ): Promise<any> {
     const queue = this.getQueue(queueName);
 
-    const enrichedData = this.injectTrackingId(data);
-
-    return queue.add(jobName, enrichedData, options);
+    return queue.add(jobName, data, options);
   }
-
 
   async addBulk(
     queueName: string,
@@ -33,14 +24,8 @@ export class QueueClient {
   ): Promise<any> {
     const queue = this.getQueue(queueName);
 
-    const enrichedJobs = jobs.map(job => ({
-      ...job,
-      data: this.injectTrackingId(job.data || {}),
-    }));
-
-    return queue.addBulk(enrichedJobs);
+    return queue.addBulk(jobs as any);
   }
-
 
   private getQueue(queueName: string): Queue {
     const queue = this.queueRegistry.getQueue(queueName);
@@ -50,13 +35,5 @@ export class QueueClient {
     }
 
     return queue;
-  }
-
-
-  private injectTrackingId(data: any): any {
-    return {
-      ...data,
-      __trackingId: this.context.trackingId,
-    };
   }
 }

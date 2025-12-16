@@ -345,7 +345,7 @@ export class QueueOrchestration {
     this.injector.container.addProvider(token, {
       provide: token,
       useClass: ProxyFactory,
-      scope: ProviderScope.REQUEST,
+      scope: ProviderScope.SINGLETON,
     });
   }
 }

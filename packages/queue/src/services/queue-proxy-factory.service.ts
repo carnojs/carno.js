@@ -5,8 +5,8 @@ import { QueueClientProxy } from './queue-client-proxy.service';
 
 export function createQueueProxyFactory(queue: Queue) {
   return class extends QueueClientProxy {
-    constructor(context: Context) {
-      super(queue, context);
+    constructor() {
+      super(queue);
     }
   };
 }

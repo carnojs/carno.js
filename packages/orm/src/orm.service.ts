@@ -5,6 +5,7 @@ import { Project, SyntaxKind } from 'ts-morph';
 import { Orm } from './orm';
 import * as globby from 'globby';
 import { Relationship } from './driver/driver.interface';
+import path from 'path';
 
 
 @Service()
@@ -328,20 +329,16 @@ export class OrmService {
 
 
   private getSourceFilePaths(): string[] {
-    const projectRoot = process.cwd(); // Ajuste conforme a estrutura do seu projeto
+    const projectRoot = process.cwd();
+    const patterns = ['**/*.ts', '**/*.js', '!**/node_modules/**'];
 
-    const getAllFiles = (dir: string): string[] => {
-      const patterns = [`${dir}/**/*.(ts|js)`, "!**/node_modules/**"];
-
-      try {
-        return globby.sync(patterns, {gitignore: true});
-      } catch (error) {
-        console.error('Erro ao obter arquivos:', error);
-        return [];
-      }
+    try {
+      return globby
+        .sync(patterns, { cwd: projectRoot, gitignore: true, absolute: false })
+        .map((filePath) => path.resolve(projectRoot, filePath))
+    } catch (error) {
+      console.error('Erro ao obter arquivos:', error);
+      return [];
     }
-
-    // Filtra os arquivos pelo padrão de nomenclatura
-    return getAllFiles(projectRoot);
   }
 }
