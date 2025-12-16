@@ -10,8 +10,8 @@ export class Context {
   body: Record<string, any> = {}
   rawBody?: ArrayBuffer;
   param: Record<string, any> = {}
-  req: Record<string, any> = {};
-  headers: Record<string, any> = {};
+  req: Request;
+  headers: Request["headers"] = new Headers();
   locals: Record<string, any> = {};
   trackingId: string;
 
@@ -54,14 +54,12 @@ export class Context {
     }
   }
 
-  private setReq(req: Record<string, any>) {
+  private setReq(req: Request) {
     this.req = req;
   }
 
-  private setHeaders(headers: Headers) {
-    for (const [key, value] of headers.entries()) {
-      this.headers[key] = value;
-    }
+  private setHeaders(headers: Request["headers"]) {
+    this.headers = headers;
   }
 
   private setTrackingId(request: Request) {
