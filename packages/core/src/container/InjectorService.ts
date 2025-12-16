@@ -72,7 +72,8 @@ export class InjectorService {
     locals: LocalsContainer = new LocalsContainer()
   ): any {
     if (locals.has(token)) {
-      return locals.get(token);
+        const stored: Provider = locals.get(token);
+        return stored?.instance ?? stored;
     }
 
     if (isPrimitiveType(token)) {

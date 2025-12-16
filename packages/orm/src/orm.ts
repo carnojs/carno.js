@@ -52,6 +52,10 @@ export class Orm<T extends DriverInterface = DriverInterface> {
       throw new Error('Driver instance not initialized')
     }
 
+    if (transactionContext.hasContext()) {
+      return operation(transactionContext.getContext());
+    }
+
     return this.driverInstance.transaction(async (tx) => {
       return transactionContext.run(tx as any, () => operation(tx));
     });
