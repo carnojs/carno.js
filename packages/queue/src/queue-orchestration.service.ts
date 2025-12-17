@@ -37,9 +37,26 @@ export class QueueOrchestration {
   private setupQueues(): void {
     const queues = this.discoveryService.discoverQueues();
 
+    // First pass: Create all queues and register their providers
     queues.forEach(queueMetadata => {
       try {
-        this.setupQueue(queueMetadata);
+        const queue = this.createQueue(queueMetadata);
+        this.registerQueueProvider(queueMetadata.name, queue);
+      } catch (error) {
+        if (this.isProviderNotFoundError(error)) {
+          return;
+        }
+
+        throw error;
+      }
+    });
+
+    // Second pass: Setup processors and workers for all queues
+    queues.forEach(queueMetadata => {
+      try {
+        this.setupProcessors(queueMetadata);
+        const queue = this.queueRegistry.getQueue(queueMetadata.name);
+        this.setupQueueEvents(queueMetadata, queue);
       } catch (error) {
         if (this.isProviderNotFoundError(error)) {
           return;
@@ -97,7 +114,8 @@ export class QueueOrchestration {
     processors: any[]
   ): void {
 
-    const instance = this.getOrCreateInstance(queueMetadata);
+   try {
+     const instance = this.getOrCreateInstance(queueMetadata);
 
     const processorMap = this.buildProcessorMap(
       instance,
@@ -124,6 +142,10 @@ export class QueueOrchestration {
       instance,
       processors
     );
+   } catch (error) {
+			console.error(`[ERROR] Failed to create unified worker for queue ${queueMetadata.name}:`, error);
+			throw error;
+		}
   }
 
   private buildWorkerId(queueName: string, jobName: string): string {
