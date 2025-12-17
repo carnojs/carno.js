@@ -10,6 +10,8 @@
 - Creates the target schema (defaults to `public`), switches the search path, and drops the schema after each run.
 - Runs arbitrary SQL statements or processes project migrations to provision tables.
 - Exposes a lean `DatabaseTestContext` with `orm` and an `executeSql` helper that always returns `{rows}`.
+- Scopes ORM and entity storage access with an async-local session to keep concurrent suites isolated.
+- Caches sessions by connection, schema, and entity signature so new entities trigger a fresh setup.
 
 ### Call signatures
 

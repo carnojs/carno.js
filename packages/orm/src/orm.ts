@@ -3,6 +3,7 @@ import { LoggerService, Service, CacheService } from '@cheetah.js/core';
 import { SqlBuilder } from './SqlBuilder';
 import { QueryCacheManager } from './cache/query-cache-manager';
 import { transactionContext } from './transaction/transaction-context';
+import { ormSessionContext } from './orm-session-context';
 
 @Service()
 export class Orm<T extends DriverInterface = DriverInterface> {
@@ -26,6 +27,11 @@ export class Orm<T extends DriverInterface = DriverInterface> {
   }
 
   static getInstance(): Orm<any> {
+    const scoped = ormSessionContext.getOrm();
+    if (scoped) {
+      return scoped;
+    }
+
     return Orm.instance
   }
 

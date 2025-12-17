@@ -1,12 +1,14 @@
 import globby from 'globby';
 import {promises as fs} from 'fs';
 import path from 'path';
-import {LoggerService} from '@cheetah.js/core';
+import {LoggerService, Metadata} from '@cheetah.js/core';
 import {EntityStorage} from '../domain/entities';
 import {Orm} from '../orm';
 import {OrmService} from '../orm.service';
 import {BunPgDriver} from '../driver/bun-pg.driver';
 import {ConnectionSettings} from '../driver/driver.interface';
+import {ormSessionContext} from '../orm-session-context';
+import {ENTITIES} from '../constants';
 
 export type DatabaseTestContext = {
   orm: Orm<BunPgDriver>;
@@ -49,6 +51,7 @@ const sessionCache = new Map<string, CachedSession>();
 
 function getCacheKey(options: DatabaseTestOptions): string {
   const connection = resolveConnection(options.connection);
+  const entitySignature = resolveEntitySignature();
   return JSON.stringify({
     host: connection.host,
     port: connection.port,
@@ -56,7 +59,26 @@ function getCacheKey(options: DatabaseTestOptions): string {
     schema: options.schema ?? DEFAULT_SCHEMA,
     entityFile: options.entityFile,
     migrationPath: connection.migrationPath,
+    entitySignature,
   });
+}
+
+function resolveEntitySignature(): string {
+  const entities = Metadata.get(ENTITIES, Reflect) || [];
+
+  return buildEntitySignature(entities);
+}
+
+function buildEntitySignature(
+  entities: Array<{ target?: { name?: string } }>,
+): string {
+  if (entities.length < 1) {
+    return 'none';
+  }
+
+  const names = entities.map((entity) => entity.target?.name ?? 'unknown');
+
+  return names.sort().join('|');
 }
 
 export async function withDatabase(
@@ -96,14 +118,14 @@ export async function withDatabase(
     sessionCache.set(cacheKey, cachedSession);
   }
 
-  activateSession(cachedSession);
+  await runWithSession(cachedSession, async () => {
+    const context = buildContext(cachedSession.orm);
 
-  const context = buildContext(cachedSession.orm);
-
-  await dropAndRecreateSchema(context, cachedSession.schema);
-  await prepareSchema(context, cachedSession.schema);
-  await createTables(context, schemaStatements);
-  await targetRoutine(context);
+    await dropAndRecreateSchema(context, cachedSession.schema);
+    await prepareSchema(context, cachedSession.schema);
+    await createTables(context, schemaStatements);
+    await targetRoutine(context);
+  });
 }
 
 async function createSession(options: DatabaseTestOptions): Promise<DatabaseSession> {
@@ -146,10 +168,14 @@ async function initializeOrm(
   await service.onInit(connection);
 }
 
-function activateSession(session: CachedSession): void {
-  Orm.instance = session.orm;
-
-  EntityStorage.instance = session.storage;
+async function runWithSession(
+  session: CachedSession,
+  routine: () => Promise<void>,
+): Promise<void> {
+  await ormSessionContext.run(
+    {orm: session.orm, storage: session.storage},
+    routine,
+  );
 }
 
 function resolveConnection(

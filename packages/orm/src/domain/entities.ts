@@ -1,4 +1,5 @@
 import { Metadata, Service } from "@cheetah.js/core";
+import { ormSessionContext } from "../orm-session-context";
 import { PropertyOptions } from "../decorators/property.decorator";
 import { ColumnsInfo, Relationship, SnapshotIndexInfo, SnapshotTable } from "../driver/driver.interface";
 import { getDefaultLength, toSnakeCase } from "../utils";
@@ -93,6 +94,11 @@ export class EntityStorage {
   }
 
   static getInstance() {
+    const scoped = ormSessionContext.getStorage();
+    if (scoped) {
+      return scoped;
+    }
+
     return EntityStorage.instance;
   }
 
