@@ -112,9 +112,9 @@ export interface DriverInterface {
   transaction<T>(callback: (tx: any) => Promise<T>): Promise<T>;
 }
 
-// @ts-ignore
 export type ValueOrInstance<T> = T extends ValueObject<any, any>
-  ? T | T["value"]
+  ? // @ts-ignore
+    T | T["value"]
   : NonNullable<T>;
 
 export type SnapshotConstraintInfo = {
