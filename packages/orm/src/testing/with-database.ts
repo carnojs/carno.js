@@ -23,6 +23,7 @@ export type DatabaseTestOptions = {
 type DatabaseSession = {
   orm: Orm<BunPgDriver>;
   schema: string;
+  storage: EntityStorage;
 };
 
 type DatabaseTestRoutine = (context: DatabaseTestContext) => Promise<void>;
@@ -40,8 +41,8 @@ const DEFAULT_CONNECTION: ConnectionSettings<BunPgDriver> = {
 
 type CachedSession = {
   orm: Orm<BunPgDriver>;
-  tables: string[];
   schema: string;
+  storage: EntityStorage;
 };
 
 const sessionCache = new Map<string, CachedSession>();
@@ -89,11 +90,13 @@ export async function withDatabase(
     const session = await createSession(targetOptions);
     cachedSession = {
       orm: session.orm,
-      tables: [],
       schema: session.schema,
+      storage: session.storage,
     };
     sessionCache.set(cacheKey, cachedSession);
   }
+
+  activateSession(cachedSession);
 
   const context = buildContext(cachedSession.orm);
 
@@ -106,10 +109,11 @@ export async function withDatabase(
 async function createSession(options: DatabaseTestOptions): Promise<DatabaseSession> {
   const logger = selectLogger(options);
   const orm: Orm<BunPgDriver> = new Orm<BunPgDriver>(logger);
+  const storage = new EntityStorage();
 
-  await initializeOrm(orm, options);
+  await initializeOrm(orm, storage, options);
 
-  return {orm, schema: options.schema ?? DEFAULT_SCHEMA};
+  return {orm, schema: options.schema ?? DEFAULT_SCHEMA, storage};
 }
 
 function selectLogger(options: DatabaseTestOptions): LoggerService {
@@ -122,8 +126,11 @@ function selectLogger(options: DatabaseTestOptions): LoggerService {
   return new LoggerService(config as any);
 }
 
-async function initializeOrm(orm: Orm<BunPgDriver>, options: DatabaseTestOptions): Promise<void> {
-  const storage = new EntityStorage();
+async function initializeOrm(
+  orm: Orm<BunPgDriver>,
+  storage: EntityStorage,
+  options: DatabaseTestOptions,
+): Promise<void> {
 
   if (options.entityFile) {
     const entityFiles = await globby(options.entityFile, {absolute: true});
@@ -137,6 +144,12 @@ async function initializeOrm(orm: Orm<BunPgDriver>, options: DatabaseTestOptions
   const connection = resolveConnection(options.connection);
 
   await service.onInit(connection);
+}
+
+function activateSession(session: CachedSession): void {
+  Orm.instance = session.orm;
+
+  EntityStorage.instance = session.storage;
 }
 
 function resolveConnection(
