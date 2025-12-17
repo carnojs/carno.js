@@ -136,6 +136,11 @@ export class QueueOrchestration {
       { concurrency: maxConcurrency }
     );
 
+    // Add worker event listeners for debugging
+    worker.on('ready', () => {
+      console.log(`[WORKER READY] Worker for queue ${queueMetadata.name} is ready and waiting for jobs`);
+    });
+
     this.setupAllJobEvents(
       queueMetadata,
       worker,
