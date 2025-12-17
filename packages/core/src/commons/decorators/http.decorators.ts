@@ -50,7 +50,7 @@ export const Param = createParamDecorator((context: Context, data: string) =>
 );
 export const Req = createParamDecorator((context: Context) => context.req);
 export const Headers = createParamDecorator((context: Context, data: string) =>
-  data ? context.headers[data] : context.headers || {}
+  data ? (context.headers.has(data) ? context.headers.get(data) : undefined) : context.headers || {}
 );
 export const Locals = createParamDecorator(
   (context: Context) => context.locals || {}

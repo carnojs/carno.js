@@ -1,20 +1,27 @@
-import { SQL } from 'bun';
+import { SQL } from "bun";
 import {
   ConnectionSettings,
   DriverInterface,
   Statement,
   SnapshotConstraintInfo,
   ColDiff,
-} from './driver.interface';
-import { transactionContext } from '../transaction/transaction-context';
+} from "./driver.interface";
+import { transactionContext } from "../transaction/transaction-context";
 
 export abstract class BunDriverBase implements Partial<DriverInterface> {
   protected sql: SQL;
   public connectionString: string;
-  public abstract readonly dbType: 'postgres' | 'mysql';
+  protected readonly poolOptions: {
+    max: number;
+    idleTimeout: number;
+    maxLifetime: number;
+    connectionTimeout: number;
+  };
+  public abstract readonly dbType: "postgres" | "mysql";
 
   constructor(options: ConnectionSettings) {
     this.connectionString = this.buildConnectionString(options);
+    this.poolOptions = this.buildPoolOptions(options);
   }
 
   protected buildConnectionString(options: ConnectionSettings): string {
@@ -36,18 +43,36 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
       return;
     }
 
-    this.sql = new SQL({
-      url: this.connectionString,
-      max: 20,
-      idleTimeout: 20, // segundos antes de fechar idle
-      maxLifetime: 300, // recicla conexões a cada 5 min
-      connectionTimeout: 10
-    });
+    this.sql = this.createSqlInstance();
     await this.validateConnection();
   }
 
+  protected buildPoolOptions(options: ConnectionSettings): {
+    max: number;
+    idleTimeout: number;
+    maxLifetime: number;
+    connectionTimeout: number;
+  } {
+    return {
+      max: options.max ?? 20,
+      idleTimeout: options.idleTimeout ?? 20,
+      maxLifetime: options.maxLifetime ?? 300,
+      connectionTimeout: options.connectionTimeout ?? 10,
+    };
+  }
+
+  private createSqlInstance(): SQL {
+    return new SQL({
+      url: this.connectionString,
+      max: this.poolOptions.max,
+      idleTimeout: this.poolOptions.idleTimeout,
+      maxLifetime: this.poolOptions.maxLifetime,
+      connectionTimeout: this.poolOptions.connectionTimeout,
+    });
+  }
+
   protected async validateConnection(): Promise<void> {
-    await this.sql.unsafe('SELECT 1');
+    await this.sql.unsafe("SELECT 1");
   }
 
   async disconnect(): Promise<void> {
@@ -72,7 +97,7 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
     }
 
     if (!this.sql) {
-      throw new Error('Database not connected');
+      throw new Error("Database not connected");
     }
 
     return this.sql;
@@ -80,7 +105,7 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
 
   async transaction<T>(callback: (tx: SQL) => Promise<T>): Promise<T> {
     if (!this.sql) {
-      throw new Error('Database not connected');
+      throw new Error("Database not connected");
     }
 
     return await this.sql.begin(callback);
@@ -88,7 +113,7 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
 
   protected toDatabaseValue(value: unknown): string | number | boolean {
     if (value === null || value === undefined) {
-      return 'NULL';
+      return "NULL";
     }
 
     if (value instanceof Date) {
@@ -96,13 +121,13 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
     }
 
     switch (typeof value) {
-      case 'string':
+      case "string":
         return `'${this.escapeString(value)}'`;
-      case 'number':
+      case "number":
         return value;
-      case 'boolean':
+      case "boolean":
         return value;
-      case 'object':
+      case "object":
         return `'${this.escapeString(JSON.stringify(value))}'`;
       default:
         return `'${this.escapeString(String(value))}'`;
@@ -119,7 +144,7 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
 
   protected buildWhereClause(where: string | undefined): string {
     if (!where) {
-      return '';
+      return "";
     }
 
     return ` WHERE ${where}`;
@@ -127,15 +152,15 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
 
   protected buildOrderByClause(orderBy: string[] | undefined): string {
     if (!orderBy || orderBy.length === 0) {
-      return '';
+      return "";
     }
 
-    return ` ORDER BY ${orderBy.join(', ')}`;
+    return ` ORDER BY ${orderBy.join(", ")}`;
   }
 
   protected buildLimitClause(limit: number | undefined): string {
     if (!limit) {
-      return '';
+      return "";
     }
 
     return ` LIMIT ${limit}`;
@@ -143,7 +168,7 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
 
   protected buildOffsetClause(offset: number | undefined): string {
     if (!offset) {
-      return '';
+      return "";
     }
 
     return ` OFFSET ${offset}`;
@@ -167,22 +192,22 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
     const parts: string[] = [];
 
     if (!colDiff.colChanges?.nullable) {
-      parts.push('NOT NULL');
+      parts.push("NOT NULL");
     }
 
     if (colDiff.colChanges?.primary) {
-      parts.push('PRIMARY KEY');
+      parts.push("PRIMARY KEY");
     }
 
     if (colDiff.colChanges?.unique) {
-      parts.push('UNIQUE');
+      parts.push("UNIQUE");
     }
 
     if (colDiff.colChanges?.default) {
       parts.push(`DEFAULT ${colDiff.colChanges.default}`);
     }
 
-    return parts.length > 0 ? ' ' + parts.join(' ') : '';
+    return parts.length > 0 ? " " + parts.join(" ") : "";
   }
 
   protected abstract buildAutoIncrementType(colDiff: ColDiff): string;
@@ -204,7 +229,7 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
     const startTime = Date.now();
     const context = this.getExecutionContext();
 
-    if (statement.statement === 'insert') {
+    if (statement.statement === "insert") {
       const sql = this.buildInsertSqlWithReturn(statement);
       const result = await context.unsafe(sql);
       return this.handleInsertReturn(statement, result, sql, startTime);
@@ -246,18 +271,20 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
     const { statement: type, table, columns, values, alias } = statement;
 
     switch (type) {
-      case 'select':
-        return `SELECT ${columns ? columns.join(', ') : '*'} FROM ${table} ${alias}`;
-      case 'insert':
+      case "select":
+        return `SELECT ${
+          columns ? columns.join(", ") : "*"
+        } FROM ${table} ${alias}`;
+      case "insert":
         return this.buildInsertSql(table, values, columns, alias);
-      case 'update':
+      case "update":
         return this.buildUpdateSql(table, values, alias);
-      case 'delete':
+      case "delete":
         return this.buildDeleteSql(table, alias);
-      case 'count':
+      case "count":
         return `SELECT COUNT(*) as count FROM ${table} ${alias}`;
       default:
-        return '';
+        return "";
     }
   }
 
@@ -270,46 +297,39 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
     const q = this.getIdentifierQuote();
     const fields = Object.keys(values)
       .map((v) => `${q}${v}${q}`)
-      .join(', ');
+      .join(", ");
     const vals = Object.values(values)
       .map((value) => this.toDatabaseValue(value))
-      .join(', ');
+      .join(", ");
 
     return `INSERT INTO ${table} (${fields}) VALUES (${vals})`;
   }
 
-  protected buildUpdateSql(
-    table: string,
-    values: any,
-    alias: string
-  ): string {
+  protected buildUpdateSql(table: string, values: any, alias: string): string {
     const sets = Object.entries(values)
       .map(([key, value]) => `${key} = ${this.toDatabaseValue(value)}`)
-      .join(', ');
+      .join(", ");
 
     return `UPDATE ${table} as ${alias} SET ${sets}`;
   }
 
-  protected buildDeleteSql(
-    table: string,
-    alias: string
-  ): string {
+  protected buildDeleteSql(table: string, alias: string): string {
     return `DELETE FROM ${table} AS ${alias}`;
   }
 
   protected buildJoinClause(statement: Statement<any>): string {
-    if (!statement.join) return '';
+    if (!statement.join) return "";
 
     return statement.join
       .map((join) => {
         const table = `${join.joinSchema}.${join.joinTable}`;
         return ` ${join.type} JOIN ${table} ${join.joinAlias} ON ${join.on}`;
       })
-      .join('');
+      .join("");
   }
 
   protected buildWhereAndOrderClauses(statement: Statement<any>): string {
-    if (statement.statement === 'insert') return '';
+    if (statement.statement === "insert") return "";
 
     let sql = this.buildWhereClause(statement.where);
     sql += this.buildOrderByClause(statement.orderBy);
@@ -328,7 +348,7 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
       return this.buildLimitClause(limit);
     }
 
-    return '';
+    return "";
   }
 
   protected getForeignKeysFromConstraints(
@@ -349,14 +369,12 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
     columnName: string
   ): boolean {
     return (
-      constraint.type === 'FOREIGN KEY' &&
+      constraint.type === "FOREIGN KEY" &&
       constraint.consDef.includes(columnName)
     );
   }
 
-  protected parseForeignKeyDefinition(
-    consDef: string
-  ): {
+  protected parseForeignKeyDefinition(consDef: string): {
     referencedColumnName: string;
     referencedTableName: string;
   } | null {
@@ -365,7 +383,7 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
 
     const pattern = new RegExp(
       `REFERENCES\\s+(?:${escapedQuote}([^${escapedQuote}]+)${escapedQuote}|([\\w.]+))\\s*\\(([^)]+)\\)`,
-      'i'
+      "i"
     );
 
     const match = consDef.match(pattern);
@@ -373,15 +391,18 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
     if (!match) return null;
 
     const tableName = (match[1] || match[2]).trim();
-    const columnName = match[3].split(',')[0].trim().replace(new RegExp(escapedQuote, 'g'), '');
+    const columnName = match[3]
+      .split(",")[0]
+      .trim()
+      .replace(new RegExp(escapedQuote, "g"), "");
 
     return {
       referencedColumnName: columnName,
-      referencedTableName: tableName
+      referencedTableName: tableName,
     };
   }
 
   private escapeRegex(str: string): string {
-    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 }

@@ -39,6 +39,7 @@ export default config;
 Actually, the ORM only supports PostgreSQL, but in the future it will support other databases.
 - Entities: Path to entities. Accepts glob patterns or an array of Entity classes.
 - MigrationPath: Path to migrations. Accepts glob patterns. Is optional.
+- Connection pool (optional): `max`, `idleTimeout`, `maxLifetime`, `connectionTimeout` in seconds control the Bun SQL pool. Defaults are 20 connections, 20s idle timeout, 300s max lifetime, and 10s connection timeout.
 <br/>
 <br/>
 After that, you need to import the ORM into the project and add it to the Cheetah.js instance:
