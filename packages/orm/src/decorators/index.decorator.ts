@@ -1,25 +1,39 @@
 import { Metadata } from "@cheetah.js/core";
 
-type IndexDef = { name: string; properties: string[] };
-type IndexOptions<T> = { properties: (keyof T)[] } | (keyof T)[] | undefined;
+export type IndexColumnMap<T> = {
+  [K in keyof T as K extends symbol ? never : K]: string;
+};
+
+export type IndexPredicate<T> = string | ((columns: IndexColumnMap<T>) => string);
+
+export type IndexDefinition = {
+  name: string;
+  properties: string[];
+  where?: IndexPredicate<any>;
+};
+type IndexOptions<T> =
+  | { properties: (keyof T)[]; where?: IndexPredicate<T> }
+  | (keyof T)[]
+  | undefined;
 
 function getCtor(target: any) {
   return typeof target === "function" ? target : target.constructor;
 }
 
-function buildFromOptions<T>(options?: IndexOptions<T>): IndexDef | null {
+function buildFromOptions<T>(options?: IndexOptions<T>): IndexDefinition | null {
   const props = Array.isArray(options) ? options : options?.properties;
   if (!props || props.length === 0) return null;
   const keys = props as unknown as string[];
-  return { name: `${keys.join('_')}_index`, properties: keys };
+  const where = Array.isArray(options) ? undefined : options?.where;
+  return { name: `${keys.join('_')}_index`, properties: keys, where };
 }
 
-function buildFromProperty(propertyKey?: string | symbol): IndexDef {
+function buildFromProperty(propertyKey?: string | symbol): IndexDefinition {
   const name = String(propertyKey);
   return { name: `${name}_index`, properties: [name] };
 }
 
-function resolveIndex<T>(options?: IndexOptions<T>, propertyKey?: string | symbol): IndexDef {
+function resolveIndex<T>(options?: IndexOptions<T>, propertyKey?: string | symbol): IndexDefinition {
   const fromOptions = buildFromOptions(options);
   if (fromOptions) return fromOptions;
   if (!propertyKey) throw new Error("@Index on class requires properties option");
@@ -29,7 +43,7 @@ function resolveIndex<T>(options?: IndexOptions<T>, propertyKey?: string | symbo
 export function Index<T>(options?: IndexOptions<T>): ClassDecorator & PropertyDecorator {
   return (target: any, propertyKey?: symbol | string) => {
     const ctor = getCtor(target);
-    const indexes: IndexDef[] = [...(Metadata.get("indexes", ctor) || [])];
+    const indexes: IndexDefinition[] = [...(Metadata.get("indexes", ctor) || [])];
     const index = resolveIndex(options, propertyKey);
     indexes.push(index);
     Metadata.set("indexes", indexes, ctor);

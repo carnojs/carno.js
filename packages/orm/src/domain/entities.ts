@@ -2,6 +2,7 @@ import { Metadata, Service } from "@cheetah.js/core";
 import { ormSessionContext } from "../orm-session-context";
 import { PropertyOptions } from "../decorators/property.decorator";
 import { ColumnsInfo, Relationship, SnapshotIndexInfo, SnapshotTable } from "../driver/driver.interface";
+import { IndexDefinition } from "../decorators/index.decorator";
 import { getDefaultLength, toSnakeCase } from "../utils";
 
 export type Property = {
@@ -18,6 +19,111 @@ export type Options = {
   hooks?: { type: string; propertyName: string }[];
   schema?: string;
 };
+
+type IndexColumnMap = Record<string, string>;
+
+function buildIndexColumnMap(
+  properties: { [key: string]: Property },
+  relations: Relationship<any>[],
+): IndexColumnMap {
+  const map = mapPropertyColumns(properties);
+
+  addRelationColumns(map, relations);
+
+  return map;
+}
+
+function mapPropertyColumns(
+  properties: { [key: string]: Property },
+): IndexColumnMap {
+  const map: IndexColumnMap = {};
+
+  Object.entries(properties).forEach(([key, value]) => {
+    map[key] = value.options.columnName;
+  });
+
+  return map;
+}
+
+function addRelationColumns(
+  map: IndexColumnMap,
+  relations: Relationship<any>[],
+): void {
+  relations.forEach((relation) => {
+    map[String(relation.propertyKey)] = relation.columnName as string;
+  });
+}
+
+function mapIndexDefinitions(
+  indexes: IndexDefinition[],
+  entityName: string,
+  columnMap: IndexColumnMap,
+): SnapshotIndexInfo[] {
+  return indexes.map((index) => toSnapshotIndex(index, entityName, columnMap));
+}
+
+function toSnapshotIndex(
+  index: IndexDefinition,
+  entityName: string,
+  columnMap: IndexColumnMap,
+): SnapshotIndexInfo {
+  const columns = resolveIndexColumns(index, columnMap);
+  const indexName = resolveIndexName(index.name, entityName, columns);
+
+  return {
+    table: entityName,
+    indexName,
+    columnName: columns.join(","),
+    where: resolveIndexWhere(index.where, columnMap),
+  };
+}
+
+function resolveIndexColumns(
+  index: IndexDefinition,
+  columnMap: IndexColumnMap,
+): string[] {
+  return index.properties.map((propName) => resolveIndexColumn(propName, columnMap));
+}
+
+function resolveIndexColumn(
+  propName: string,
+  columnMap: IndexColumnMap,
+): string {
+  const mapped = columnMap[propName];
+
+  if (mapped) {
+    return mapped;
+  }
+
+  return toSnakeCase(propName);
+}
+
+function resolveIndexName(
+  name: string,
+  entityName: string,
+  columns: string[],
+): string {
+  if (name.includes('_pkey') || name.includes('[TABLE]')) {
+    return name.replace("[TABLE]", entityName);
+  }
+
+  return `${columns.join("_")}_index`;
+}
+
+function resolveIndexWhere(
+  where: IndexDefinition["where"],
+  columnMap: IndexColumnMap,
+): string | undefined {
+  if (!where) {
+    return undefined;
+  }
+
+  if (typeof where === "string") {
+    return where;
+  }
+
+  return where(columnMap as any);
+}
 
 @Service()
 export class EntityStorage {
@@ -39,46 +145,15 @@ export class EntityStorage {
   ) {
     const entityName = entity.options?.tableName || toSnakeCase(entity.target.name);
 
-    const indexes = Metadata.get("indexes", entity.target) || [];
+    const indexes: IndexDefinition[] = Metadata.get("indexes", entity.target) || [];
+    const columnMap = buildIndexColumnMap(properties, relations);
     this.entities.set(entity.target, {
       properties: properties,
       hideProperties: Object.entries(properties)
         .filter(([_key, value]) => value.options.hidden)
         .map(([key]) => key),
       relations,
-      indexes: indexes.map((index: { name: string; properties: string[] }) => {
-        // Convert property names to database column names
-        const columnNames = index.properties.map(propName => {
-          // Check if it's a regular property
-          if (properties[propName]) {
-            return properties[propName].options.columnName;
-          }
-
-          // Check if it's a relation
-          const relation = relations.find(rel => String(rel.propertyKey) === propName);
-          if (relation) {
-            return relation.columnName as string;
-          }
-
-          // Fallback to snake_case conversion if not found
-          return toSnakeCase(propName);
-        });
-
-        // Preserve the original index name if it's a primary key index (contains _pkey or [TABLE])
-        // Otherwise, generate index name using column names
-        let indexName: string;
-        if (index.name.includes('_pkey') || index.name.includes('[TABLE]')) {
-          indexName = index.name.replace("[TABLE]", entityName);
-        } else {
-          indexName = `${columnNames.join("_")}_index`;
-        }
-
-        return {
-          table: entityName,
-          indexName,
-          columnName: columnNames.join(","),
-        };
-      }),
+      indexes: mapIndexDefinitions(indexes, entityName, columnMap),
       hooks,
       tableName: entityName,
       ...entity.options,

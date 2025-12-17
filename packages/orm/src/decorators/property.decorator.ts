@@ -1,7 +1,7 @@
 import { PROPERTIES, PROPERTIES_METADATA } from "../constants";
 import { extendsFrom, getDefaultLength, toSnakeCase } from "../utils";
 import { isObject, Metadata } from "@cheetah.js/core";
-import { Index } from "./index.decorator";
+import { Index, IndexDefinition } from "./index.decorator";
 import { ValueObject } from "..";
 
 export type PropertyOptions = {
@@ -70,7 +70,7 @@ export function Property(options?: PropertyOptions): PropertyDecorator {
         Metadata.set(PROPERTIES, properties, target.constructor);
 
         if (options.isPrimary) {
-            const indexes: { name: string; properties: string[] }[] = Metadata.get("indexes", target.constructor) || [];
+            const indexes: IndexDefinition[] = Metadata.get("indexes", target.constructor) || [];
             indexes.push({ name: `[TABLE]_pkey`, properties: [propertyKey as string] });
             Metadata.set("indexes", indexes, target.constructor);
         }

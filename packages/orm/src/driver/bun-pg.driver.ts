@@ -3,6 +3,7 @@ import {
   ConnectionSettings,
   DriverInterface,
   ForeignKeyInfo,
+  IndexStatement,
   SnapshotConstraintInfo,
   SnapshotIndexInfo,
   SnapshotTable,
@@ -118,11 +119,19 @@ export class BunPgDriver extends BunDriverBase implements DriverInterface {
   }
 
   getCreateIndex(
-    index: { name: string; properties: string[] },
+    index: IndexStatement,
     schema: string | undefined,
     tableName: string
   ): string {
-    return `CREATE INDEX "${index.name}" ON "${schema}"."${tableName}" (${index.properties.map((prop) => `"${prop}"`).join(', ')});`;
+    const properties = index.properties || [];
+    if (properties.length === 0) {
+      throw new Error("Index properties are required.");
+    }
+
+    const columns = properties.map((prop) => `"${prop}"`).join(', ');
+    const where = this.buildWhereClause(index.where);
+
+    return `CREATE INDEX "${index.name}" ON "${schema}"."${tableName}" (${columns})${where};`;
   }
 
   getAddColumn(

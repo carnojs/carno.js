@@ -6,11 +6,12 @@ import {
   Property,
   Index,
   EntityStorage,
+  IndexDefinition,
 } from '../../src';
 import { Metadata } from '@cheetah.js/core';
 import { PROPERTIES_METADATA } from '../../src/constants';
 
-function getIndexes(target: Function): { name: string; properties: string[] }[] {
+function getIndexes(target: Function): IndexDefinition[] {
   const indexes = Metadata.get('indexes', target) || [];
 
   return indexes;
@@ -189,6 +190,35 @@ describe('Index decorator', () => {
     const byEmailName = indexes.find((i) => i.name === 'email_name_index');
     expect(byEmail?.properties).toEqual(['email']);
     expect(byEmailName?.properties).toEqual(['email', 'name']);
+  });
+
+  test('resolves partial index predicate using column map', () => {
+    // Given: entity with partial index predicate
+    @Entity()
+    @Index<{ UserG }>({
+      properties: ['email'],
+      where: (columns) => `${columns.isActive} = true`,
+    })
+    class UserG extends BaseEntity {
+      @PrimaryKey()
+      id: number;
+
+      @Property()
+      email: string;
+
+      @Property()
+      isActive: boolean;
+    }
+
+    // When: mapping to storage
+    const storage = new EntityStorage();
+    const props = getProps(UserG);
+    storage.add({ target: UserG, options: {} }, props as any, [], []);
+    const entry = storage.get(UserG)!;
+
+    // Then: predicate is resolved with column names
+    const index = entry.indexes?.find((i) => i.indexName === 'email_index');
+    expect(index?.where).toBe('is_active = true');
   });
 
   test('throws when using class-level without properties', () => {

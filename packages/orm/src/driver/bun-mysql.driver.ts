@@ -3,6 +3,7 @@ import {
   ConnectionSettings,
   DriverInterface,
   ForeignKeyInfo,
+  IndexStatement,
   SnapshotConstraintInfo,
   SnapshotIndexInfo,
   SnapshotTable,
@@ -148,11 +149,22 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
   }
 
   getCreateIndex(
-    index: { name: string; properties: string[] },
+    index: IndexStatement,
     schema: string | undefined,
     tableName: string
   ): string {
-    return `CREATE INDEX \`${index.name}\` ON \`${schema}\`.\`${tableName}\` (${index.properties.map((prop) => `\`${prop}\``).join(', ')});`;
+    const properties = index.properties || [];
+    if (properties.length === 0) {
+      throw new Error("Index properties are required.");
+    }
+
+    if (index.where) {
+      throw new Error("Partial indexes are only supported on postgres.");
+    }
+
+    const columns = properties.map((prop) => `\`${prop}\``).join(', ');
+
+    return `CREATE INDEX \`${index.name}\` ON \`${schema}\`.\`${tableName}\` (${columns});`;
   }
 
   getAddColumn(

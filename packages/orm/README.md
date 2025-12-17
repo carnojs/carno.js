@@ -160,6 +160,28 @@ export class User {
 // @Index(['name', 'email'])
 ```
 
+Partial indexes (Postgres only) can be declared with `where`. You can provide a raw SQL string or a typed callback that receives the column map (with autocomplete based on your entity):
+
+```javascript
+@Entity()
+@Index<{ User }>({
+  properties: ['email'],
+  where: (columns) => `${columns.isActive} = true`,
+})
+export class User {
+  @PrimaryKey()
+  id: number;
+
+  @Property()
+  email: string;
+
+  @Property()
+  isActive: boolean;
+}
+```
+
+Note: MySQL does not support partial indexes; using `where` with the MySQL driver will throw.
+
 #### Property options
 | Option | Type | Description                                                                                |
 | ------ | ---- |--------------------------------------------------------------------------------------------|

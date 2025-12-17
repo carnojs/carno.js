@@ -27,7 +27,7 @@ export interface DriverInterface {
     fk: ForeignKeyInfo
   ): string;
   getCreateIndex(
-    index: { name: string; properties?: string[] },
+    index: IndexStatement,
     schema: string | undefined,
     tableName: string
   ): string;
@@ -46,7 +46,7 @@ export interface DriverInterface {
   ): void;
 
   getDropIndex(
-    index: { name: string; properties?: string[] },
+    index: IndexStatement,
     schema: string | undefined,
     tableName: string
   ): string;
@@ -254,6 +254,13 @@ export type SnapshotIndexInfo = {
   table: string;
   indexName: string;
   columnName: string;
+  where?: string;
+};
+
+export type IndexStatement = {
+  name: string;
+  properties?: string[];
+  where?: string;
 };
 
 export type ForeignKeyInfo = {
