@@ -1,4 +1,5 @@
 import path from 'path';
+import path from 'path';
 import {describe, expect, test} from 'bun:test';
 import {withDatabase, DatabaseTestContext} from '../src/testing';
 
@@ -10,8 +11,8 @@ const USERS_TABLE = `
 `;
 
 const MIGRATIONS_GLOB = path.resolve(
-  process.cwd(),
-  'packages/orm/test/fixtures/migrations/*.sql',
+  import.meta.dir,
+  'fixtures/migrations/*.sql',
 );
 
 async function insertUser(context: DatabaseTestContext): Promise<void> {

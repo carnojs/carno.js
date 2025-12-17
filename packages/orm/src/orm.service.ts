@@ -11,9 +11,12 @@ import path from 'path';
 @Service()
 export class OrmService {
   private allEntities = new Map<string, { nullables: string[], defaults: { [key: string]: any } }>();
+  private project: Project;
 
   constructor(private orm: Orm, private storage: EntityStorage, entityFile?: string) {
-    const files = new Project({skipLoadingLibFiles: true}).addSourceFilesAtPaths(entityFile ?? this.getSourceFilePaths())
+    this.project = new Project({skipLoadingLibFiles: true});
+    const files = this.project.addSourceFilesAtPaths(entityFile ?? this.getSourceFilePaths());
+    
     files.forEach(file => {
       file.getClasses().forEach(classDeclaration => {
         if (classDeclaration.getDecorator('Entity')) {
@@ -282,8 +285,7 @@ export class OrmService {
       return;
     }
 
-    const files = new Project({skipLoadingLibFiles: true})
-      .addSourceFilesAtPaths(this.getSourceFilePaths());
+    const files = this.project.getSourceFiles();
     this.discoverRelationshipTypes(files);
     this.discoverEnumTypes(files, entities);
 
@@ -330,7 +332,23 @@ export class OrmService {
 
   private getSourceFilePaths(): string[] {
     const projectRoot = process.cwd();
-    const patterns = ['**/*.ts', '**/*.js', '!**/node_modules/**'];
+    const patterns = [
+      '**/*.entity.ts',
+      '**/entities/**/*.ts',
+      '**/entity/**/*.ts',
+      '**/*.entity.js',
+      '**/entities/**/*.js',
+      '**/entity/**/*.js',
+      '!**/node_modules/**',
+      '!**/test/**',
+      '!**/tests/**',
+      '!**/*.spec.ts',
+      '!**/*.test.ts',
+      '!**/*.spec.js',
+      '!**/*.test.js',
+      '!**/dist/**',
+      '!**/build/**'
+    ];
 
     try {
       return globby

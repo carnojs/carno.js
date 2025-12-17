@@ -54,10 +54,10 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
     connectionTimeout: number;
   } {
     return {
-      max: options.max ?? 20,
-      idleTimeout: options.idleTimeout ?? 20,
-      maxLifetime: options.maxLifetime ?? 300,
-      connectionTimeout: options.connectionTimeout ?? 10,
+      max: options.max ?? undefined,
+      idleTimeout: options.idleTimeout ?? undefined,
+      maxLifetime: options.maxLifetime ?? undefined,
+      connectionTimeout: options.connectionTimeout ?? undefined,
     };
   }
 
@@ -81,6 +81,7 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
     }
 
     await this.sql.close();
+    this.sql = null as any;
   }
 
   async executeSql(sqlString: string): Promise<any> {
