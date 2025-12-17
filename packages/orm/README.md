@@ -180,6 +180,32 @@ export class User {
 }
 ```
 
+You can also use the ORM filter syntax in `where` (with `$in`, `$or`, `$nor`, etc.):
+
+```javascript
+@Entity()
+@Index<{ User }>({
+  properties: ['email'],
+  where: {
+    isActive: true,
+    status: { $in: ['active', 'pending'] },
+  },
+})
+export class User {
+  @PrimaryKey()
+  id: number;
+
+  @Property()
+  email: string;
+
+  @Property()
+  isActive: boolean;
+
+  @Property()
+  status: string;
+}
+```
+
 Note: MySQL does not support partial indexes; using `where` with the MySQL driver will throw.
 
 #### Property options

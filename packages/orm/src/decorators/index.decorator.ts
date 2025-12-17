@@ -1,4 +1,5 @@
 import { Metadata } from "@cheetah.js/core";
+import { FilterQuery } from "../driver/driver.interface";
 
 export type IndexColumnMap<T> = {
   [K in keyof T as K extends symbol ? never : K]: string;
@@ -6,13 +7,15 @@ export type IndexColumnMap<T> = {
 
 export type IndexPredicate<T> = string | ((columns: IndexColumnMap<T>) => string);
 
+export type IndexWhere<T> = IndexPredicate<T> | FilterQuery<T>;
+
 export type IndexDefinition = {
   name: string;
   properties: string[];
-  where?: IndexPredicate<any>;
+  where?: IndexWhere<any>;
 };
 type IndexOptions<T> =
-  | { properties: (keyof T)[]; where?: IndexPredicate<T> }
+  | { properties: (keyof T)[]; where?: IndexWhere<T> }
   | (keyof T)[]
   | undefined;
 

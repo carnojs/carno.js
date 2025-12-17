@@ -221,6 +221,41 @@ describe('Index decorator', () => {
     expect(index?.where).toBe('is_active = true');
   });
 
+  test('resolves partial index predicate from filter query', () => {
+    // Given: entity with filter query predicate
+    @Entity()
+    @Index<{ UserH }>({
+      properties: ['email'],
+      where: {
+        isActive: true,
+        status: { $in: ['active', 'pending'] },
+      },
+    })
+    class UserH extends BaseEntity {
+      @PrimaryKey()
+      id: number;
+
+      @Property()
+      email: string;
+
+      @Property()
+      isActive: boolean;
+
+      @Property()
+      status: string;
+    }
+
+    // When: mapping to storage
+    const storage = new EntityStorage();
+    const props = getProps(UserH);
+    storage.add({ target: UserH, options: {} }, props as any, [], []);
+    const entry = storage.get(UserH)!;
+
+    // Then: predicate uses ORM filter syntax
+    const index = entry.indexes?.find((i) => i.indexName === 'email_index');
+    expect(index?.where).toBe("(is_active = true AND status IN ('active', 'pending'))");
+  });
+
   test('throws when using class-level without properties', () => {
     // Given/When/Then: defining class with @Index() on class without options throws
     const define = () => {

@@ -2,8 +2,9 @@ import { Metadata, Service } from "@cheetah.js/core";
 import { ormSessionContext } from "../orm-session-context";
 import { PropertyOptions } from "../decorators/property.decorator";
 import { ColumnsInfo, Relationship, SnapshotIndexInfo, SnapshotTable } from "../driver/driver.interface";
-import { IndexDefinition } from "../decorators/index.decorator";
+import { IndexDefinition, IndexWhere } from "../decorators/index.decorator";
 import { getDefaultLength, toSnakeCase } from "../utils";
+import { IndexConditionBuilder } from "../query/index-condition-builder";
 
 export type Property = {
   options: PropertyOptions;
@@ -111,7 +112,7 @@ function resolveIndexName(
 }
 
 function resolveIndexWhere(
-  where: IndexDefinition["where"],
+  where: IndexWhere<any> | undefined,
   columnMap: IndexColumnMap,
 ): string | undefined {
   if (!where) {
@@ -122,7 +123,20 @@ function resolveIndexWhere(
     return where;
   }
 
-  return where(columnMap as any);
+  if (typeof where === "function") {
+    return where(columnMap as any);
+  }
+
+  return buildIndexWhere(where, columnMap);
+}
+
+function buildIndexWhere(
+  where: IndexWhere<any>,
+  columnMap: IndexColumnMap,
+): string | undefined {
+  const builder = new IndexConditionBuilder<any>(columnMap);
+
+  return builder.build(where as any);
 }
 
 @Service()
