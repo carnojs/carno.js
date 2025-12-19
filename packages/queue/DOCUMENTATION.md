@@ -137,13 +137,15 @@ Injeta uma queue em um service.
 @InjectQueue(queueName: string)
 ```
 
+`@InjectQueue` fornece um proxy leve da queue com `add`, `addBulk`, e `getJob`.
+
 **Exemplo:**
 
 ```typescript
 @Injectable()
 export class UserService {
   constructor(
-    @InjectQueue('email') private emailQueue: Queue
+    @InjectQueue('email') private emailQueue: QueueClientProxy
   ) {}
 
   async createUser(data: any) {

@@ -1,4 +1,4 @@
-import { Queue, JobsOptions } from 'bullmq';
+import { Queue, JobsOptions, Job } from 'bullmq';
 
 
 export class QueueClientProxy {
@@ -21,5 +21,12 @@ export class QueueClientProxy {
     jobs: Array<{ name: string; data?: any; opts?: JobsOptions }>
   ): Promise<any> {
     return this.queue.addBulk(jobs as any);
+  }
+
+
+  async getJob(jobId: string): Promise<Job | undefined> {
+    const job = await this.queue.getJob(jobId);
+
+    return job;
   }
 }

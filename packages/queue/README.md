@@ -62,13 +62,12 @@ export class NotificationQueue {
 
 ```typescript
 import { Injectable } from '@cheetah.js/core';
-import { InjectQueue } from '@cheetah.js/queue';
-import { Queue } from 'bullmq';
+import { InjectQueue, QueueClientProxy } from '@cheetah.js/queue';
 
 @Injectable()
 export class UserService {
   constructor(
-    @InjectQueue('email') private emailQueue: Queue
+    @InjectQueue('email') private emailQueue: QueueClientProxy
   ) {}
 
   async createUser(data: any) {
@@ -77,6 +76,8 @@ export class UserService {
   }
 }
 ```
+
+`@InjectQueue` provides a lightweight queue proxy with `add`, `addBulk`, and `getJob`.
 
 ## Configuration
 
