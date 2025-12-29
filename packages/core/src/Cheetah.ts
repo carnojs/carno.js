@@ -24,6 +24,7 @@ export interface ApplicationConfig {
   exports?: any[];
   providers?: any[];
   cors?: CorsConfig;
+  globalMiddlewares?: any[];
 }
 
 const parseUrl = require("parseurl-fast");
@@ -76,6 +77,10 @@ export class Cheetah {
       this.config.providers = [];
     }
 
+    if (!this.config.globalMiddlewares) {
+      this.config.globalMiddlewares = [];
+    }
+
     for (const exportProvider of plugin.config.exports || []) {
       const existingProvider = this.findProviderInConfig(
         plugin,
@@ -87,6 +92,10 @@ export class Cheetah {
         : exportProvider;
 
       this.config.providers.push(providerToAdd);
+    }
+
+    if (plugin.config.globalMiddlewares) {
+      this.config.globalMiddlewares.push(...plugin.config.globalMiddlewares);
     }
 
     return this;

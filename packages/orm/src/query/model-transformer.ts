@@ -2,45 +2,98 @@ import { Statement } from '../driver/driver.interface';
 import { EntityStorage, Options } from '../domain/entities';
 import { ValueObject } from '../common/value-object';
 import { extendsFrom } from '../utils';
+import { IdentityMapIntegration } from '../identity-map';
 
 export class ModelTransformer {
   constructor(private entityStorage: EntityStorage) {}
 
   transform<T>(model: any, statement: Statement<any>, data: any): T {
-    const instanceMap = this.createInstances(model, statement);
+    const instanceMap = this.createInstances(model, statement, data);
     const optionsMap = this.buildOptionsMap(instanceMap);
 
     this.populateProperties(data, instanceMap, optionsMap);
     this.linkJoinedEntities(statement, instanceMap, optionsMap);
     this.resetChangedValues(instanceMap);
+    this.registerInstancesInIdentityMap(instanceMap);
 
     return instanceMap[statement.alias!] as T;
   }
 
-  private createInstances(model: any, statement: Statement<any>): Record<string, any> {
-    const instance = this.createInstance(model);
+  private registerInstancesInIdentityMap(instanceMap: Record<string, any>): void {
+    Object.values(instanceMap).forEach(instance => {
+      IdentityMapIntegration.registerEntity(instance);
+    });
+  }
+
+  private createInstances(model: any, statement: Statement<any>, data: any): Record<string, any> {
+    const primaryKey = this.extractPrimaryKeyFromData(model, statement.alias!, data);
+    const instance = this.createInstance(model, primaryKey);
     const instanceMap: Record<string, any> = {
       [statement.alias!]: instance,
     };
 
     if (statement.join) {
-      this.addJoinedInstances(statement, instanceMap);
+      this.addJoinedInstances(statement, instanceMap, data);
     }
 
     return instanceMap;
   }
 
-  private createInstance(model: any): any {
-    const instance = new model();
-    instance.$_isPersisted = true;
-    return instance;
+  private createInstance(model: any, primaryKey?: any): any {
+    return IdentityMapIntegration.getOrCreateInstance(
+      model,
+      primaryKey,
+      () => {
+        const instance = new model();
+        instance.$_isPersisted = true;
+        return instance;
+      }
+    );
   }
 
-  private addJoinedInstances(statement: Statement<any>, instanceMap: Record<string, any>): void {
+  private addJoinedInstances(statement: Statement<any>, instanceMap: Record<string, any>, data: any): void {
     statement.join!.forEach(join => {
-      const joinInstance = this.createInstance(join.joinEntity!);
+      const primaryKey = this.extractPrimaryKeyFromData(join.joinEntity!, join.joinAlias, data);
+      const joinInstance = this.createInstance(join.joinEntity!, primaryKey);
       instanceMap[join.joinAlias] = joinInstance;
     });
+  }
+
+  private extractPrimaryKeyFromData(model: any, alias: string, data: any): any {
+    const options = this.entityStorage.get(model);
+
+    if (!options) {
+      return undefined;
+    }
+
+    return this.extractPrimaryKeyValue(options, alias, data);
+  }
+
+  private extractPrimaryKeyValue(options: Options, alias: string, data: any): any {
+    const pkProperty = this.findPrimaryKeyProperty(options);
+
+    if (!pkProperty) {
+      return undefined;
+    }
+
+    return this.getPrimaryKeyFromData(pkProperty, alias, data);
+  }
+
+  private getPrimaryKeyFromData(pkProperty: any, alias: string, data: any): any {
+    const pkColumnName = pkProperty.options.columnName;
+    const pkKey = `${alias}_${pkColumnName}`;
+
+    return data[pkKey];
+  }
+
+  private findPrimaryKeyProperty(options: Options): any {
+    for (const prop in options.properties) {
+      if (options.properties[prop].options.isPrimary) {
+        return options.properties[prop];
+      }
+    }
+
+    return null;
   }
 
   private buildOptionsMap(instanceMap: Record<string, any>): Map<string, Options> {

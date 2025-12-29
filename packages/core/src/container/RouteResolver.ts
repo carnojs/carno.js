@@ -15,7 +15,14 @@ import { TokenRouteWithProvider } from "./ContainerConfiguration";
 import Memoirist from "../route/memoirist";
 
 export class RouteResolver {
-  constructor(private router: Memoirist<TokenRouteWithProvider>) {}
+  private globalMiddlewares: any[] = [];
+
+  constructor(
+    private router: Memoirist<TokenRouteWithProvider>,
+    globalMiddlewares?: any[]
+  ) {
+    this.globalMiddlewares = globalMiddlewares || [];
+  }
 
   resolveControllers(): void {
     const controllers = this.getTopLevelControllers();
@@ -137,6 +144,7 @@ export class RouteResolver {
       provider: controller.token,
       route,
       middlewares: [
+        ...this.globalMiddlewares,
         ...controllerMiddleware,
         ...(Metadata.get(
           ROUTE_MIDDLEWARES,
@@ -277,6 +285,7 @@ export class RouteResolver {
         provider: controller.token,
         route,
         middlewares: [
+          ...this.globalMiddlewares,
           ...parentMiddlewares,
           ...childMiddlewares,
           ...(Metadata.get(

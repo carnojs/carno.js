@@ -50,7 +50,10 @@ export class InjectorService {
   }
 
   private initializeResolvers(): void {
-    this.routeResolver = new RouteResolver(this.router);
+    this.routeResolver = new RouteResolver(
+      this.router,
+      this.applicationConfig.globalMiddlewares
+    );
     this.dependencyResolver = new DependencyResolver(this.container);
     this.methodInvoker = new MethodInvoker(this.applicationConfig);
   }

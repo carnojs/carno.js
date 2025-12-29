@@ -9,6 +9,8 @@ Cheetah.js ORM is a simple and powerful ORM for Cheetah.js and Bun.
   - [Value Objects](#value-objects)
   - [Hooks](#hooks)
 - [Usage](#usage)
+- [Caching](#caching)
+- [Identity Map](#identity-map)
 - [Migrations](#migrations)
 
 ### [Installation](#install)
@@ -333,6 +335,189 @@ await repo.find({ where: { name: 'John' }, cache: new Date(Date.now() + 60_000) 
 // Infinite/driver-default cache
 await repo.find({ where: { name: 'John' }, cache: true });
 ```
+
+### Identity Map
+
+The Identity Map is an in-memory cache that ensures each entity is loaded only once per request context. This pattern reduces database queries and guarantees that all references to the same entity point to the same object instance.
+
+#### Key Benefits
+
+- **Reduced Database Queries**: When querying for an entity that was already loaded in the same context, the cached instance is returned instead of executing another query
+- **Consistent Entity References**: All parts of your code working with the same entity will share the same instance
+- **Memory Efficient**: Uses WeakRef internally, allowing garbage collection of unreferenced entities
+- **Per-Request Isolation**: Each request has its own identity map, preventing data leakage between requests
+
+#### Automatic Activation (Recommended)
+
+**The identity map is automatically enabled for all routes when you use `CheetahOrm`!** No additional configuration needed:
+
+```typescript
+import { Cheetah } from '@cheetah.js/core';
+import { CheetahOrm } from '@cheetah.js/orm';
+
+new Cheetah()
+  .use(CheetahOrm)  // ← Identity map automatically active for all routes
+  .listen();
+```
+
+Now all your controllers automatically benefit from the identity map:
+
+```typescript
+import { Controller, Get } from '@cheetah.js/core';
+
+@Controller('/users')
+export class UserController {
+  @Get('/:id/posts')
+  async getUserPosts(id: number) {
+    // Identity map is AUTOMATICALLY active - no decorator needed!
+    const user = await User.findOne({ id });
+    const posts = await Post.findAll({ userId: id }, { load: ['user'] });
+    
+    // posts[0].user === user (same instance, no extra query)
+    return { user, posts };
+  }
+}
+```
+
+**That's it!** The identity map works transparently across your entire application.
+
+#### Manual Usage (Advanced)
+
+For custom scenarios, use `identityMapContext.run()` directly:
+
+```typescript
+import { identityMapContext } from '@cheetah.js/orm';
+
+async function processUserData(userId: number) {
+  await identityMapContext.run(async () => {
+    // All queries within this context share the same identity map
+    const user = await User.findOne({ id: userId });
+    const posts = await Post.findAll({ userId }, { load: ['user'] });
+    
+    // posts[0].user === user (same instance, no extra query)
+    return { user, posts };
+  });
+}
+```
+
+#### How It Works
+
+```typescript
+await identityMapContext.run(async () => {
+  // First query - fetches from database and caches
+  const user1 = await User.findOne({ id: 1 });
+  
+  // Second query - returns cached instance (no database query)
+  const user2 = await User.findOne({ id: 1 });
+  
+  console.log(user1 === user2); // true - same object instance
+  
+  // Modifications are reflected everywhere
+  user1.name = 'Updated Name';
+  console.log(user2.name); // 'Updated Name'
+});
+```
+
+#### Relationship Loading
+
+The identity map automatically caches entities loaded through relationships:
+
+```typescript
+await identityMapContext.run(async () => {
+  // Load user first
+  const user = await User.findOne({ id: 1 });
+  
+  // Load posts with user relationship
+  const posts = await Post.findAll(
+    { userId: 1 },
+    { load: ['user'] }
+  );
+  
+  // The user loaded through posts is the same cached instance
+  console.log(posts[0].user === user); // true
+});
+```
+
+#### Context Isolation
+
+Each `identityMapContext.run()` creates an isolated scope:
+
+```typescript
+let user1, user2;
+
+// First context
+await identityMapContext.run(async () => {
+  user1 = await User.findOne({ id: 1 });
+});
+
+// Second context - completely separate identity map
+await identityMapContext.run(async () => {
+  user2 = await User.findOne({ id: 1 });
+});
+
+// Different contexts = different instances
+console.log(user1 === user2); // false
+```
+
+#### Without Identity Map Context
+
+When not using `identityMapContext.run()`, the ORM behaves normally without caching:
+
+```typescript
+// Without context wrapper
+const user1 = await User.findOne({ id: 1 });
+const user2 = await User.findOne({ id: 1 });
+
+console.log(user1 === user2); // false - different instances
+```
+
+#### Advanced: Disabling or Customizing
+
+If you need to disable the identity map for specific routes, you can use manual context management:
+
+```typescript
+import { Controller, Get, Middleware } from '@cheetah.js/core';
+import { identityMapContext, IdentityMapMiddleware } from '@cheetah.js/orm';
+
+@Controller('/users')
+export class UserController {
+  @Get('/:id')
+  async getUser(id: number) {
+    // Identity map active (global middleware)
+    return User.findOne({ id });
+  }
+
+  @Get('/legacy')
+  async getLegacyUsers() {
+    // To bypass identity map, just query normally
+    // The global middleware is still active, but you can
+    // control when to use it via manual context management
+    return User.findAll({});
+  }
+}
+```
+
+For other frameworks (Express, Fastify, etc.), use the manual approach:
+
+```typescript
+// Express example
+import { identityMapContext } from '@cheetah.js/orm';
+
+app.use(async (req, res, next) => {
+  await identityMapContext.run(async () => {
+    await next();
+  });
+});
+```
+
+#### Performance Considerations
+
+- The identity map uses O(1) lookup time via Map-based storage
+- WeakRef ensures entities can be garbage collected when no longer referenced
+- FinalizationRegistry automatically cleans up expired cache entries
+- Per-request scope prevents memory buildup across requests
+- No configuration needed - works transparently with existing queries
+
 Is Required to implement the validate method, that returns a boolean value.
 To use the Value Object in the Entity, just add the ValueObject type to the property:
 
