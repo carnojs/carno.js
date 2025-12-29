@@ -1,8 +1,15 @@
 import { Metadata, Service } from "@cheetah.js/core";
 import { ormSessionContext } from "../orm-session-context";
 import { PropertyOptions } from "../decorators/property.decorator";
-import { ColumnsInfo, Relationship, SnapshotIndexInfo, SnapshotTable } from "../driver/driver.interface";
+import {
+  ColumnsInfo,
+  Relationship,
+  SnapshotIndexInfo,
+  SnapshotTable,
+  SnapshotUniqueInfo,
+} from "../driver/driver.interface";
 import { IndexDefinition, IndexWhere } from "../decorators/index.decorator";
+import { UniqueDefinition } from "../decorators/unique.decorator";
 import { getDefaultLength, toSnakeCase } from "../utils";
 import { IndexConditionBuilder } from "../query/index-condition-builder";
 
@@ -15,6 +22,7 @@ export type Options = {
   properties: { [key: string]: Property };
   hideProperties: string[];
   indexes?: SnapshotIndexInfo[];
+  uniques?: SnapshotUniqueInfo[];
   relations: Relationship<any>[];
   tableName: string;
   hooks?: { type: string; propertyName: string }[];
@@ -139,6 +147,57 @@ function buildIndexWhere(
   return builder.build(where as any);
 }
 
+function mapUniqueDefinitions(
+  uniques: UniqueDefinition[],
+  entityName: string,
+  columnMap: IndexColumnMap,
+): SnapshotUniqueInfo[] {
+  return uniques.map((unique) => toSnapshotUnique(unique, entityName, columnMap));
+}
+
+function toSnapshotUnique(
+  unique: UniqueDefinition,
+  entityName: string,
+  columnMap: IndexColumnMap,
+): SnapshotUniqueInfo {
+  const columns = resolveUniqueColumns(unique, columnMap);
+  const uniqueName = resolveUniqueName(unique.name, entityName, columns);
+
+  return {
+    table: entityName,
+    uniqueName,
+    columnName: columns.join(","),
+  };
+}
+
+function resolveUniqueColumns(
+  unique: UniqueDefinition,
+  columnMap: IndexColumnMap,
+): string[] {
+  return unique.properties.map((propName) => resolveUniqueColumn(propName, columnMap));
+}
+
+function resolveUniqueColumn(
+  propName: string,
+  columnMap: IndexColumnMap,
+): string {
+  const mapped = columnMap[propName];
+
+  if (mapped) {
+    return mapped;
+  }
+
+  return toSnakeCase(propName);
+}
+
+function resolveUniqueName(
+  name: string,
+  entityName: string,
+  columns: string[],
+): string {
+  return `${columns.join("_")}_unique`;
+}
+
 @Service()
 export class EntityStorage {
   static instance: EntityStorage;
@@ -160,7 +219,9 @@ export class EntityStorage {
     const entityName = entity.options?.tableName || toSnakeCase(entity.target.name);
 
     const indexes: IndexDefinition[] = Metadata.get("indexes", entity.target) || [];
+    const uniques: UniqueDefinition[] = Metadata.get("uniques", entity.target) || [];
     const columnMap = buildIndexColumnMap(properties, relations);
+
     this.entities.set(entity.target, {
       properties: properties,
       hideProperties: Object.entries(properties)
@@ -168,6 +229,7 @@ export class EntityStorage {
         .map(([key]) => key),
       relations,
       indexes: mapIndexDefinitions(indexes, entityName, columnMap),
+      uniques: mapUniqueDefinitions(uniques, entityName, columnMap),
       hooks,
       tableName: entityName,
       ...entity.options,
@@ -196,6 +258,7 @@ export class EntityStorage {
       tableName: values.tableName,
       schema: values.schema || "public",
       indexes: values.indexes || [],
+      uniques: values.uniques || [],
       columns: this.snapshotColumns(values),
     };
   }

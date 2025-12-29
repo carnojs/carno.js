@@ -231,6 +231,30 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     return `ALTER TABLE \`${schema}\`.\`${tableName}\` DROP INDEX \`${index.name}\`;`;
   }
 
+  getCreateUniqueConstraint(
+    unique: { name: string; properties?: string[] },
+    schema: string | undefined,
+    tableName: string
+  ): string {
+    const properties = unique.properties || [];
+
+    if (properties.length === 0) {
+      throw new Error("Unique properties are required.");
+    }
+
+    const columns = properties.map((prop) => `\`${prop}\``).join(', ');
+
+    return `ALTER TABLE \`${schema}\`.\`${tableName}\` ADD CONSTRAINT \`${unique.name}\` UNIQUE (${columns});`;
+  }
+
+  getDropUniqueConstraint(
+    unique: { name: string },
+    schema: string | undefined,
+    tableName: string
+  ): string {
+    return `ALTER TABLE \`${schema}\`.\`${tableName}\` DROP INDEX \`${unique.name}\`;`;
+  }
+
   getAlterTableType(
     schema: string | undefined,
     tableName: string,

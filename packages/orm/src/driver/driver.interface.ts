@@ -51,6 +51,18 @@ export interface DriverInterface {
     tableName: string
   ): string;
 
+  getCreateUniqueConstraint(
+    unique: UniqueStatement,
+    schema: string | undefined,
+    tableName: string
+  ): string;
+
+  getDropUniqueConstraint(
+    unique: UniqueStatement,
+    schema: string | undefined,
+    tableName: string
+  ): string;
+
   getAlterTableType(
     schema: string | undefined,
     tableName: string,
@@ -247,6 +259,7 @@ export type SnapshotTable = {
   schema?: string;
   columns: ColumnsInfo[];
   indexes: SnapshotIndexInfo[];
+  uniques?: SnapshotUniqueInfo[];
   foreignKeys?: ForeignKeyInfo[];
 };
 
@@ -257,10 +270,21 @@ export type SnapshotIndexInfo = {
   where?: string;
 };
 
+export type SnapshotUniqueInfo = {
+  table: string;
+  uniqueName: string;
+  columnName: string;
+};
+
 export type IndexStatement = {
   name: string;
   properties?: string[];
   where?: string;
+};
+
+export type UniqueStatement = {
+  name: string;
+  properties?: string[];
 };
 
 export type ForeignKeyInfo = {

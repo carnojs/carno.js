@@ -198,6 +198,30 @@ export class BunPgDriver extends BunDriverBase implements DriverInterface {
     return this.getDropConstraint(index, schema, tableName);
   }
 
+  getCreateUniqueConstraint(
+    unique: { name: string; properties?: string[] },
+    schema: string | undefined,
+    tableName: string
+  ): string {
+    const properties = unique.properties || [];
+
+    if (properties.length === 0) {
+      throw new Error("Unique properties are required.");
+    }
+
+    const columns = properties.map((prop) => `"${prop}"`).join(', ');
+
+    return `ALTER TABLE "${schema}"."${tableName}" ADD CONSTRAINT "${unique.name}" UNIQUE (${columns});`;
+  }
+
+  getDropUniqueConstraint(
+    unique: { name: string },
+    schema: string | undefined,
+    tableName: string
+  ): string {
+    return this.getDropConstraint(unique, schema, tableName);
+  }
+
   getAlterTableType(
     schema: string | undefined,
     tableName: string,
