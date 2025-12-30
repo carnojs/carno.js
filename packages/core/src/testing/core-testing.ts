@@ -1,5 +1,6 @@
 import type {Server} from 'bun';
 import {Cheetah, ApplicationConfig} from '../Cheetah';
+import {TokenProvider, Type} from '../commons';
 import {InjectorService} from '../container/InjectorService';
 
 export type CoreTestOptions = {
@@ -16,7 +17,8 @@ export type CoreTestHarness = {
   injector: InjectorService;
   server?: Server<any>;
   port?: number;
-  resolve<T>(token: any): T;
+  resolve<T>(token: Type<T>): T;
+  resolve<T>(token: TokenProvider<T>): T;
   request(target: string | URL, init?: RequestInit): Promise<Response>;
   close(): Promise<void>;
 };
@@ -28,7 +30,9 @@ export async function createCoreTestHarness(options: CoreTestOptions = {}): Prom
   applyPlugins(app, options.plugins);
   const boot = await bootApplication(app, options);
   const injector = app.getInjector();
-  const resolve = <T>(token: any): T => injector.invoke(token);
+  const resolve = <T>(token: Type<T> | TokenProvider<T>): T => {
+    return injector.invoke(token);
+  };
   const request = async (target: string | URL, init?: RequestInit): Promise<Response> => {
     if (!boot.server) {
       throw new Error('HTTP server is not running. Enable the listen option to issue requests.');
