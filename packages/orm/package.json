@@ -1,6 +1,6 @@
 {
   "name": "@cheetah.js/orm",
-  "version": "0.1.151",
+  "version": "0.2.0",
   "description": "A simple ORM for Cheetah.js.",
   "type": "commonjs",
   "main": "dist/index.js",
@@ -37,7 +37,7 @@
     "uuid": "^9.0.1"
   },
   "peerDependencies": {
-    "@cheetah.js/core": "^0.1.90"
+    "@cheetah.js/core": "^0.2.0"
   },
   "author": "",
   "license": "MIT",

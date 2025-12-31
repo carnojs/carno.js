@@ -1,6 +1,6 @@
 {
   "name": "@cheetah.js/schedule",
-  "version": "0.1.115",
+  "version": "0.2.0",
   "description": "Schedule module for Cheetah framework (Bun) ⏰",
   "type": "commonjs",
   "main": "dist/index.js",
@@ -25,7 +25,7 @@
     }
   },
   "peerDependencies": {
-    "@cheetah.js/core": "^0.1.90"
+    "@cheetah.js/core": "^0.2.0"
   },
   "author": "",
   "license": "MIT",
