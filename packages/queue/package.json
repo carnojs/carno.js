@@ -1,6 +1,6 @@
 {
   "name": "@cheetah.js/queue",
-  "version": "0.1.148",
+  "version": "0.1.151",
   "description": "Queue module for Cheetah framework with BullMQ support",
   "type": "commonjs",
   "main": "dist/index.js",
