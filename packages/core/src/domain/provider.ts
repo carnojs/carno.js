@@ -1,7 +1,8 @@
 
 import { ProviderType } from "./provider-type";
 import { ProviderScope } from "./provider-scope";
-import { TokenProvider, Type, methodsOf } from "..";
+import { TokenProvider, Type } from "../commons/registries/ProviderControl";
+import { methodsOf } from "../utils/methodsOf";
 import { isClass, classOf } from "../utils";
 
 export type ProviderHookCallback<T = any> = (
