@@ -1,4 +1,4 @@
-import { ApplicationConfig } from "../Cheetah";
+import type { ApplicationConfig } from "../Cheetah";
 import { Injectable } from "../commons/decorators/Injectable.decorator";
 import { registerProvider } from "../commons";
 import { GlobalProvider, TokenProvider, } from "../commons/registries/ProviderControl";
