@@ -8,53 +8,71 @@ export class ModelTransformer {
   constructor(private entityStorage: EntityStorage) {}
 
   transform<T>(model: any, statement: Statement<any>, data: any): T {
-    const instanceMap = this.createInstances(model, statement, data);
+    const { instanceMap, cachedAliases } = this.createInstances(model, statement, data);
     const optionsMap = this.buildOptionsMap(instanceMap);
 
-    this.populateProperties(data, instanceMap, optionsMap);
+    this.populateProperties(data, instanceMap, optionsMap, cachedAliases);
     this.linkJoinedEntities(statement, instanceMap, optionsMap);
-    this.resetChangedValues(instanceMap);
-    this.registerInstancesInIdentityMap(instanceMap);
+    this.resetChangedValues(instanceMap, cachedAliases);
+    this.registerInstancesInIdentityMap(instanceMap, cachedAliases);
 
     return instanceMap[statement.alias!] as T;
   }
 
-  private registerInstancesInIdentityMap(instanceMap: Record<string, any>): void {
-    Object.values(instanceMap).forEach(instance => {
+  private registerInstancesInIdentityMap(instanceMap: Record<string, any>, cachedAliases: Set<string>): void {
+    Object.entries(instanceMap).forEach(([alias, instance]) => {
+      // Skip registering entities that were already in cache
+      if (cachedAliases.has(alias)) {
+        return;
+      }
       IdentityMapIntegration.registerEntity(instance);
     });
   }
 
-  private createInstances(model: any, statement: Statement<any>, data: any): Record<string, any> {
+  private createInstances(model: any, statement: Statement<any>, data: any): { instanceMap: Record<string, any>; cachedAliases: Set<string> } {
+    const cachedAliases = new Set<string>();
     const primaryKey = this.extractPrimaryKeyFromData(model, statement.alias!, data);
-    const instance = this.createInstance(model, primaryKey);
+    const { instance, wasCached } = this.createInstance(model, primaryKey);
+
+    if (wasCached) {
+      cachedAliases.add(statement.alias!);
+    }
+
     const instanceMap: Record<string, any> = {
       [statement.alias!]: instance,
     };
 
     if (statement.join) {
-      this.addJoinedInstances(statement, instanceMap, data);
+      this.addJoinedInstances(statement, instanceMap, data, cachedAliases);
     }
 
-    return instanceMap;
+    return { instanceMap, cachedAliases };
   }
 
-  private createInstance(model: any, primaryKey?: any): any {
-    return IdentityMapIntegration.getOrCreateInstance(
-      model,
-      primaryKey,
-      () => {
-        const instance = new model();
-        instance.$_isPersisted = true;
-        return instance;
-      }
-    );
+  private createInstance(model: any, primaryKey?: any): { instance: any; wasCached: boolean } {
+    const cached = IdentityMapIntegration.getEntity(model, primaryKey);
+
+    if (cached) {
+      return { instance: cached, wasCached: true };
+    }
+
+    const instance = new model();
+    instance.$_isPersisted = true;
+
+    // Note: Registration happens later in registerInstancesInIdentityMap after properties are populated
+
+    return { instance, wasCached: false };
   }
 
-  private addJoinedInstances(statement: Statement<any>, instanceMap: Record<string, any>, data: any): void {
+  private addJoinedInstances(statement: Statement<any>, instanceMap: Record<string, any>, data: any, cachedAliases: Set<string>): void {
     statement.join!.forEach(join => {
       const primaryKey = this.extractPrimaryKeyFromData(join.joinEntity!, join.joinAlias, data);
-      const joinInstance = this.createInstance(join.joinEntity!, primaryKey);
+      const { instance: joinInstance, wasCached } = this.createInstance(join.joinEntity!, primaryKey);
+
+      if (wasCached) {
+        cachedAliases.add(join.joinAlias);
+      }
+
       instanceMap[join.joinAlias] = joinInstance;
     });
   }
@@ -113,12 +131,18 @@ export class ModelTransformer {
     data: any,
     instanceMap: Record<string, any>,
     optionsMap: Map<string, Options>,
+    cachedAliases: Set<string>,
   ): void {
     Object.entries(data).forEach(([key, value]) => {
       const { alias, propertyName } = this.parseColumnKey(key);
       const entity = instanceMap[alias];
 
       if (!entity) {
+        return;
+      }
+
+      // Skip populating properties for cached entities to preserve in-memory changes
+      if (cachedAliases.has(alias)) {
         return;
       }
 
@@ -230,8 +254,13 @@ export class ModelTransformer {
     return existingArray ? [...existingArray, newItem] : [newItem];
   }
 
-  private resetChangedValues(instanceMap: Record<string, any>): void {
-    Object.values(instanceMap).forEach(instance => {
+  private resetChangedValues(instanceMap: Record<string, any>, cachedAliases: Set<string>): void {
+    Object.entries(instanceMap).forEach(([alias, instance]) => {
+      // Skip resetting changed values for cached entities to preserve in-memory changes
+      if (cachedAliases.has(alias)) {
+        return;
+      }
+
       const currentValues = {};
 
       for (const key in instance) {

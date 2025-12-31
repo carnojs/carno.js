@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { Type } from '../commons/registries/ProviderControl';
 import { ROUTE_PARAM } from '../constants';
-import { classOf } from '../utils';
+import { classOf } from '../utils/classOf';
 
 /**
 * Metadata key
