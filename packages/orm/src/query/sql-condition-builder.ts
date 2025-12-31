@@ -2,7 +2,7 @@ import { FilterQuery, Relationship, Statement } from '../driver/driver.interface
 import { EntityStorage, Options } from '../domain/entities';
 import { ValueObject } from '../common/value-object';
 import { extendsFrom } from '../utils';
-import { escapeString, escapeLikePattern } from '../utils/sql-escape';
+import { escapeString } from '../utils/sql-escape';
 import { SqlSubqueryBuilder } from './sql-subquery-builder';
 
 type ApplyJoinCallback = (relationship: Relationship<any>, value: FilterQuery<any>, alias: string) => string;
