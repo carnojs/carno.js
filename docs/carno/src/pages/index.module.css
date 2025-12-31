@@ -5,11 +5,44 @@
   overflow: hidden;
 }
 
+.heroBanner::before {
+  content: '';
+  position: absolute;
+  width: 520px;
+  height: 520px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(255, 179, 71, 0.35), rgba(255, 255, 255, 0));
+  top: -220px;
+  right: -160px;
+  pointer-events: none;
+}
+
+.heroBanner::after {
+  content: '';
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 70% 70%, rgba(0, 152, 255, 0.18), rgba(255, 255, 255, 0));
+  bottom: -220px;
+  left: -140px;
+  pointer-events: none;
+}
+
 .heroContent {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 2.5rem;
+}
+
+.heroKicker {
+  font-size: 0.85rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #7a4b00;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
 }
 
 .heroTitle {
@@ -25,8 +58,37 @@
   color: #4a4a4a;
 }
 
+.heroHighlights {
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.6rem;
+  color: #2a2a2a;
+  font-weight: 600;
+}
+
+.heroHighlights li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.heroHighlights li::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, #ff8b2c, #ffcb5c);
+  box-shadow: 0 0 0 4px rgba(255, 139, 44, 0.18);
+}
+
 [data-theme='dark'] .heroBanner {
   background: radial-gradient(1200px circle at 10% -20%, #2d1a05 0%, #1a1a1a 70%);
+}
+
+[data-theme='dark'] .heroKicker {
+  color: #ffcd7a;
 }
 
 [data-theme='dark'] .heroTitle {
@@ -37,20 +99,21 @@
   color: #e3e3e3;
 }
 
-.heroImageWrap {
+[data-theme='dark'] .heroHighlights {
+  color: #f1f1f1;
+}
+
+.heroTitleRow {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 240px;
-  height: 240px;
-  background: #ffffff;
-  border-radius: 32px;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.12);
+  gap: 1rem;
 }
 
 .heroImage {
-  width: 180px;
-  height: 180px;
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.2));
 }
 
 .buttons {
@@ -70,14 +133,21 @@
     text-align: center;
   }
 
-  .heroImageWrap {
-    width: 200px;
-    height: 200px;
+  .heroHighlights {
+    justify-items: center;
+  }
+
+  .heroHighlights li {
+    justify-content: center;
+  }
+
+  .heroTitleRow {
+    justify-content: center;
   }
 
   .heroImage {
-    width: 140px;
-    height: 140px;
+    width: 60px;
+    height: 60px;
   }
 
   .buttons {

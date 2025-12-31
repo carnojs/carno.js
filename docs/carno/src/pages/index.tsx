@@ -1,4 +1,4 @@
-﻿import type {ReactNode} from 'react';
+﻿﻿import type {ReactNode} from 'react';
 import clsx from 'clsx';
 import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
@@ -15,10 +15,23 @@ function HomepageHeader() {
       <div className="container">
         <div className={styles.heroContent}>
           <div>
-            <Heading as="h1" className={styles.heroTitle}>
-              {siteConfig.title}
-            </Heading>
+            <p className={styles.heroKicker}>Performance-first framework + ORM for Bun</p>
+            <div className={styles.heroTitleRow}>
+              <img
+                className={styles.heroImage}
+                src={useBaseUrl('/img/carno.png')}
+                alt="Carno.js logo"
+              />
+              <Heading as="h1" className={styles.heroTitle}>
+                {siteConfig.title}
+              </Heading>
+            </div>
             <p className={styles.heroSubtitle}>{siteConfig.tagline}</p>
+            <ul className={styles.heroHighlights}>
+              <li>Zero-config routing and DI</li>
+              <li>Type-safe ORM with smart identity map</li>
+              <li>Fast builds, fast runtime</li>
+            </ul>
             <div className={styles.buttons}>
               <Link className="button button--primary button--lg" to="/docs/intro">
                 Read the docs
@@ -27,13 +40,6 @@ function HomepageHeader() {
                 Install
               </Link>
             </div>
-          </div>
-          <div className={styles.heroImageWrap}>
-            <img
-              className={styles.heroImage}
-              src={useBaseUrl('/img/carno.png')}
-              alt="Carno.js logo"
-            />
           </div>
         </div>
       </div>
