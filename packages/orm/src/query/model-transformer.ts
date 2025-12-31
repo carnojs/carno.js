@@ -73,11 +73,15 @@ export class ModelTransformer {
 
   private createInstance(model: any, primaryKey?: any): { instance: any; wasCached: boolean } {
     if (primaryKey !== undefined && primaryKey !== null) {
-      const cached = IdentityMapIntegration.getEntity(model, primaryKey);
-
-      if (cached) {
-        return { instance: cached, wasCached: true };
-      }
+      return IdentityMapIntegration.getOrCreate(
+        model,
+        primaryKey,
+        () => {
+          const newInstance = new model();
+          newInstance.$_isPersisted = true;
+          return newInstance;
+        },
+      );
     }
 
     const instance = new model();

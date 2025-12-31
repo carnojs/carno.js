@@ -47,7 +47,26 @@ describe('IdentityMapIntegration', () => {
       expect(() => IdentityMapIntegration.registerEntity(user)).not.toThrow();
     });
 
-    test('getOrCreateInstance should create instance when no context exists', () => {
+    test('getOrCreate should create instance when no context exists', () => {
+      // Given
+      const factory = () => {
+        const user = new User();
+        user.id = 1;
+        user.email = 'factory@test.com';
+        return user;
+      };
+
+      // When
+      const { instance, wasCached } = IdentityMapIntegration.getOrCreate(User, 1, factory);
+
+      // Then
+      expect(instance).toBeInstanceOf(User);
+      expect(instance.id).toBe(1);
+      expect(instance.email).toBe('factory@test.com');
+      expect(wasCached).toBe(false);
+    });
+
+    test('getOrCreateInstance (deprecated) should return instance directly', () => {
       // Given
       const factory = () => {
         const user = new User();
@@ -62,7 +81,6 @@ describe('IdentityMapIntegration', () => {
       // Then
       expect(result).toBeInstanceOf(User);
       expect(result.id).toBe(1);
-      expect(result.email).toBe('factory@test.com');
     });
   });
 
@@ -111,7 +129,7 @@ describe('IdentityMapIntegration', () => {
       });
     });
 
-    test('getOrCreateInstance should return cached entity if exists', async () => {
+    test('getOrCreate should return cached entity if exists', async () => {
       await identityMapContext.run(async () => {
         // Given
         const existingUser = new User();
@@ -127,15 +145,16 @@ describe('IdentityMapIntegration', () => {
         };
 
         // When
-        const result = IdentityMapIntegration.getOrCreateInstance(User, 1, factory);
+        const { instance, wasCached } = IdentityMapIntegration.getOrCreate(User, 1, factory);
 
         // Then
-        expect(result).toBe(existingUser);
-        expect(result.email).toBe('existing@test.com');
+        expect(instance).toBe(existingUser);
+        expect(instance.email).toBe('existing@test.com');
+        expect(wasCached).toBe(true);
       });
     });
 
-    test('getOrCreateInstance should create new instance if not cached', async () => {
+    test('getOrCreate should create new instance if not cached', async () => {
       await identityMapContext.run(async () => {
         // Given
         const factory = () => {
@@ -146,22 +165,20 @@ describe('IdentityMapIntegration', () => {
         };
 
         // When
-        const result = IdentityMapIntegration.getOrCreateInstance(User, 1, factory);
+        const { instance, wasCached } = IdentityMapIntegration.getOrCreate(User, 1, factory);
 
         // Then
-        expect(result.id).toBe(1);
-        expect(result.email).toBe('new@test.com');
+        expect(instance.id).toBe(1);
+        expect(instance.email).toBe('new@test.com');
+        expect(wasCached).toBe(false);
 
-        // Note: Entity is not automatically registered by getOrCreateInstance
-        // It will be registered later by ModelTransformer after population
-        // To verify registration works, we need to manually register it
-        IdentityMapIntegration.registerEntity(result);
+        // Entity IS automatically registered by getOrCreate
         const retrieved = IdentityMapIntegration.getEntity(User, 1);
-        expect(retrieved).toBe(result);
+        expect(retrieved).toBe(instance);
       });
     });
 
-    test('getOrCreateInstance should call factory only when entity not cached', async () => {
+    test('getOrCreate should call factory only when entity not cached', async () => {
       await identityMapContext.run(async () => {
         // Given
         const existingUser = new User();
@@ -178,7 +195,7 @@ describe('IdentityMapIntegration', () => {
         };
 
         // When
-        IdentityMapIntegration.getOrCreateInstance(User, 1, factory);
+        IdentityMapIntegration.getOrCreate(User, 1, factory);
 
         // Then
         expect(factoryCalled).toBe(false);
