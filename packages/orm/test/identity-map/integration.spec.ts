@@ -160,7 +160,7 @@ describe('Identity Map Integration', () => {
           { load: ['user'], loadStrategy: 'joined' }
         );
         const user = await User.findOne({ id: 1 });
-        console.log(post?.user, user);
+        console.log(post?.user, '====lu', user, 'lucas');
         // Then
         expect(post?.user).toBe(user);
       });
