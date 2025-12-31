@@ -29,10 +29,10 @@ Cheetah.js is built from the ground up for the **Bun** runtime. It focuses on ra
 
 | Package | Description |
 | :--- | :--- |
-| [**@cheetah.js/core**](./packages/core) | Core framework: Routing, DI, Middleware, Lifecycle. |
-| [**@cheetah.js/orm**](./packages/orm) | Lightweight ORM for PostgreSQL and MySQL. |
-| [**@cheetah.js/queue**](./packages/queue) | Background job processing via BullMQ. |
-| [**@cheetah.js/schedule**](./packages/schedule) | Cron, Interval, and Timeout task scheduling. |
+| [**@cheetah.js/core**](https://mlusca.github.io/cheetah.js/docs/core/overview) | Core framework: Routing, DI, Middleware, Lifecycle. |
+| [**@cheetah.js/orm**](https://mlusca.github.io/cheetah.js/docs/orm/overview) | Lightweight ORM for PostgreSQL and MySQL. |
+| [**@cheetah.js/queue**](https://mlusca.github.io/cheetah.js/docs/queue/overview) | Background job processing via BullMQ. |
+| [**@cheetah.js/schedule**](https://mlusca.github.io/cheetah.js/docs/schedule/overview) | Cron, Interval, and Timeout task scheduling. |
 
 ## Quick Start
 

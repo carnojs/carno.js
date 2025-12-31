@@ -3,6 +3,8 @@ name: Deploy Docusaurus (docs/cheetah) to GitHub Pages
 on:
   push:
     branches: ["main", "master"]
+    paths:
+      - 'docs/cheetah/**'
   workflow_dispatch:
 
 permissions:
