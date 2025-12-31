@@ -1,43 +1,32 @@
 import { identityMapContext } from './identity-map-context';
 
 export class IdentityMapIntegration {
-  /**
-   * @deprecated Use getOrCreate instead for better type safety
-   */
   static getOrCreateInstance<T>(
     model: new () => T,
     primaryKey: any,
     factory: () => T
   ): T {
-    return this.getOrCreate(model, primaryKey, factory).instance;
-  }
-
-  static getOrCreate<T>(
-    model: new () => T,
-    primaryKey: any,
-    factory: () => T
-  ): { instance: T; wasCached: boolean } {
     const identityMap = identityMapContext.getIdentityMap();
 
     if (!identityMap) {
-      return { instance: factory(), wasCached: false };
+      return factory();
     }
 
     if (primaryKey === undefined || primaryKey === null) {
-      return { instance: factory(), wasCached: false };
+      return factory();
     }
 
     const cached = identityMap.get<T>(model, primaryKey);
 
     if (cached) {
-      return { instance: cached, wasCached: true };
+      return cached;
     }
 
     const instance = factory();
 
     identityMap.setByKey<any>(model, primaryKey, instance);
 
-    return { instance, wasCached: false };
+    return instance;
   }
 
   static registerEntity<T extends object>(entity: T): void {

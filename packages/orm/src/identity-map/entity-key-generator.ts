@@ -1,6 +1,12 @@
 import { EntityStorage } from '../domain/entities';
 
 export class EntityKeyGenerator {
+  private entityStorage: EntityStorage;
+
+  constructor() {
+    this.entityStorage = EntityStorage.getInstance();
+  }
+
   generate(entityClass: Function, pk: any): string {
     const className = this.getClassName(entityClass);
     const keyValue = this.serializePrimaryKey(pk);
@@ -21,7 +27,7 @@ export class EntityKeyGenerator {
   }
 
   private getPrimaryKeyName(entityClass: Function): string {
-    const options = EntityStorage.getInstance().get(entityClass);
+    const options = this.entityStorage.get(entityClass);
 
     if (!options) {
       return 'id';
