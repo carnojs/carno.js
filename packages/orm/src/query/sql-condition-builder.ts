@@ -315,8 +315,6 @@ export class SqlConditionBuilder<T> {
     const negate = operator === '$nexists';
     const conditions: string[] = [];
 
-    console.log('[buildTopLevelExistsCondition] operator:', operator, 'value:', value);
-
     for (const [relationshipKey, filters] of Object.entries(value)) {
       const condition = this.buildExistsCondition(
         relationshipKey,
@@ -326,12 +324,10 @@ export class SqlConditionBuilder<T> {
         negate,
       );
 
-      console.log('[buildTopLevelExistsCondition] Generated condition:', condition);
       conditions.push(condition);
     }
 
     const result = this.wrapWithLogicalOperator(conditions, 'AND');
-    console.log('[buildTopLevelExistsCondition] Final result:', result);
     return result;
   }
 
