@@ -22,6 +22,12 @@ export class IdentityMap {
     this.registry.set(key, entity);
   }
 
+  setByKey<T extends object>(entityClass: Function, pk: any, entity: T): void {
+    const key = this.keyGenerator.generate(entityClass, pk);
+
+    this.registry.set(key, entity);
+  }
+
   has(entityClass: Function, pk: any): boolean {
     const key = this.keyGenerator.generate(entityClass, pk);
 
@@ -38,3 +44,4 @@ export class IdentityMap {
     this.registry.clear();
   }
 }
+

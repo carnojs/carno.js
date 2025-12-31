@@ -1,35 +1,50 @@
-# Cheetah.js
+<p align="center">
+  <img src="cheetah.png" width="200" alt="Cheetah.js Logo" />
+</p>
 
-A fast, modern, and lightweight object-oriented framework for Bun with TypeScript support.
+<h1 align="center">Cheetah.js</h1>
 
-## Features
+<p align="center">
+  <strong>A fast, modern, and lightweight object-oriented framework for Bun with TypeScript support.</strong>
+</p>
 
-- Built for Bun runtime
-- Decorator-based architecture
-- Dependency injection with multiple scopes
-- Built-in validation with class-validator
-- Flexible middleware system
-- Integrated logging with Pino
-- Built-in caching system
-- TypeScript first
+<p align="center">
+  <a href="https://mlusca.github.io/cheetah.js">View Documentation</a>
+</p>
 
-## Packages
+---
 
-This monorepo contains the following packages:
+## Why Cheetah.js?
 
-- **[@cheetah.js/core](./packages/core)** - Core framework with routing, DI, and middleware
-- **[@cheetah.js/orm](./packages/orm)** - Lightweight ORM with migrations support
-- **[@cheetah.js/schedule](./packages/schedule)** - Task scheduling with cron support
+Cheetah.js is built from the ground up for the **Bun** runtime. It focuses on raw performance, modularity, and a developer experience that feels natural for TypeScript engineers.
 
-## Installation
+- 🚀 **Bun Native**: Leverages Bun's high-performance HTTP server and native APIs.
+- 🧱 **Plugin-Based Architecture**: Highly modular. Build your app as a collection of independent, reusable modules.
+- 💉 **Powerful DI**: Robust Dependency Injection container with multiple scopes (Singleton, Request, Instance).
+- 🛠️ **Performance-First ORM**: A Data Mapper ORM that uses native Bun drivers directly, avoiding heavy query builders like Knex.js.
+- ⚡ **Zero-Overhead References**: Handle circular dependencies between entities with zero runtime cost.
+- 🔍 **Integrated Validation**: Automatic request validation using `class-validator` and `class-transformer`.
+
+## Ecosystem
+
+| Package | Description |
+| :--- | :--- |
+| [**@cheetah.js/core**](./packages/core) | Core framework: Routing, DI, Middleware, Lifecycle. |
+| [**@cheetah.js/orm**](./packages/orm) | Lightweight ORM for PostgreSQL and MySQL. |
+| [**@cheetah.js/queue**](./packages/queue) | Background job processing via BullMQ. |
+| [**@cheetah.js/schedule**](./packages/schedule) | Cron, Interval, and Timeout task scheduling. |
+
+## Quick Start
+
+### 1. Installation
 
 ```bash
 bun install @cheetah.js/core
 ```
 
-### TypeScript Configuration
+### 2. Configuration
 
-Your `tsconfig.json` must include:
+Ensure your `tsconfig.json` has decorators enabled:
 
 ```json
 {
@@ -40,299 +55,59 @@ Your `tsconfig.json` must include:
 }
 ```
 
-## Quick Start
+### 3. Create your Application
 
 ```typescript
-import { Cheetah } from '@cheetah.js/core';
-
-new Cheetah().listen();
-```
-
-## Controllers and Routes
-
-Controllers handle HTTP requests. Use decorators to define routes:
-
-```typescript
-import { Controller, Get, Post, Param, Body } from '@cheetah.js/core';
+import { Cheetah, Controller, Get } from '@cheetah.js/core';
 
 @Controller()
-export class UserController {
+class AppController {
   @Get('/')
-  list() {
-    return { users: [] };
-  }
-
-  @Get(':id')
-  show(@Param('id') id: string) {
-    return { id, name: 'User' };
-  }
-
-  @Post()
-  create(@Body() data: CreateUserDto) {
-    return { message: 'User created' };
+  hello() {
+    return { message: 'Hello from Cheetah.js!' };
   }
 }
 
 new Cheetah({
-  providers: [UserController]
-}).listen();
+  providers: [AppController]
+}).listen(3000);
 ```
 
-### Nested Controllers
+## Modularity & Clean Code
 
-Organize routes with nested controllers:
+Cheetah.js encourages you to organize your logic into **Plugins**. This keeps your features decoupled and easy to test.
 
-```typescript
-@Controller({
-  children: [UserController, PostController]
-})
-export class ApiController {
-  @Get('/')
-  index() {
-    return { api: 'v1' };
-  }
-}
-```
+```ts
+// user.module.ts
+export const UserModule = new Cheetah({
+  providers: [UserService, UserController],
+  exports: [UserService]
+});
 
-Middleware from parent controllers are inherited by children (except route-specific middleware).
+// index.ts
+import { UserModule } from './user.module';
 
-## Validation
-
-Automatic request validation using class-validator:
-
-```typescript
-import { IsString, IsEmail, MinLength } from 'class-validator';
-import { Controller, Post, Body } from '@cheetah.js/core';
-
-export class CreateUserDto {
-  @IsString()
-  @MinLength(3)
-  name: string;
-
-  @IsEmail()
-  email: string;
-}
-
-@Controller()
-export class UserController {
-  @Post()
-  create(@Body() user: CreateUserDto) {
-    return `Hello ${user.name}!`;
-  }
-}
-```
-
-Configure validator options:
-
-```typescript
-new Cheetah({
-  validator: {
-    whitelist: true,
-    forbidNonWhitelisted: true
-  }
-}).listen();
-```
-
-## Dependency Injection
-
-Define services with different scopes:
-
-```typescript
-import { Service } from '@cheetah.js/core';
-
-@Service()
-export class UserService {
-  findAll() {
-    return [];
-  }
-}
-
-@Controller()
-export class UserController {
-  constructor(private userService: UserService) {}
-
-  @Get()
-  list() {
-    return this.userService.findAll();
-  }
-}
-```
-
-### Available Scopes
-
-- **Singleton** (default) - Single instance
-- **Request** - New instance per request
-- **Instance** - New instance every time
-
-```typescript
-@Service({ scope: 'request' })
-export class RequestService {
-  // New instance per HTTP request
-}
-```
-
-## Middleware
-
-Process requests before they reach routes:
-
-```typescript
-import { Service, CheetahMiddleware, Context, CheetahClosure } from '@cheetah.js/core';
-
-@Service()
-export class AuthMiddleware implements CheetahMiddleware {
-  handle(context: Context, next: CheetahClosure) {
-    const token = context.headers.authorization;
-
-    if (!token) {
-      throw new HttpException('Unauthorized', 401);
-    }
-
-    next();
-  }
-}
-
-@Middleware(AuthMiddleware)
-@Controller()
-export class ProtectedController {
-  @Get('/')
-  index() {
-    return 'Protected route';
-  }
-}
-```
-
-Apply middleware to specific routes:
-
-```typescript
-@Controller()
-export class UserController {
-  @Middleware(AuthMiddleware)
-  @Get('/profile')
-  profile() {
-    return 'User profile';
-  }
-}
-```
-
-## Logging
-
-Built-in logger service using Pino:
-
-```typescript
-import { Controller, LoggerService } from '@cheetah.js/core';
-
-@Controller()
-export class HomeController {
-  constructor(private logger: LoggerService) {}
-
-  @Get('/')
-  index() {
-    this.logger.info('Request received');
-    return 'Hello World!';
-  }
-}
-
-new Cheetah({
-  logger: { level: 'info' }
-}).listen();
-```
-
-Custom logger:
-
-```typescript
 new Cheetah()
-  .useLogger(CustomLoggerService)
-  .listen();
+  .use(UserModule)
+  .listen(3000);
 ```
 
-## Caching
+## Documentation
 
-Simple caching with BentoCache:
+For full guides, API references, and advanced usage, visit our documentation site:
 
-```typescript
-import { Service, CacheService } from '@cheetah.js/core';
-
-@Service()
-export class UserService {
-  constructor(private cache: CacheService) {}
-
-  async getUser(id: string) {
-    const cached = await this.cache.get(`user:${id}`);
-
-    if (cached) {
-      return cached;
-    }
-
-    const user = { id, name: 'John' };
-    await this.cache.set(`user:${id}`, user, { ttl: 3600 });
-
-    return user;
-  }
-}
-```
-
-Custom cache driver:
-
-```typescript
-import { CacheService, Service } from '@cheetah.js/core';
-
-@Service({ provide: CacheService })
-export class RedisCache implements CacheService {
-  async get(key: string) {
-    // Redis implementation
-  }
-
-  async set(key: string, value: any, options?: any) {
-    // Redis implementation
-  }
-}
-```
-
-## Available Decorators
-
-### Route Decorators
-- `@Controller()` - Define controller class
-- `@Get()` - HTTP GET method
-- `@Post()` - HTTP POST method
-- `@Put()` - HTTP PUT method
-- `@Patch()` - HTTP PATCH method
-- `@Delete()` - HTTP DELETE method
-
-### Parameter Decorators
-- `@Param()` - Route parameters
-- `@Query()` - Query string parameters
-- `@Body()` - Request body
-- `@Header()` - Request headers
-- `@Context()` - Full request context
-
-### Other Decorators
-- `@Service()` - Define injectable service
-- `@Middleware()` - Apply middleware
-
-## ORM
-
-Cheetah.js includes a lightweight ORM with PostgreSQL support:
-
-```bash
-bun install @cheetah.js/orm
-```
-
-[View ORM documentation](./packages/orm/README.md)
-
-## Scheduling
-
-Schedule tasks with cron expressions:
-
-```bash
-bun install @cheetah.js/schedule
-```
-
-[View Schedule documentation](./packages/schedule/README.md)
+👉 **[https://mlusca.github.io/cheetah.js](https://mlusca.github.io/cheetah.js)**
 
 ## Contributing
 
-Contributions are welcome! Please open issues and submit pull requests.
+Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
 ## License
 
-MIT
+Distributed under the MIT License. See `LICENSE` for more information.

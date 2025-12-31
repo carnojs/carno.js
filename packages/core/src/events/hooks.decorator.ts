@@ -1,5 +1,5 @@
 import { CONTROLLER_EVENTS } from "../constants"
-import { Metadata } from "../domain"
+import { Metadata } from "../domain/Metadata"
 import { OnEvent, EventType } from "./on-event"
 
 export function OnApplicationInit(priority: number = 0): MethodDecorator {

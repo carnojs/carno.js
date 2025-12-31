@@ -24,6 +24,8 @@ export class IdentityMapIntegration {
 
     const instance = factory();
 
+    identityMap.setByKey<any>(model, primaryKey, instance);
+
     return instance;
   }
 
@@ -50,3 +52,4 @@ export class IdentityMapIntegration {
     return identityMap.get(entityClass, primaryKey);
   }
 }
+
