@@ -16,11 +16,25 @@
   font-size: clamp(2.5rem, 2rem + 2vw, 3.5rem);
   line-height: 1.05;
   margin-bottom: 0.75rem;
+  color: #1a1a1a;
 }
 
 .heroSubtitle {
   font-size: 1.1rem;
   max-width: 34rem;
+  color: #4a4a4a;
+}
+
+[data-theme='dark'] .heroBanner {
+  background: radial-gradient(1200px circle at 10% -20%, #2d1a05 0%, #1a1a1a 70%);
+}
+
+[data-theme='dark'] .heroTitle {
+  color: #ffffff;
+}
+
+[data-theme='dark'] .heroSubtitle {
+  color: #e3e3e3;
 }
 
 .heroImageWrap {
