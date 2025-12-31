@@ -23,6 +23,14 @@ const config: ConnectionSettings = {
 export default config;
 ```
 
+## Installation
+
+To use the migration commands, you need to install the Carno CLI:
+
+```bash
+bun install -d @carno.js/cli
+```
+
 ## CLI Commands
 
 Carno.js provides a built-in CLI via `bunx carno` to manage your migrations.

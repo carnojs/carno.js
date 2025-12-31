@@ -11,10 +11,10 @@ const config: Config = {
     v4: true,
   },
 
-  url: 'https://mlusca.github.io',
+  url: 'https://carnojs.github.io',
   baseUrl: '/carno.js/',
 
-  organizationName: 'mlusca',
+  organizationName: 'carnojs',
   projectName: 'carno.js',
 
   onBrokenLinks: 'throw',
@@ -43,7 +43,7 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/mlusca/carno.js/tree/main/docs/carno/',
+          editUrl: 'https://github.com/carnojs/carno.js/tree/main/docs/carno/',
         },
         blog: false,
         theme: {
@@ -72,7 +72,7 @@ const config: Config = {
           label: 'Docs',
         },
         {
-          href: 'https://github.com/mlusca/carno.js',
+          href: 'https://github.com/carnojs/carno.js',
           label: 'GitHub',
           position: 'right',
         },
@@ -95,7 +95,7 @@ const config: Config = {
           items: [
             {
               label: 'GitHub',
-              href: 'https://github.com/mlusca/carno.js',
+              href: 'https://github.com/carnojs/carno.js',
             },
           ],
         },

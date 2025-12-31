@@ -27,7 +27,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com:mlusca/carno.js.git"
+    "url": "git+ssh://git@github.com:carnojs/carno.js.git"
   },
   "peerDependencies": {
     "@carno.js/core": "file://../core"

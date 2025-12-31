@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <a href="https://mlusca.github.io/carno.js">View Documentation</a>
+  <a href="https://carnojs.github.io/carno.js">View Documentation</a>
 </p>
 
 ---
@@ -29,10 +29,11 @@ Carno.js is built from the ground up for the **Bun** runtime. It focuses on raw 
 
 | Package | Description |
 | :--- | :--- |
-| [**@carno.js/core**](https://mlusca.github.io/carno.js/docs/core/overview) | Core framework: Routing, DI, Middleware, Lifecycle. |
-| [**@carno.js/orm**](https://mlusca.github.io/carno.js/docs/orm/overview) | Lightweight ORM for PostgreSQL and MySQL. |
-| [**@carno.js/queue**](https://mlusca.github.io/carno.js/docs/queue/overview) | Background job processing via BullMQ. |
-| [**@carno.js/schedule**](https://mlusca.github.io/carno.js/docs/schedule/overview) | Cron, Interval, and Timeout task scheduling. |
+| [**@carno.js/core**](https://carnojs.github.io/carno.js/docs/core/overview) | Core framework: Routing, DI, Middleware, Lifecycle. |
+| [**@carno.js/orm**](https://carnojs.github.io/carno.js/docs/orm/overview) | Lightweight ORM for PostgreSQL and MySQL. |
+| [**@carno.js/queue**](https://carnojs.github.io/carno.js/docs/queue/overview) | Background job processing via BullMQ. |
+| [**@carno.js/schedule**](https://carnojs.github.io/carno.js/docs/schedule/overview) | Cron, Interval, and Timeout task scheduling. |
+| [**@carno.js/cli**](https://carnojs.github.io/carno.js/docs/orm/migrations#installation) | Command Line Interface for migrations and tools. |
 
 ## Quick Start
 
@@ -96,7 +97,7 @@ new Carno()
 
 For full guides, API references, and advanced usage, visit our documentation site:
 
-👉 **[https://mlusca.github.io/carno.js](https://mlusca.github.io/carno.js)**
+👉 **[https://carnojs.github.io/carno.js](https://carnojs.github.io/carno.js)**
 
 ## Contributing
 

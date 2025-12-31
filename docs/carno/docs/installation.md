@@ -64,10 +64,11 @@ You should see: `Server running on port 3000`.
 
 ## Step 5: Add Modules (Optional)
 
-Carno.js is modular. You can add ORM, Queue, and Schedule capabilities as plugins.
+Carno.js is modular. You can add ORM, Queue, Schedule, and CLI capabilities as plugins or dev tools.
 
 ```bash
 bun install @carno.js/orm @carno.js/queue @carno.js/schedule
+bun install -d @carno.js/cli
 ```
 
 Update your `src/index.ts` to use them:
