@@ -33,23 +33,29 @@ export class SqlBuilder<T> {
   private updatedColumns: any[] = [];
   private originalColumns: any[] = [];
   private conditionBuilder!: SqlConditionBuilder<T>;
-  private modelTransformer!: ModelTransformer;
   private columnManager!: SqlColumnManager;
-  private joinManager!: SqlJoinManager<T>;
   private cacheManager?: QueryCacheManager;
+
+  // Lazy initialized - created only when joins/transforms are needed
+  private _modelTransformer?: ModelTransformer;
+  private _joinManager?: SqlJoinManager<T>;
+
+  // Pre-bound callback to avoid closure allocation
+  private readonly boundGetAlias: (tableName: string) => string;
 
   constructor(model: new () => T) {
     const orm = Orm.getInstance();
     this.driver = orm.driverInstance;
     this.logger = orm.logger;
     this.entityStorage = EntityStorage.getInstance();
-
-    this.initializeCacheManager();
+    this.cacheManager = orm.queryCacheManager;
 
     this.getEntity(model);
     this.statements.hooks = this.entity.hooks;
 
-    this.modelTransformer = new ModelTransformer(this.entityStorage);
+    // Pre-bind once
+    this.boundGetAlias = this.getAlias.bind(this);
+
     this.columnManager = new SqlColumnManager(
       this.entityStorage,
       this.statements,
@@ -72,29 +78,34 @@ export class SqlBuilder<T> {
     );
 
     this.conditionBuilder.setSubqueryBuilder(subqueryBuilder);
-
-    this.joinManager = new SqlJoinManager(
-      this.entityStorage,
-      this.statements,
-      this.entity,
-      this.model,
-      this.driver,
-      this.logger,
-      this.conditionBuilder,
-      this.columnManager,
-      this.modelTransformer,
-      () => this.originalColumns,
-      this.getAlias.bind(this),
-    );
   }
 
-  private initializeCacheManager(): void {
-    try {
-      const orm = Orm.getInstance();
-      this.cacheManager = orm.queryCacheManager;
-    } catch (error) {
-      this.cacheManager = undefined;
+  // Lazy getter for modelTransformer - only created when transform is needed
+  private get modelTransformer(): ModelTransformer {
+    if (!this._modelTransformer) {
+      this._modelTransformer = new ModelTransformer(this.entityStorage);
     }
+    return this._modelTransformer;
+  }
+
+  // Lazy getter for joinManager - only created when joins are needed
+  private get joinManager(): SqlJoinManager<T> {
+    if (!this._joinManager) {
+      this._joinManager = new SqlJoinManager(
+        this.entityStorage,
+        this.statements,
+        this.entity,
+        this.model,
+        this.driver,
+        this.logger,
+        this.conditionBuilder,
+        this.columnManager,
+        this.modelTransformer,
+        () => this.originalColumns,
+        this.boundGetAlias,
+      );
+    }
+    return this._joinManager;
   }
 
   select(columns?: AutoPath<T, never, '*'>[]): SqlBuilder<T> {

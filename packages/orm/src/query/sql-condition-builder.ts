@@ -2,12 +2,21 @@ import { FilterQuery, Relationship, Statement } from '../driver/driver.interface
 import { EntityStorage, Options } from '../domain/entities';
 import { ValueObject } from '../common/value-object';
 import { extendsFrom } from '../utils';
+import { escapeString, escapeLikePattern } from '../utils/sql-escape';
 import { SqlSubqueryBuilder } from './sql-subquery-builder';
 
 type ApplyJoinCallback = (relationship: Relationship<any>, value: FilterQuery<any>, alias: string) => string;
 
+const OPERATORS_SET = new Set([
+  '$eq', '$ne', '$in', '$nin', '$like',
+  '$gt', '$gte', '$lt', '$lte',
+  '$and', '$or', '$exists', '$nexists',
+]);
+
+const LOGICAL_OPERATORS_SET = new Set(['$or', '$and']);
+const PRIMITIVES_SET = new Set(['string', 'number', 'boolean', 'bigint']);
+
 export class SqlConditionBuilder<T> {
-  private readonly OPERATORS = ['$eq', '$ne', '$in', '$nin', '$like', '$gt', '$gte', '$lt', '$lte', '$and', '$or', '$exists', '$nexists'];
   private lastKeyNotOperator = '';
   private subqueryBuilder?: SqlSubqueryBuilder;
 
@@ -110,9 +119,9 @@ export class SqlConditionBuilder<T> {
   private buildOperatorConditions(key: string, value: any, alias: string, model: Function): string {
     const parts: string[] = [];
 
-    for (const operator of this.OPERATORS) {
-      if (operator in value) {
-        const condition = this.buildOperatorCondition(key, operator, value[operator], alias, model);
+    for (const opKey in value) {
+      if (OPERATORS_SET.has(opKey)) {
+        const condition = this.buildOperatorCondition(key, opKey, value[opKey], alias, model);
         parts.push(condition);
       }
     }
@@ -173,7 +182,8 @@ export class SqlConditionBuilder<T> {
 
   private buildLikeCondition(key: string, value: string, alias: string, model: Function): string {
     const column = this.resolveColumnName(key, model);
-    return `${alias}.${column} LIKE '${value}'`;
+    const escaped = escapeString(value);
+    return `${alias}.${column} LIKE '${escaped}'`;
   }
 
   private buildComparisonCondition(key: string, value: any, alias: string, operator: string, model: Function): string {
@@ -224,21 +234,19 @@ export class SqlConditionBuilder<T> {
   }
 
   private isPrimitive(value: any): boolean {
-    return ['string', 'number', 'boolean', 'bigint'].includes(typeof value);
+    return PRIMITIVES_SET.has(typeof value);
   }
 
   private formatPrimitive(value: string | number | boolean | bigint): string {
-    if (typeof value === 'string') return `'${this.escapeString(value)}'`;
+    if (typeof value === 'string') {
+      return `'${escapeString(value)}'`;
+    }
 
     return `${value}`;
   }
 
   private formatJson(value: any): string {
-    return `'${this.escapeString(JSON.stringify(value))}'`;
-  }
-
-  private escapeString(value: string): string {
-    return value.replace(/'/g, "''");
+    return `'${escapeString(JSON.stringify(value))}'`;
   }
 
   private findRelationship(key: string, model: Function): Relationship<any> | undefined {
@@ -253,11 +261,11 @@ export class SqlConditionBuilder<T> {
   }
 
   private isArrayValue(key: string, value: any): boolean {
-    return !this.OPERATORS.includes(key) && Array.isArray(value);
+    return !OPERATORS_SET.has(key) && Array.isArray(value);
   }
 
   private isLogicalOperator(key: string): boolean {
-    return ['$or', '$and'].includes(key);
+    return LOGICAL_OPERATORS_SET.has(key);
   }
 
   private extractLogicalOperator(key: string): 'AND' | 'OR' {
@@ -265,7 +273,7 @@ export class SqlConditionBuilder<T> {
   }
 
   private trackLastNonOperatorKey(key: string, model: Function): void {
-    if (!this.OPERATORS.includes(key)) {
+    if (!OPERATORS_SET.has(key)) {
       this.lastKeyNotOperator = key;
     }
   }

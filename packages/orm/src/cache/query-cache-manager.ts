@@ -2,12 +2,19 @@ import { CacheService } from '@carno.js/core';
 import { Statement } from '../driver/driver.interface';
 import { CacheKeyGenerator } from './cache-key-generator';
 
+const DEFAULT_MAX_KEYS_PER_NAMESPACE = 1000;
+
 export class QueryCacheManager {
   private keyGenerator: CacheKeyGenerator;
   private namespaceKeys: Map<string, Set<string>> = new Map();
+  private readonly maxKeysPerNamespace: number;
 
-  constructor(private cacheService: CacheService) {
+  constructor(
+    private cacheService: CacheService,
+    maxKeysPerNamespace: number = DEFAULT_MAX_KEYS_PER_NAMESPACE,
+  ) {
     this.keyGenerator = new CacheKeyGenerator();
+    this.maxKeysPerNamespace = maxKeysPerNamespace;
   }
 
   async get<T>(statement: Statement<T>): Promise<any> {
@@ -48,7 +55,23 @@ export class QueryCacheManager {
       this.namespaceKeys.set(namespace, new Set());
     }
 
-    this.namespaceKeys.get(namespace)!.add(key);
+    const keys = this.namespaceKeys.get(namespace)!;
+
+    if (keys.has(key)) {
+      return;
+    }
+
+    if (keys.size >= this.maxKeysPerNamespace) {
+      this.evictOldestKey(keys);
+    }
+
+    keys.add(key);
+  }
+
+  private evictOldestKey(keys: Set<string>): void {
+    const oldest = keys.values().next().value;
+    keys.delete(oldest);
+    this.cacheService.del(oldest);
   }
 
   private getNamespace<T>(statement: Statement<T>): string {

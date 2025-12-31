@@ -135,6 +135,10 @@ export type SnapshotConstraintInfo = {
   type: string;
 };
 
+export interface CacheSettings {
+  maxKeysPerTable?: number;
+}
+
 export interface ConnectionSettings<
   T extends DriverInterface = DriverInterface
 > {
@@ -152,6 +156,7 @@ export interface ConnectionSettings<
   driver: new (options: ConnectionSettings<T>) => T;
   entities?: Function[] | string;
   migrationPath?: string;
+  cache?: CacheSettings;
 }
 
 export type ConditionOperators<T, C> = {

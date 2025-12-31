@@ -11,7 +11,8 @@ import { Metadata } from "./domain";
 import { Context } from "./domain/Context";
 import { LocalsContainer } from "./domain/LocalsContainer";
 import { Provider } from "./domain/provider";
-import { CorsConfig, DEFAULT_CORS_METHODS, DEFAULT_CORS_ALLOWED_HEADERS, CorsOrigin } from "./domain/cors-config";
+import { CorsConfig } from "./domain/cors-config";
+import { CorsHeadersCache } from "./domain/cors-headers-cache";
 import { EventType } from "./events/on-event";
 import { HttpException } from "./exceptions/HttpException";
 import { RouteExecutor } from "./route/RouteExecutor";
@@ -32,6 +33,7 @@ const parseUrl = require("parseurl-fast");
 export class Carno {
   router: Memoirist<TokenRouteWithProvider> = new Memoirist();
   private injector = createInjector();
+  private corsCache?: CorsHeadersCache;
   private fetch = async (request: Request, server: Server<any>) => {
     try {
       return await this.fetcher(request, server);
@@ -64,6 +66,10 @@ export class Carno {
   private server: Server<any>;
 
   constructor(public config: ApplicationConfig = {}) {
+    if (config.cors) {
+      this.corsCache = new CorsHeadersCache(config.cors);
+    }
+
     void this.bootstrapApplication();
   }
 
@@ -336,46 +342,14 @@ export class Carno {
     return false;
   }
 
-  private buildCorsHeaders(origin: string): Record<string, string> {
-    const cors = this.config.cors!;
-    const headers: Record<string, string> = {};
-
-    const allowedOrigin =
-      typeof cors.origins === "string" && cors.origins === "*"
-        ? "*"
-        : origin;
-
-    headers["Access-Control-Allow-Origin"] = allowedOrigin;
-
-    if (cors.credentials) {
-      headers["Access-Control-Allow-Credentials"] = "true";
-    }
-
-    const methods = cors.methods || DEFAULT_CORS_METHODS;
-    headers["Access-Control-Allow-Methods"] = methods.join(", ");
-
-    const allowedHeaders = cors.allowedHeaders || DEFAULT_CORS_ALLOWED_HEADERS;
-    headers["Access-Control-Allow-Headers"] = allowedHeaders.join(", ");
-
-    if (cors.exposedHeaders && cors.exposedHeaders.length > 0) {
-      headers["Access-Control-Expose-Headers"] = cors.exposedHeaders.join(", ");
-    }
-
-    if (cors.maxAge !== undefined) {
-      headers["Access-Control-Max-Age"] = cors.maxAge.toString();
-    }
-
-    return headers;
-  }
-
-  private handlePreflightRequest(request: Request): Response | null {
+  private handlePreflightRequest(request: Request): Response {
     const origin = request.headers.get("origin");
 
     if (!this.isOriginAllowed(origin)) {
       return new Response(null, { status: 403 });
     }
 
-    const corsHeaders = this.buildCorsHeaders(origin!);
+    const corsHeaders = this.corsCache!.get(origin!);
 
     return new Response(null, {
       status: 204,
@@ -384,19 +358,7 @@ export class Carno {
   }
 
   private applyCorsHeaders(response: Response, origin: string): Response {
-    const corsHeaders = this.buildCorsHeaders(origin);
-
-    const newHeaders = new Headers(response.headers);
-
-    for (const [key, value] of Object.entries(corsHeaders)) {
-      newHeaders.set(key, value);
-    }
-
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: newHeaders,
-    });
+    return this.corsCache!.applyToResponse(response, origin);
   }
 
   close(closeActiveConnections: boolean = false) {

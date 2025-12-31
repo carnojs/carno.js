@@ -8,32 +8,41 @@ export abstract class BaseEntity {
   private _oldValues: any = {};
   private _changedValues: any = {};
   private $_isPersisted: boolean = false;
+  private $_isHydrating: boolean = false;
 
   constructor() {
     return new Proxy(this, {
       set(target: any, p: string, newValue: any): boolean {
-
         if (p.startsWith('$') || p.startsWith('_')) {
           target[p] = newValue;
           return true;
         }
 
-        // se oldvalue não existir, é porque é a primeira vez que o atributo está sendo setado
+        if (target.$_isHydrating) {
+          target[p] = newValue;
+          return true;
+        }
+
         if (!(p in target._oldValues)) {
           target._oldValues[p] = newValue;
         }
 
-        // se o valor for diferente do valor antigo, é porque o valor foi alterado
         if (target._oldValues[p] !== newValue) {
           target._changedValues[p] = newValue;
-          this.$_isPersisted = false;
         }
 
         target[p] = newValue;
-
         return true;
       },
     })
+  }
+
+  $_startHydration(): void {
+    this.$_isHydrating = true;
+  }
+
+  $_endHydration(): void {
+    this.$_isHydrating = false;
   }
 
   /**

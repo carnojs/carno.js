@@ -1,22 +1,18 @@
 import { FilterQuery } from '../driver/driver.interface';
 import { ValueObject } from '../common/value-object';
 import { extendsFrom, toSnakeCase } from '../utils';
+import { escapeString } from '../utils/sql-escape';
+
+const OPERATORS_SET = new Set([
+  '$eq', '$ne', '$in', '$nin', '$like',
+  '$gt', '$gte', '$lt', '$lte',
+  '$and', '$or', '$nor',
+]);
+
+const LOGICAL_OPERATORS_SET = new Set(['$or', '$and']);
+const PRIMITIVES_SET = new Set(['string', 'number', 'boolean', 'bigint']);
 
 export class IndexConditionBuilder<T> {
-  private readonly OPERATORS = [
-    '$eq',
-    '$ne',
-    '$in',
-    '$nin',
-    '$like',
-    '$gt',
-    '$gte',
-    '$lt',
-    '$lte',
-    '$and',
-    '$or',
-    '$nor',
-  ];
   private lastKeyNotOperator = '';
 
   constructor(private columnMap: Record<string, string>) {}
@@ -103,9 +99,9 @@ export class IndexConditionBuilder<T> {
   private buildOperatorConditions(key: string, value: any): string {
     const parts: string[] = [];
 
-    for (const operator of this.OPERATORS) {
-      if (operator in value) {
-        const condition = this.buildOperatorCondition(key, operator, value[operator]);
+    for (const opKey in value) {
+      if (OPERATORS_SET.has(opKey)) {
+        const condition = this.buildOperatorCondition(key, opKey, value[opKey]);
         parts.push(condition);
       }
     }
@@ -164,7 +160,8 @@ export class IndexConditionBuilder<T> {
 
   private buildLikeCondition(key: string, value: string): string {
     const column = this.resolveColumnName(key);
-    return `${column} LIKE '${value}'`;
+    const escaped = escapeString(value);
+    return `${column} LIKE '${escaped}'`;
   }
 
   private buildComparisonCondition(key: string, value: any, operator: string): string {
@@ -216,21 +213,19 @@ export class IndexConditionBuilder<T> {
   }
 
   private isPrimitive(value: any): boolean {
-    return ['string', 'number', 'boolean', 'bigint'].includes(typeof value);
+    return PRIMITIVES_SET.has(typeof value);
   }
 
   private formatPrimitive(value: string | number | boolean | bigint): string {
-    if (typeof value === 'string') return `'${this.escapeString(value)}'`;
+    if (typeof value === 'string') {
+      return `'${escapeString(value)}'`;
+    }
 
     return `${value}`;
   }
 
   private formatJson(value: any): string {
-    return `'${this.escapeString(JSON.stringify(value))}'`;
-  }
-
-  private escapeString(value: string): string {
-    return value.replace(/'/g, "''");
+    return `'${escapeString(JSON.stringify(value))}'`;
   }
 
   private isScalarValue(value: any): boolean {
@@ -240,11 +235,11 @@ export class IndexConditionBuilder<T> {
   }
 
   private isArrayValue(key: string, value: any): boolean {
-    return !this.OPERATORS.includes(key) && Array.isArray(value);
+    return !OPERATORS_SET.has(key) && Array.isArray(value);
   }
 
   private isLogicalOperator(key: string): boolean {
-    return ['$or', '$and'].includes(key);
+    return LOGICAL_OPERATORS_SET.has(key);
   }
 
   private isNorOperator(key: string): boolean {
@@ -256,7 +251,7 @@ export class IndexConditionBuilder<T> {
   }
 
   private trackLastNonOperatorKey(key: string): void {
-    if (!this.OPERATORS.includes(key)) {
+    if (!OPERATORS_SET.has(key)) {
       this.lastKeyNotOperator = key;
     }
   }

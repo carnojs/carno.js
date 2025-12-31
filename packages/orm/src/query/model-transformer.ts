@@ -11,12 +11,34 @@ export class ModelTransformer {
     const { instanceMap, cachedAliases } = this.createInstances(model, statement, data);
     const optionsMap = this.buildOptionsMap(instanceMap);
 
+    this.startHydration(instanceMap, cachedAliases);
     this.populateProperties(data, instanceMap, optionsMap, cachedAliases);
     this.linkJoinedEntities(statement, instanceMap, optionsMap);
     this.resetChangedValues(instanceMap, cachedAliases);
+    this.endHydration(instanceMap, cachedAliases);
     this.registerInstancesInIdentityMap(instanceMap, cachedAliases);
 
     return instanceMap[statement.alias!] as T;
+  }
+
+  private startHydration(instanceMap: Record<string, any>, cachedAliases: Set<string>): void {
+    for (const [alias, instance] of Object.entries(instanceMap)) {
+      if (cachedAliases.has(alias)) {
+        continue;
+      }
+
+      instance.$_startHydration?.();
+    }
+  }
+
+  private endHydration(instanceMap: Record<string, any>, cachedAliases: Set<string>): void {
+    for (const [alias, instance] of Object.entries(instanceMap)) {
+      if (cachedAliases.has(alias)) {
+        continue;
+      }
+
+      instance.$_endHydration?.();
+    }
   }
 
   private registerInstancesInIdentityMap(instanceMap: Record<string, any>, cachedAliases: Set<string>): void {
