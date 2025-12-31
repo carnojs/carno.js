@@ -1,7 +1,7 @@
-export const CONTROLLER = "cheetah:controller";
-export const CONTROLLER_ROUTES = "cheetah:controller:routes";
-export const CONTROLLER_MIDDLEWARES = "cheetah:controller:middlewares";
-export const CONTROLLER_EVENTS = "cheetah:controller:events";
-export const ROUTE_PARAM = "cheetah:route:param";
-export const ROUTE_MIDDLEWARES = "cheetah:route:middlewares";
-export const PROVIDER = "cheetah:provider";
+export const CONTROLLER = "carno:controller";
+export const CONTROLLER_ROUTES = "carno:controller:routes";
+export const CONTROLLER_MIDDLEWARES = "carno:controller:middlewares";
+export const CONTROLLER_EVENTS = "carno:controller:events";
+export const ROUTE_PARAM = "carno:route:param";
+export const ROUTE_MIDDLEWARES = "carno:route:middlewares";
+export const PROVIDER = "carno:provider";

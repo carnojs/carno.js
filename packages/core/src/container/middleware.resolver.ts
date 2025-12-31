@@ -1,6 +1,6 @@
 import { InjectorService } from './InjectorService';
 import { TokenRouteWithProvider } from './ContainerConfiguration';
-import { CheetahMiddleware } from '../domain/CheetahMiddleware';
+import { CarnoMiddleware } from '../domain/CarnoMiddleware';
 import { LocalsContainer } from '../domain/LocalsContainer';
 import { Context } from '../domain/Context';
 
@@ -13,7 +13,7 @@ class MiddlewareResolver {
     await this.resolve(route.middlewares, injector, local)
   }
 
-  private async resolve(middlewares: CheetahMiddleware[], injector: InjectorService, local: LocalsContainer) {
+  private async resolve(middlewares: CarnoMiddleware[], injector: InjectorService, local: LocalsContainer) {
     const context = local.get(Context)
     let currentIndex = 0
 
@@ -28,7 +28,7 @@ class MiddlewareResolver {
       const middleware = middlewares[currentIndex++]
       
       // @ts-ignore
-      const instance = injector.invoke(middleware, local) as CheetahMiddleware
+      const instance = injector.invoke(middleware, local) as CarnoMiddleware
       
       // Await a execução do middleware.
       // Se o middleware lançar uma exceção, ela será propagada.

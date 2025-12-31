@@ -1,5 +1,5 @@
 import { ConnectionSettings, DriverInterface } from './driver/driver.interface';
-import { LoggerService, Service, CacheService } from '@cheetah.js/core';
+import { LoggerService, Service, CacheService } from '@carno.js/core';
 import { SqlBuilder } from './SqlBuilder';
 import { QueryCacheManager } from './cache/query-cache-manager';
 import { transactionContext } from './transaction/transaction-context';

@@ -1,0 +1,91 @@
+---
+sidebar_position: 1
+---
+
+# Queue
+
+Carno.js integrates [BullMQ](https://docs.bullmq.io/) for robust background job processing.
+
+## Installation
+
+```bash
+bun install @carno.js/queue
+```
+
+## Setup
+
+Register the module in your application.
+
+```ts
+import { Carno } from '@carno.js/core';
+import { CarnoQueue } from '@carno.js/queue';
+
+const app = new Carno()
+  .use(CarnoQueue({
+    connection: {
+      host: 'localhost',
+      port: 6379
+    }
+  }));
+
+await app.listen(3000);
+```
+
+## Creating a Queue
+
+Use the `@Queue()` decorator to define a processor for a named queue.
+
+```ts
+import { Queue, Process } from '@carno.js/queue';
+import { Job } from 'bullmq';
+
+@Queue('email')
+export class EmailConsumer {
+  
+  @Process('send-welcome')
+  async sendWelcomeEmail(job: Job) {
+    console.log(`Sending email to ${job.data.email}`);
+    // logic...
+  }
+}
+```
+
+## Adding Jobs
+
+Inject the queue into your services using `@InjectQueue()`.
+
+```ts
+import { Service } from '@carno.js/core';
+import { InjectQueue, BullQueue } from '@carno.js/queue';
+
+@Service()
+export class AuthService {
+  constructor(
+    @InjectQueue('email') private emailQueue: BullQueue
+  ) {}
+
+  async register(user: User) {
+    // ... create user
+    await this.emailQueue.add('send-welcome', {
+      email: user.email
+    });
+  }
+}
+```
+
+## Events
+
+You can listen to queue events (like completed, failed) using decorators.
+
+```ts
+import { Queue, OnQueueCompleted } from '@carno.js/queue';
+
+@Queue('email')
+export class EmailConsumer {
+  
+  @OnQueueCompleted()
+  onCompleted(job: Job) {
+    console.log(`Job ${job.id} completed!`);
+  }
+}
+```

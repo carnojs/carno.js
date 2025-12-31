@@ -1,6 +1,6 @@
 import { PROPERTIES, PROPERTIES_METADATA } from "../constants";
 import { extendsFrom, getDefaultLength, toSnakeCase } from "../utils";
-import { isObject, Metadata } from "@cheetah.js/core";
+import { isObject, Metadata } from "@carno.js/core";
 import { Index, IndexDefinition } from "./index.decorator";
 import { ValueObject } from "..";
 

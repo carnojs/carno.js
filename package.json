@@ -1,5 +1,5 @@
 {
-  "name": "@cheetah.js/core",
+  "name": "@carno.js/core",
   "private": false,
   "workspaces": [
     "packages/*"
@@ -22,7 +22,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/mlusca/cheetah.js.git"
+    "url": "https://github.com/mlusca/carno.js.git"
   },
   "publishConfig": {
     "access": "public"

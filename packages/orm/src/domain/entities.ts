@@ -1,4 +1,4 @@
-import { Metadata, Service } from "@cheetah.js/core";
+import { Metadata, Service } from "@carno.js/core";
 import { ormSessionContext } from "../orm-session-context";
 import { PropertyOptions } from "../decorators/property.decorator";
 import {

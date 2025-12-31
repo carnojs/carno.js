@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from 'bun:test';
 import { app, execute, mockLogger, purgeDatabase, startDatabase } from '../node-database';
 import { BaseEntity, Computed, Entity, PrimaryKey, Property } from '../../src';
-import { Metadata } from '@cheetah.js/core';
+import { Metadata } from '@carno.js/core';
 import { COMPUTED_PROPERTIES } from '../../src/constants';
 
 describe('@Computed Decorator', () => {

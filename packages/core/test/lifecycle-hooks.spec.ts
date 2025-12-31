@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import { Cheetah, Injectable, OnApplicationInit } from "../src";
+import { Carno, Injectable, OnApplicationInit } from "../src";
 import { CONTROLLER_EVENTS } from "../src/constants";
 import { Metadata } from "../src/domain";
 
@@ -22,7 +22,7 @@ describe("Lifecycle hooks", () => {
       }
     }
 
-    const app = new Cheetah({ providers: [InitHookService] });
+    const app = new Carno({ providers: [InitHookService] });
 
     executionOrder.push("before-init");
 

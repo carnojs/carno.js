@@ -1,5 +1,5 @@
 import type {Server} from 'bun';
-import {Cheetah, ApplicationConfig} from '../Cheetah';
+import {Carno, ApplicationConfig} from '../Carno';
 import {TokenProvider, Type} from '../commons';
 import {InjectorService} from '../container/InjectorService';
 
@@ -10,10 +10,10 @@ export type CoreTestOptions = {
   plugins?: CoreTestPlugin[];
 };
 
-export type CoreTestPlugin = Cheetah | (() => Cheetah);
+export type CoreTestPlugin = Carno | (() => Carno);
 
 export type CoreTestHarness = {
-  app: Cheetah;
+  app: Carno;
   injector: InjectorService;
   server?: Server<any>;
   port?: number;
@@ -26,7 +26,7 @@ export type CoreTestHarness = {
 export type CoreTestRoutine = (harness: CoreTestHarness) => Promise<void>;
 
 export async function createCoreTestHarness(options: CoreTestOptions = {}): Promise<CoreTestHarness> {
-  const app = new Cheetah(options.config);
+  const app = new Carno(options.config);
   applyPlugins(app, options.plugins);
   const boot = await bootApplication(app, options);
   const injector = app.getInjector();
@@ -73,7 +73,7 @@ type BootResult = {
   port?: number;
 };
 
-async function bootApplication(app: Cheetah, options: CoreTestOptions): Promise<BootResult> {
+async function bootApplication(app: Carno, options: CoreTestOptions): Promise<BootResult> {
   if (!shouldListen(options.listen)) {
     await app.init();
 
@@ -128,7 +128,7 @@ function isAbsoluteUrl(target: string): boolean {
   return /^https?:\/\//i.test(target);
 }
 
-async function shutdown(app: Cheetah, server?: Server<any>): Promise<void> {
+async function shutdown(app: Carno, server?: Server<any>): Promise<void> {
   if (!server) {
     app.close();
 
@@ -138,14 +138,14 @@ async function shutdown(app: Cheetah, server?: Server<any>): Promise<void> {
   app.close(true);
 }
 
-function applyPlugins(app: Cheetah, plugins?: CoreTestPlugin[]): void {
+function applyPlugins(app: Carno, plugins?: CoreTestPlugin[]): void {
   if (!plugins?.length) {
     return;
   }
   plugins.forEach((plugin) => app.use(resolvePlugin(plugin)));
 }
 
-function resolvePlugin(entry: CoreTestPlugin): Cheetah {
+function resolvePlugin(entry: CoreTestPlugin): Carno {
   if (typeof entry === 'function') {
     return entry();
   }

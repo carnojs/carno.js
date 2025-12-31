@@ -5,7 +5,7 @@ import {
     OnApplicationInit,
     OnApplicationShutdown,
     Service,
-} from '@cheetah.js/core';
+} from '@carno.js/core';
 import { CronOptions } from './utils/cron-options';
 import { CronCallback, CronJob, CronJobParams } from 'cron';
 import { SchedulerRegistry } from './scheduler.registry';

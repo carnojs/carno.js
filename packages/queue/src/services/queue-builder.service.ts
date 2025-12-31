@@ -1,4 +1,4 @@
-import { Injectable } from '@cheetah.js/core';
+import { Injectable } from '@carno.js/core';
 import { Queue, Worker, Job } from 'bullmq';
 import { ConnectionManagerService } from './connection-manager.service';
 import { QueueRegistry } from '../queue.registry';

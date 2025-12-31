@@ -1,5 +1,5 @@
-import { Injectable } from "@cheetah.js/core";
-import { ProviderScope } from "@cheetah.js/core";
+import { Injectable } from "@carno.js/core";
+import { ProviderScope } from "@carno.js/core";
 import { Queue, JobsOptions } from "bullmq";
 import { QueueRegistry } from "../queue.registry";
 

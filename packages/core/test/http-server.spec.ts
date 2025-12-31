@@ -241,7 +241,7 @@ describe("HTTP server integration tests", () => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "User-Agent": "CheetahTest/1.0",
+            "User-Agent": "CarnoTest/1.0",
           },
           body: JSON.stringify(credentials),
         });
@@ -252,7 +252,7 @@ describe("HTTP server integration tests", () => {
         expect(payload.token).toBe("mock-jwt-token");
         expect(payload.user).toBe("user@test.com");
         console.log(payload.device);
-        expect(payload.device).toContain("CheetahTest");
+        expect(payload.device).toContain("CarnoTest");
       },
       {
         listen: true,

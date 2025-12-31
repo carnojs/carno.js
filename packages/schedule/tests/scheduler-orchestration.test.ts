@@ -7,8 +7,8 @@ import {
   createContainer,
   createInjector,
   registerProvider,
-} from "@cheetah.js/core";
-import Memoirist from "@cheetah.js/core/route/memoirist";
+} from "@carno.js/core";
+import Memoirist from "@carno.js/core/route/memoirist";
 
 import { SchedulerOrchestration } from "../src/scheduler-orchestration.service";
 import { SchedulerRegistry } from "../src/scheduler.registry";

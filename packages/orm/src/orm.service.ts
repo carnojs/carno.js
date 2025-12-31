@@ -1,4 +1,4 @@
-import { Metadata, OnApplicationInit, Service } from '@cheetah.js/core';
+import { Metadata, OnApplicationInit, Service } from '@carno.js/core';
 import { EntityStorage, Property } from './domain/entities';
 import { ENTITIES, EVENTS_METADATA, PROPERTIES_METADATA, PROPERTIES_RELATIONS } from './constants';
 import { Project, SyntaxKind } from 'ts-morph';
@@ -240,7 +240,7 @@ export class OrmService {
     let setConfig: any;
 
     if (!hasCustomConfig) {
-      const configFile = globby.sync('cheetah.config.ts', {absolute: true});
+      const configFile = globby.sync('carno.config.ts', {absolute: true});
       if (configFile.length === 0) {
         console.log('No config file found!')
         return;

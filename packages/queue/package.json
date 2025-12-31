@@ -1,7 +1,7 @@
 {
-  "name": "@cheetah.js/queue",
-  "version": "0.2.2",
-  "description": "Queue module for Cheetah framework with BullMQ support",
+  "name": "@carno.js/queue",
+  "version": "0.2.0",
+  "description": "Queue module for Carno framework with BullMQ support",
   "type": "commonjs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,7 +21,7 @@
     }
   },
   "peerDependencies": {
-    "@cheetah.js/core": "^0.2.0"
+    "@carno.js/core": "^0.2.0"
   },
   "author": "",
   "license": "MIT",

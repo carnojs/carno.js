@@ -5,7 +5,7 @@ import {
     SCHEDULER_TYPE,
 } from '../utils/constants';
 import { SchedulerType } from '../utils/scheduler-type.enum';
-import { isString, Metadata } from '@cheetah.js/core';
+import { isString, Metadata } from '@carno.js/core';
 
 /**
  * Schedules an timeout (`setTimeout`).

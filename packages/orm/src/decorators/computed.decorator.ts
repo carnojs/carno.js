@@ -1,4 +1,4 @@
-import { Metadata } from "@cheetah.js/core";
+import { Metadata } from "@carno.js/core";
 import { COMPUTED_PROPERTIES } from "../constants";
 
 export function Computed(): PropertyDecorator {

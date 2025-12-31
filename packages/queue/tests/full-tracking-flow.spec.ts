@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach, afterEach } from 'bun:test'
 import { Queue, Worker, Job } from 'bullmq'
-import { Context } from '@cheetah.js/core'
+import { Context } from '@carno.js/core'
 
 
 describe('Full TrackingId Flow', () => {

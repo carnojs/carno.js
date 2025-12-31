@@ -1,6 +1,6 @@
 import { PROPERTIES_RELATIONS } from '../constants';
 import { EntityName, Relationship } from '../driver/driver.interface';
-import { Metadata } from '@cheetah.js/core';
+import { Metadata } from '@carno.js/core';
 import { toSnakeCase } from '../utils';
 import { PropertyOptions } from './property.decorator';
 import { Index } from './index.decorator';

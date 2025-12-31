@@ -1,22 +1,22 @@
 <p align="center">
-  <img src="cheetah.png" width="200" alt="Cheetah.js Logo" />
+  <img src="carno.png" width="200" alt="Carno.js Logo" />
 </p>
 
-<h1 align="center">Cheetah.js</h1>
+<h1 align="center">Carno.js</h1>
 
 <p align="center">
   <strong>A fast, modern, and lightweight object-oriented framework for Bun with TypeScript support.</strong>
 </p>
 
 <p align="center">
-  <a href="https://mlusca.github.io/cheetah.js">View Documentation</a>
+  <a href="https://mlusca.github.io/carno.js">View Documentation</a>
 </p>
 
 ---
 
-## Why Cheetah.js?
+## Why Carno.js?
 
-Cheetah.js is built from the ground up for the **Bun** runtime. It focuses on raw performance, modularity, and a developer experience that feels natural for TypeScript engineers.
+Carno.js is built from the ground up for the **Bun** runtime. It focuses on raw performance, modularity, and a developer experience that feels natural for TypeScript engineers.
 
 - 🚀 **Bun Native**: Leverages Bun's high-performance HTTP server and native APIs.
 - 🧱 **Plugin-Based Architecture**: Highly modular. Build your app as a collection of independent, reusable modules.
@@ -29,17 +29,17 @@ Cheetah.js is built from the ground up for the **Bun** runtime. It focuses on ra
 
 | Package | Description |
 | :--- | :--- |
-| [**@cheetah.js/core**](https://mlusca.github.io/cheetah.js/docs/core/overview) | Core framework: Routing, DI, Middleware, Lifecycle. |
-| [**@cheetah.js/orm**](https://mlusca.github.io/cheetah.js/docs/orm/overview) | Lightweight ORM for PostgreSQL and MySQL. |
-| [**@cheetah.js/queue**](https://mlusca.github.io/cheetah.js/docs/queue/overview) | Background job processing via BullMQ. |
-| [**@cheetah.js/schedule**](https://mlusca.github.io/cheetah.js/docs/schedule/overview) | Cron, Interval, and Timeout task scheduling. |
+| [**@carno.js/core**](https://mlusca.github.io/carno.js/docs/core/overview) | Core framework: Routing, DI, Middleware, Lifecycle. |
+| [**@carno.js/orm**](https://mlusca.github.io/carno.js/docs/orm/overview) | Lightweight ORM for PostgreSQL and MySQL. |
+| [**@carno.js/queue**](https://mlusca.github.io/carno.js/docs/queue/overview) | Background job processing via BullMQ. |
+| [**@carno.js/schedule**](https://mlusca.github.io/carno.js/docs/schedule/overview) | Cron, Interval, and Timeout task scheduling. |
 
 ## Quick Start
 
 ### 1. Installation
 
 ```bash
-bun install @cheetah.js/core
+bun install @carno.js/core
 ```
 
 ### 2. Configuration
@@ -58,28 +58,28 @@ Ensure your `tsconfig.json` has decorators enabled:
 ### 3. Create your Application
 
 ```typescript
-import { Cheetah, Controller, Get } from '@cheetah.js/core';
+import { Carno, Controller, Get } from '@carno.js/core';
 
 @Controller()
 class AppController {
   @Get('/')
   hello() {
-    return { message: 'Hello from Cheetah.js!' };
+    return { message: 'Hello from Carno.js!' };
   }
 }
 
-new Cheetah({
+new Carno({
   providers: [AppController]
 }).listen(3000);
 ```
 
 ## Modularity & Clean Code
 
-Cheetah.js encourages you to organize your logic into **Plugins**. This keeps your features decoupled and easy to test.
+Carno.js encourages you to organize your logic into **Plugins**. This keeps your features decoupled and easy to test.
 
 ```ts
 // user.module.ts
-export const UserModule = new Cheetah({
+export const UserModule = new Carno({
   providers: [UserService, UserController],
   exports: [UserService]
 });
@@ -87,7 +87,7 @@ export const UserModule = new Cheetah({
 // index.ts
 import { UserModule } from './user.module';
 
-new Cheetah()
+new Carno()
   .use(UserModule)
   .listen(3000);
 ```
@@ -96,7 +96,7 @@ new Cheetah()
 
 For full guides, API references, and advanced usage, visit our documentation site:
 
-👉 **[https://mlusca.github.io/cheetah.js](https://mlusca.github.io/cheetah.js)**
+👉 **[https://mlusca.github.io/carno.js](https://mlusca.github.io/carno.js)**
 
 ## Contributing
 

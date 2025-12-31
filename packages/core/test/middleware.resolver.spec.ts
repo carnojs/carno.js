@@ -4,7 +4,7 @@ import { MiddlewareRes } from '../src/container/middleware.resolver';
 import { InjectorService } from '../src/container/InjectorService';
 import { LocalsContainer } from '../src/domain/LocalsContainer';
 import { Context } from '../src/domain/Context';
-import { CheetahMiddleware } from '../src/domain/CheetahMiddleware';
+import { CarnoMiddleware } from '../src/domain/CarnoMiddleware';
 import { TokenRouteWithProvider } from '../src/container/ContainerConfiguration';
 
 class MockInjector extends InjectorService {
@@ -30,7 +30,7 @@ const handle1 = mock(async (context: Context, next: () => Promise<void>) => {
   context.locals.test = 'middleware1';
   await next();
 });
-class Middleware1 implements CheetahMiddleware {
+class Middleware1 implements CarnoMiddleware {
   handle = handle1;
 }
 
@@ -39,14 +39,14 @@ const handle2 = mock(async (context: Context, next: () => Promise<void>) => {
   context.locals.test = value + '-middleware2';
   await next();
 });
-class Middleware2 implements CheetahMiddleware {
+class Middleware2 implements CarnoMiddleware {
   handle = handle2;
 }
 
 const handleException = mock(async (context: Context, next: () => Promise<void>) => {
   throw new Error('Unauthorized');
 });
-class ExceptionMiddleware implements CheetahMiddleware {
+class ExceptionMiddleware implements CarnoMiddleware {
   handle = handleException;
 }
 
@@ -54,7 +54,7 @@ const handleLast = mock(async (context: Context, next: () => Promise<void>) => {
     context.locals.last = true;
     await next();
 });
-class LastMiddleware implements CheetahMiddleware {
+class LastMiddleware implements CarnoMiddleware {
     handle = handleLast;
 }
 

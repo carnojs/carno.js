@@ -1,6 +1,6 @@
-export const ENTITIES = 'cheetah:entities';
-export const PROPERTIES = 'cheetah:properties';
-export const PROPERTIES_METADATA = 'cheetah:properties:metadata';
-export const PROPERTIES_RELATIONS = 'cheetah:properties:relations';
-export const EVENTS_METADATA = 'cheetah:events:metadata';
-export const COMPUTED_PROPERTIES = 'cheetah:computed:properties';
+export const ENTITIES = 'carno:entities';
+export const PROPERTIES = 'carno:properties';
+export const PROPERTIES_METADATA = 'carno:properties:metadata';
+export const PROPERTIES_RELATIONS = 'carno:properties:relations';
+export const EVENTS_METADATA = 'carno:events:metadata';
+export const COMPUTED_PROPERTIES = 'carno:computed:properties';

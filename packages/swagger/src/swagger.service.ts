@@ -1,4 +1,4 @@
-import { Controller, Get, InjectorService, OnApplicationInit, TokenRouteWithProvider } from "@cheetah.js/core";
+import { Controller, Get, InjectorService, OnApplicationInit, TokenRouteWithProvider } from "@carno.js/core";
 import { OpenAPIV3 } from "openapi-types";
 import { SwaggerUIOptions } from "swagger-ui";
 
@@ -81,7 +81,7 @@ export const filterPaths = (
 //   return newRoutes;
 // }
 
-export interface CheetahSwaggerConfig {
+export interface CarnoSwaggerConfig {
   /**
    * Customize Swagger config, refers to Swagger 2.0 config
    *
@@ -156,9 +156,9 @@ export interface CheetahSwaggerConfig {
 }
 
 let path = "/swagger";
-export let config: CheetahSwaggerConfig = {};
+export let config: CarnoSwaggerConfig = {};
 
-export function useConfig(newConfig: CheetahSwaggerConfig) {
+export function useConfig(newConfig: CarnoSwaggerConfig) {
   config = newConfig;
 }
 
@@ -184,10 +184,10 @@ export class SwaggerService {
     this.setDocumentation(config.documentation);
   }
 
-  setDocumentation(documentation: CheetahSwaggerConfig["documentation"]): void {
+  setDocumentation(documentation: CarnoSwaggerConfig["documentation"]): void {
     const info = {
-      title: "Cheetah.js",
-      description: "Cheetah.js API documentation",
+      title: "Carno.js",
+      description: "Carno.js API documentation",
       version: "0.0.0",
       ...config.documentation?.info,
     };
@@ -398,7 +398,7 @@ window.onload = () => {
       ...{
         ...config.documentation,
         info: {
-          title: "Cheetah.js Documentation",
+          title: "Carno.js Documentation",
           description: "Development documentation",
           version: "0.0.0",
           ...config.documentation.info,

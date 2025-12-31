@@ -6,7 +6,7 @@ import {
   Context,
   LocalsContainer,
   ProviderScope,
-} from '@cheetah.js/core';
+} from '@carno.js/core';
 import { QueueRegistry } from './queue.registry';
 import { QueueDiscoveryService } from './services/queue-discovery.service';
 import { QueueBuilderService } from './services/queue-builder.service';

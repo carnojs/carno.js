@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'bun:test';
-import {LoggerService} from '@cheetah.js/core';
+import {LoggerService} from '@carno.js/core';
 import {withDatabase} from '../../src/testing';
 import {BaseEntity} from '../../src/domain/base-entity';
 import {EntityStorage} from '../../src/domain/entities';

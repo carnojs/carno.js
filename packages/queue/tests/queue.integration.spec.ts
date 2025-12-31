@@ -1,10 +1,10 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { Cheetah, InjectorService } from '@cheetah.js/core';
-import { CheetahQueue, QueueRegistry } from '../src';
+import { Carno, InjectorService } from '@carno.js/core';
+import { CarnoQueue, QueueRegistry } from '../src';
 import { Queue as BullQueue, Worker, Job } from 'bullmq';
 
 describe('Queue Module Integration', () => {
-  let app: Cheetah;
+  let app: Carno;
   let injector: InjectorService;
   let registry: QueueRegistry;
   let testQueue: BullQueue;
@@ -12,10 +12,10 @@ describe('Queue Module Integration', () => {
 
   beforeAll(async () => {
     // Given: configuração do módulo de filas
-    app = new Cheetah();
+    app = new Carno();
 
     app.use(
-      CheetahQueue({
+      CarnoQueue({
         connection: {
           host: 'localhost',
           port: 6379,

@@ -1,4 +1,4 @@
-import { Injectable } from '@cheetah.js/core';
+import { Injectable } from '@carno.js/core';
 import { Queue, Worker } from 'bullmq';
 
 @Injectable()

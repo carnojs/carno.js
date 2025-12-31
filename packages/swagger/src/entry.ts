@@ -1,8 +1,8 @@
-import { Cheetah, registerController } from "@cheetah.js/core";
-import { CheetahSwaggerConfig, SwaggerService, useConfig } from "./swagger.service";
+import { Carno, registerController } from "@carno.js/core";
+import { CarnoSwaggerConfig, SwaggerService, useConfig } from "./swagger.service";
 
-export const SwaggerModule = (config: CheetahSwaggerConfig) => {
-  const app = new Cheetah({
+export const SwaggerModule = (config: CarnoSwaggerConfig) => {
+  const app = new Carno({
     exports: [SwaggerService],
     providers: [SwaggerService],
   });

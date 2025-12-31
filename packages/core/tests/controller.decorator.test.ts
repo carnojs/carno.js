@@ -2,7 +2,7 @@ import { describe, expect, it } from 'bun:test';
 import 'reflect-metadata';
 
 
-const CONTROLLER = "cheetah:controller";
+const CONTROLLER = "carno:controller";
 
 type ProviderScope = 'SINGLETON' | 'REQUEST' | 'TRANSIENT';
 

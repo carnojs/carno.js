@@ -1,9 +1,9 @@
-import type { ApplicationConfig } from "../Cheetah";
+import type { ApplicationConfig } from "../Carno";
 import { Injectable } from "../commons/decorators/Injectable.decorator";
 import { registerProvider } from "../commons";
 import { GlobalProvider, TokenProvider, } from "../commons/registries/ProviderControl";
 import { CONTROLLER_EVENTS } from "../constants";
-import { DefaultRoutesCheetah } from "../default-routes-cheetah";
+import { DefaultRoutesCarno } from "../default-routes-carno";
 import { Context } from "../domain/Context";
 import { LocalsContainer } from "../domain/LocalsContainer";
 import { Metadata } from "../domain/Metadata";
@@ -170,7 +170,7 @@ export class InjectorService {
       InjectorService,
       Context,
       LoggerService,
-      DefaultRoutesCheetah,
+      DefaultRoutesCarno,
       CacheService,
         RequestLogger
     ];

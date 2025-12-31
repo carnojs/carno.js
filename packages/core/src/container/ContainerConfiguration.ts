@@ -1,9 +1,9 @@
 import { Env } from 'bun';
 import { TokenProvider, TokenProviderOpts } from '../commons';
 import { setValue } from '..';
-import { CheetahMiddleware, Provider, ProviderScope } from '../domain';
+import { CarnoMiddleware, Provider, ProviderScope } from '../domain';
 
-export type TokenRoute = { method: string, path: string, methodName: string, middlewares: CheetahMiddleware[] }
+export type TokenRoute = { method: string, path: string, methodName: string, middlewares: CarnoMiddleware[] }
 export type TokenRouteWithProvider = TokenRoute & { provider: Provider }
 export type TokenRouteWithProviderMap = Map<string, TokenRouteWithProvider[]>
 

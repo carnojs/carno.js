@@ -1,5 +1,5 @@
 import {EntityStorage} from 'packages/orm/src/domain/entities';
-import {LoggerService, BentoCacheDriver} from '@cheetah.js/core';
+import {LoggerService, BentoCacheDriver} from '@carno.js/core';
 import {spyOn} from 'bun:test';
 import {Orm, OrmService, BunPgDriver} from "../src";
 

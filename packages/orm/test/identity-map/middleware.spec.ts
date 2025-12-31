@@ -1,5 +1,5 @@
 import { describe, expect, test, beforeEach, afterEach } from 'bun:test';
-import { Context } from '@cheetah.js/core';
+import { Context } from '@carno.js/core';
 import { IdentityMapMiddleware } from '../../src/middleware/identity-map.middleware';
 import { identityMapContext } from '../../src/identity-map';
 import { app, execute, purgeDatabase, startDatabase } from '../node-database';

@@ -1,6 +1,6 @@
 import { plainToInstance } from "class-transformer";
 import { validateSync } from "class-validator";
-import { ApplicationConfig } from "../Cheetah";
+import { ApplicationConfig } from "../Carno";
 import { TokenProvider } from "../commons/registries/ProviderControl";
 import { Context } from "../domain/Context";
 import { LocalsContainer } from "../domain/LocalsContainer";

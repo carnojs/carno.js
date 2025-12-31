@@ -6,7 +6,7 @@ import {
   PrimaryKey,
   Property,
 } from '../../src';
-import { Metadata } from '@cheetah.js/core';
+import { Metadata } from '@carno.js/core';
 import { PROPERTIES_METADATA } from '../../src/constants';
 
 describe('Optional Enum Parameter in Enum Decorator', () => {

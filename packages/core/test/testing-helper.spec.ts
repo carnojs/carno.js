@@ -1,5 +1,5 @@
 import {describe, expect, test} from 'bun:test';
-import {Cheetah, Controller, Get, Injectable} from '../src';
+import {Carno, Controller, Get, Injectable} from '../src';
 import {withCoreApplication, createCoreTestHarness} from '../src/testing';
 
 describe('Core testing helper', () => {
@@ -24,7 +24,7 @@ describe('Core testing helper', () => {
       const provider = injector.get(HealthController);
       const instance = resolve<HealthController>(HealthController);
 
-      expect(app).toBeInstanceOf(Cheetah);
+      expect(app).toBeInstanceOf(Carno);
       expect(server).toBeUndefined();
       expect(provider?.token).toBe(HealthController);
       expect(instance).toBeInstanceOf(HealthController);
@@ -102,7 +102,7 @@ describe('Core testing helper', () => {
       }
     }
 
-    const plugin = new Cheetah({exports: [PluginService]});
+    const plugin = new Carno({exports: [PluginService]});
 
     // When: resolving the service through the harness with plugins
     await withCoreApplication(async ({resolve}) => {

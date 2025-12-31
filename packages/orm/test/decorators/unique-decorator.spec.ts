@@ -7,7 +7,7 @@ import {
   EntityStorage,
   Unique,
 } from '../../src';
-import { Metadata } from '@cheetah.js/core';
+import { Metadata } from '@carno.js/core';
 import { PROPERTIES_METADATA } from '../../src/constants';
 
 type UniqueDefinition = {

@@ -3,7 +3,7 @@ import { EntityStorage, Options } from '../domain/entities';
 import { SqlConditionBuilder } from './sql-condition-builder';
 import { SqlColumnManager } from './sql-column-manager';
 import { ModelTransformer } from './model-transformer';
-import { LoggerService } from '@cheetah.js/core';
+import { LoggerService } from '@carno.js/core';
 
 export class SqlJoinManager<T> {
   constructor(

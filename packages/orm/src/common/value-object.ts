@@ -1,4 +1,4 @@
-import { HttpException } from "@cheetah.js/core";
+import { HttpException } from "@carno.js/core";
 
 type VoExtended<T, Vo> = Vo extends ValueObject<T, Vo> ? Vo : ValueObject<T, Vo>;
 type DatabaseValues = {

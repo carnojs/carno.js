@@ -1,7 +1,7 @@
 import globby from 'globby';
 import {promises as fs} from 'fs';
 import path from 'path';
-import {LoggerService, Metadata} from '@cheetah.js/core';
+import {LoggerService, Metadata} from '@carno.js/core';
 import {EntityStorage} from '../domain/entities';
 import {Orm} from '../orm';
 import {OrmService} from '../orm.service';
@@ -332,10 +332,10 @@ async function inferMigrationPathFromConfig(): Promise<string | undefined> {
 
 async function findConfigFile(): Promise<string | undefined> {
   const candidates = [
-    'cheetah.config.ts',
-    'cheetah.config.js',
-    'cheetah.config.mjs',
-    'cheetah.config.cjs',
+    'carno.config.ts',
+    'carno.config.js',
+    'carno.config.mjs',
+    'carno.config.cjs',
   ];
 
   for (const file of candidates) {

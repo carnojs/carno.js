@@ -1,7 +1,7 @@
 {
-  "name": "@cheetah.js/swagger",
-  "version": "0.2.2",
-  "description": "Generate automatically swagger.json from your cheetah.js project",
+  "name": "@carno.js/swagger",
+  "version": "0.2.0",
+  "description": "Generate automatically swagger.json from your carno.js project",
   "type": "commonjs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -27,10 +27,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com:mlusca/cheetah.js.git"
+    "url": "git+ssh://git@github.com:mlusca/carno.js.git"
   },
   "peerDependencies": {
-    "@cheetah.js/core": "file://../core"
+    "@carno.js/core": "file://../core"
   },
   "author": "Lucas Mota",
   "license": "MIT",
@@ -38,8 +38,8 @@
     "access": "public"
   },
   "keywords": [
-    "cheetah",
-    "cheetah.js",
+    "carno",
+    "carno.js",
     "swagger"
   ],
   "gitHead": "726879b8d699b9abf35e80aa64ada630c8ced14d"

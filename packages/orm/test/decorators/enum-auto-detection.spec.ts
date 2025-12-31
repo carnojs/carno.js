@@ -9,9 +9,9 @@ import {
   Orm,
   EntityStorage,
 } from '../../src';
-import { Metadata } from '@cheetah.js/core';
+import { Metadata } from '@carno.js/core';
 import { PROPERTIES_METADATA } from '../../src/constants';
-import { LoggerService } from '@cheetah.js/core';
+import { LoggerService } from '@carno.js/core';
 import * as path from 'path';
 
 describe('Enum Auto-Detection Integration', () => {

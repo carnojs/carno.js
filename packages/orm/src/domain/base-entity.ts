@@ -1,7 +1,7 @@
 import { SqlBuilder } from '../SqlBuilder';
 import { FilterQuery, FindOneOption, FindOptions, ValueOrInstance } from '../driver/driver.interface';
 import { EntityStorage, Property } from './entities';
-import { Metadata } from '@cheetah.js/core';
+import { Metadata } from '@carno.js/core';
 import { COMPUTED_PROPERTIES, PROPERTIES_METADATA } from '../constants';
 
 export abstract class BaseEntity {

@@ -1,4 +1,4 @@
-import { Injectable, Metadata } from '@cheetah.js/core';
+import { Injectable, Metadata } from '@carno.js/core';
 import { QueueOptions } from '../interfaces';
 import { QUEUE_METADATA } from '../constants';
 

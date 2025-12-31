@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 
-import { Cheetah } from '../src/Cheetah';
+import { Carno } from '../src/Carno';
 import { Context } from '../src/domain/Context';
 
 describe('Routing path and query parsing', () => {
@@ -9,7 +9,7 @@ describe('Routing path and query parsing', () => {
       'http://localhost/exercises/lessons/lesson-1?libraryId=library-99',
     );
 
-    const app = new Cheetah();
+    const app = new Carno();
     const routePath = (app as any).discoverRoutePath({
       pathname: '/exercises/lessons/lesson-1',
       query: 'libraryId=library-99',

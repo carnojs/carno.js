@@ -1,13 +1,13 @@
 {
-  "name": "@cheetah.js/core",
-  "version": "0.2.2",
-  "description": "Cheetah.js is a framework for building web applications object oriented with TypeScript and Bun.sh",
+  "name": "@carno.js/core",
+  "version": "0.2.0",
+  "description": "Carno.js is a framework for building web applications object oriented with TypeScript and Bun.sh",
   "keywords": [
     "bun",
     "framework",
     "typescript",
-    "cheetah",
-    "cheetah.js",
+    "carno",
+    "carno.js",
     "object oriented",
     "oop"
   ],
@@ -28,7 +28,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com:mlusca/cheetah.js.git"
+    "url": "git+ssh://git@github.com:mlusca/carno.js.git"
   },
   "license": "MIT",
   "dependencies": {

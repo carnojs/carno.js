@@ -44,4 +44,4 @@ src
 data
 dist/bun
 build.ts
-cheetah.config.ts
+carno.config.ts

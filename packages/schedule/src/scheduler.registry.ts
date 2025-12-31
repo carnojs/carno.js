@@ -1,4 +1,4 @@
-import { Injectable } from '@cheetah.js/core';
+import { Injectable } from '@carno.js/core';
 import { CronJob } from 'cron';
 
 @Injectable()

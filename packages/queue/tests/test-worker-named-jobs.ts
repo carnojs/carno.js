@@ -9,7 +9,7 @@ const queue = new Queue('course-processing', { connection });
 
 console.log('📋 Teste: Múltiplos workers na mesma queue com jobs nomeados\n');
 
-// Simulando o comportamento atual do Cheetah.js:
+// Simulando o comportamento atual do Carno.js:
 // Cada @Process cria um worker separado, mas todos na mesma queue
 
 const workerProcessPlaylist = new Worker(

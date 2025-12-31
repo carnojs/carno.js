@@ -10,7 +10,7 @@ import {
 } from './driver/driver.interface';
 import { EntityStorage, Options } from './domain/entities';
 import { Orm } from './orm';
-import { LoggerService, CacheService } from '@cheetah.js/core';
+import { LoggerService, CacheService } from '@carno.js/core';
 import { ValueObject } from './common/value-object';
 import { BaseEntity } from './domain/base-entity';
 import { extendsFrom } from './utils';

@@ -1,4 +1,4 @@
-import { CacheService } from '@cheetah.js/core';
+import { CacheService } from '@carno.js/core';
 import { Statement } from '../driver/driver.interface';
 import { CacheKeyGenerator } from './cache-key-generator';
 

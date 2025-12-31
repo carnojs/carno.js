@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { Metadata } from '@cheetah.js/core';
+import { Metadata } from '@carno.js/core';
 import {
   QUEUE_METADATA,
   PROCESS_METADATA,

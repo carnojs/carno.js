@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from 'bun:test';
 import { BaseEntity, Entity, ManyToOne, OneToMany, PrimaryKey, Property, EntityStorage } from '../../src';
 import { app, execute, mockLogger, purgeDatabase, startDatabase } from '../node-database';
-import { Metadata } from '@cheetah.js/core';
+import { Metadata } from '@carno.js/core';
 import { PROPERTIES_METADATA, PROPERTIES_RELATIONS } from '../../src/constants';
 
 describe('Relationship entities', () => {

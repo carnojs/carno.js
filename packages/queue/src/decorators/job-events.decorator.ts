@@ -1,4 +1,4 @@
-import { Metadata } from '@cheetah.js/core';
+import { Metadata } from '@carno.js/core';
 import { JOB_EVENT_METADATA } from '../constants';
 
 function createJobEventDecorator(

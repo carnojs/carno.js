@@ -7,7 +7,7 @@ import {
   PrimaryKey,
   Property,
 } from '../../src';
-import { Metadata } from '@cheetah.js/core';
+import { Metadata } from '@carno.js/core';
 import { PROPERTIES_RELATIONS } from '../../src/constants';
 
 describe('Optional Entity Parameter in Relationship Decorators', () => {
