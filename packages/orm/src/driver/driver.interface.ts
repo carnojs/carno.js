@@ -397,6 +397,8 @@ export type OperatorMap<T> = {
   $lt?: ExpandScalar<T>;
   $lte?: ExpandScalar<T>;
   $like?: string;
+  $exists?: FilterQuery<ExpandProperty<T>>;
+  $nexists?: FilterQuery<ExpandProperty<T>>;
 };
 export type ExcludeFunctions<T, K extends keyof T> = T[K] extends Function
   ? never

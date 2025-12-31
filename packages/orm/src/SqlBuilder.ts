@@ -16,6 +16,7 @@ import { BaseEntity } from './domain/base-entity';
 import { extendsFrom } from './utils';
 import { ValueProcessor } from './utils/value-processor';
 import { SqlConditionBuilder } from './query/sql-condition-builder';
+import { SqlSubqueryBuilder } from './query/sql-subquery-builder';
 import { ModelTransformer } from './query/model-transformer';
 import { SqlColumnManager } from './query/sql-column-manager';
 import { SqlJoinManager } from './query/sql-join-manager';
@@ -64,6 +65,13 @@ export class SqlBuilder<T> {
       applyJoinWrapper,
       this.statements,
     );
+
+    const subqueryBuilder = new SqlSubqueryBuilder(
+      this.entityStorage,
+      () => this.conditionBuilder,
+    );
+
+    this.conditionBuilder.setSubqueryBuilder(subqueryBuilder);
 
     this.joinManager = new SqlJoinManager(
       this.entityStorage,

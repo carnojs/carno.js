@@ -2,18 +2,24 @@ import { FilterQuery, Relationship, Statement } from '../driver/driver.interface
 import { EntityStorage, Options } from '../domain/entities';
 import { ValueObject } from '../common/value-object';
 import { extendsFrom } from '../utils';
+import { SqlSubqueryBuilder } from './sql-subquery-builder';
 
 type ApplyJoinCallback = (relationship: Relationship<any>, value: FilterQuery<any>, alias: string) => string;
 
 export class SqlConditionBuilder<T> {
-  private readonly OPERATORS = ['$eq', '$ne', '$in', '$nin', '$like', '$gt', '$gte', '$lt', '$lte', '$and', '$or'];
+  private readonly OPERATORS = ['$eq', '$ne', '$in', '$nin', '$like', '$gt', '$gte', '$lt', '$lte', '$and', '$or', '$exists', '$nexists'];
   private lastKeyNotOperator = '';
+  private subqueryBuilder?: SqlSubqueryBuilder;
 
   constructor(
     private entityStorage: EntityStorage,
     private applyJoinCallback: ApplyJoinCallback,
     private statements: Statement<T>,
   ) {}
+
+  setSubqueryBuilder(subqueryBuilder: SqlSubqueryBuilder): void {
+    this.subqueryBuilder = subqueryBuilder;
+  }
 
   build(condition: FilterQuery<T>, alias: string, model: Function): string {
     const sqlParts = this.processConditions(condition, alias, model);
@@ -22,7 +28,8 @@ export class SqlConditionBuilder<T> {
       return '';
     }
 
-    return this.wrapWithLogicalOperator(sqlParts, 'AND');
+    const result = this.wrapWithLogicalOperator(sqlParts, 'AND');
+    return result;
   }
 
   private processConditions(condition: FilterQuery<T>, alias: string, model: Function): string[] {
@@ -44,7 +51,8 @@ export class SqlConditionBuilder<T> {
     this.trackLastNonOperatorKey(key, model);
 
     const relationship = this.findRelationship(key, model);
-    if (relationship) {
+    
+    if (relationship && !this.hasExistsOperator(value)) {
       return this.handleRelationship(relationship, value, alias);
     }
 
@@ -57,6 +65,10 @@ export class SqlConditionBuilder<T> {
     }
 
     return this.handleObjectValue(key, value, alias, model);
+  }
+
+  private hasExistsOperator(value: any): boolean {
+    return typeof value === 'object' && value !== null && ('$exists' in value || '$nexists' in value);
   }
 
   private handleRelationship(relationship: Relationship<any>, value: any, alias: string): string {
@@ -127,6 +139,10 @@ export class SqlConditionBuilder<T> {
       case '$and':
       case '$or':
         return this.buildNestedLogicalCondition(operator, value, alias, model);
+      case '$exists':
+        return this.buildExistsCondition(key, value, alias, model, false);
+      case '$nexists':
+        return this.buildExistsCondition(key, value, alias, model, true);
       default:
         return '';
     }
@@ -248,6 +264,42 @@ export class SqlConditionBuilder<T> {
     if (!this.OPERATORS.includes(key)) {
       this.lastKeyNotOperator = key;
     }
+  }
+
+  private buildExistsCondition(
+    key: string,
+    filters: FilterQuery<any>,
+    alias: string,
+    model: Function,
+    negate: boolean,
+  ): string {
+    const relationship = this.findRelationship(key, model);
+
+    if (!relationship) {
+      const entity = this.entityStorage.get(model);
+      const availableRelations = entity?.relations
+        ?.map((r) => r.propertyKey as string)
+        .join(', ') || 'none';
+
+      throw new Error(
+        `Cannot use $${negate ? 'nexists' : 'exists'} on non-relationship field '${key}'. ` +
+        `Available relationships: ${availableRelations}`,
+      );
+    }
+
+    if (!this.subqueryBuilder) {
+      throw new Error(
+        'SqlSubqueryBuilder not initialized. This is an internal error.',
+      );
+    }
+
+    return this.subqueryBuilder.buildExistsSubquery(
+      relationship,
+      filters,
+      alias,
+      negate,
+      model,
+    );
   }
 
   private resolveColumnName(property: string, model: Function): string {
