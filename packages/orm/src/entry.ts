@@ -5,7 +5,7 @@ import { EntityStorage } from './domain/entities';
 import { IdentityMapMiddleware } from './middleware/identity-map.middleware';
 
 export const CheetahOrm = new Cheetah({
-  exports: [Orm, OrmService, EntityStorage],
+  exports: [Orm, OrmService, EntityStorage, IdentityMapMiddleware],
   providers: [IdentityMapMiddleware],
   globalMiddlewares: [IdentityMapMiddleware],
 })
