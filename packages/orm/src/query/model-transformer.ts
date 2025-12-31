@@ -72,16 +72,16 @@ export class ModelTransformer {
   }
 
   private createInstance(model: any, primaryKey?: any): { instance: any; wasCached: boolean } {
-    const cached = IdentityMapIntegration.getEntity(model, primaryKey);
+    if (primaryKey !== undefined && primaryKey !== null) {
+      const cached = IdentityMapIntegration.getEntity(model, primaryKey);
 
-    if (cached) {
-      return { instance: cached, wasCached: true };
+      if (cached) {
+        return { instance: cached, wasCached: true };
+      }
     }
 
     const instance = new model();
     instance.$_isPersisted = true;
-
-    // Note: Registration happens later in registerInstancesInIdentityMap after properties are populated
 
     return { instance, wasCached: false };
   }
