@@ -94,6 +94,10 @@ export class SqlConditionBuilder<T> {
       return this.buildLogicalOperatorCondition(key, value, alias, model);
     }
 
+    if (key === '$exists' || key === '$nexists') {
+      return this.buildTopLevelExistsCondition(key, value, alias, model);
+    }
+
     return this.buildOperatorConditions(key, value, alias, model);
   }
 
@@ -300,6 +304,35 @@ export class SqlConditionBuilder<T> {
       negate,
       model,
     );
+  }
+
+  private buildTopLevelExistsCondition(
+    operator: string,
+    value: Record<string, any>,
+    alias: string,
+    model: Function,
+  ): string {
+    const negate = operator === '$nexists';
+    const conditions: string[] = [];
+
+    console.log('[buildTopLevelExistsCondition] operator:', operator, 'value:', value);
+
+    for (const [relationshipKey, filters] of Object.entries(value)) {
+      const condition = this.buildExistsCondition(
+        relationshipKey,
+        filters,
+        alias,
+        model,
+        negate,
+      );
+
+      console.log('[buildTopLevelExistsCondition] Generated condition:', condition);
+      conditions.push(condition);
+    }
+
+    const result = this.wrapWithLogicalOperator(conditions, 'AND');
+    console.log('[buildTopLevelExistsCondition] Final result:', result);
+    return result;
   }
 
   private resolveColumnName(property: string, model: Function): string {

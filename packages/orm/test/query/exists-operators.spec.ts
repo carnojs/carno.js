@@ -488,4 +488,104 @@ describe('EXISTS and NOT EXISTS Operators', () => {
       expect(results[0].posts[0].title).toBe('Post');
     });
   });
+
+  describe('Top-level $exists/$nexists syntax', () => {
+    test('Given authors When using top-level $nexists Then works same as nested syntax', async () => {
+      const alice = await authorRepo.create({
+        name: 'Alice',
+        email: 'alice@test.com',
+      });
+
+      const bob = await authorRepo.create({
+        name: 'Bob',
+        email: 'bob@test.com',
+      });
+
+      await postRepo.create({
+        title: 'Published',
+        content: 'Content',
+        authorId: alice.id,
+        isPublished: true,
+      });
+
+      await postRepo.create({
+        title: 'Draft',
+        content: 'Content',
+        authorId: alice.id,
+        isPublished: false,
+      });
+
+      const results = await authorRepo.find({
+        where: {
+          $nexists: { posts: { isPublished: false } },
+        },
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0].name).toBe('Bob');
+    });
+
+    test('Given authors When using top-level $exists Then works same as nested syntax', async () => {
+      const alice = await authorRepo.create({
+        name: 'Alice',
+        email: 'alice@test.com',
+      });
+
+      const bob = await authorRepo.create({
+        name: 'Bob',
+        email: 'bob@test.com',
+      });
+
+      await postRepo.create({
+        title: 'Post',
+        content: 'Content',
+        authorId: alice.id,
+      });
+
+      const results = await authorRepo.find({
+        where: {
+          $exists: { posts: {} },
+        },
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0].name).toBe('Alice');
+    });
+
+    test('Given authors When combining isActive with top-level $nexists Then both conditions apply', async () => {
+      const activeWithNoDrafts = await authorRepo.create({
+        name: 'Active No Drafts',
+        email: 'active1@test.com',
+      });
+
+      const activeWithDrafts = await authorRepo.create({
+        name: 'Active With Drafts',
+        email: 'active2@test.com',
+      });
+
+      await postRepo.create({
+        title: 'Published',
+        content: 'Content',
+        authorId: activeWithNoDrafts.id,
+        isPublished: true,
+      });
+
+      await postRepo.create({
+        title: 'Draft',
+        content: 'Content',
+        authorId: activeWithDrafts.id,
+        isPublished: false,
+      });
+
+      const results = await authorRepo.find({
+        where: {
+          name: { $like: '%Active%' },
+          $nexists: { posts: { isPublished: false } },
+        },
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0].name).toBe('Active No Drafts');
+    });
+  });
 });
