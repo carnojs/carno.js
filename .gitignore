@@ -7,3 +7,9 @@ node_modules/
 tsconfig.tsbuildinfo
 **/tsconfig.tsbuildinfo
 .npmrc
+.claude
+.serena
+.mcp.json
+AGENTS.md
+CLAUDE.md
+notes.md
