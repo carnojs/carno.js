@@ -160,7 +160,7 @@ describe('Identity Map Integration', () => {
           { load: ['user'], loadStrategy: 'joined' }
         );
         const user = await User.findOne({ id: 1 });
-
+        console.log(post?.user, user);
         // Then
         expect(post?.user).toBe(user);
       });
@@ -233,7 +233,7 @@ describe('Identity Map Integration', () => {
         // When
         const user1 = await User.findOne({ id: 1 });
         const user2 = await User.findOne({ id: 1 });
-        console.log(user1, user2, 'lu');
+        
         // Then
         expect(user1).toBe(user2); // Same context = same instance
       });
