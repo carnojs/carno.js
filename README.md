@@ -5,7 +5,7 @@
 <h1 align="center">Carno.js</h1>
 
 <p align="center">
-  <strong>A fast, modern, and lightweight object-oriented framework for Bun with TypeScript support.</strong>
+  <strong>Performance-first framework for Bun</strong>
 </p>
 
 <p align="center">
