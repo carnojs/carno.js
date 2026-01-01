@@ -1,11 +1,13 @@
-import { createHash } from 'crypto';
 import { Statement } from '../driver/driver.interface';
+
+const FNV_OFFSET_BASIS = 2166136261;
+const FNV_PRIME = 16777619;
 
 export class CacheKeyGenerator {
   generate(statement: Statement<any>): string {
     const parts = this.buildKeyParts(statement);
     const combined = this.combineKeyParts(parts);
-    return this.hashKey(combined);
+    return this.hashFNV1a(combined);
   }
 
   private buildKeyParts(statement: Statement<any>): string[] {
@@ -68,9 +70,14 @@ export class CacheKeyGenerator {
     return parts.join('::');
   }
 
-  private hashKey(key: string): string {
-    return createHash('md5')
-      .update(key)
-      .digest('hex');
+  private hashFNV1a(str: string): string {
+    let hash = FNV_OFFSET_BASIS;
+
+    for (let i = 0; i < str.length; i++) {
+      hash ^= str.charCodeAt(i);
+      hash = Math.imul(hash, FNV_PRIME);
+    }
+
+    return (hash >>> 0).toString(16);
   }
 }

@@ -7,6 +7,7 @@ import {
   ColDiff,
 } from "./driver.interface";
 import { transactionContext } from "../transaction/transaction-context";
+import { escapeString } from "../utils/sql-escape";
 
 export abstract class BunDriverBase implements Partial<DriverInterface> {
   protected sql: SQL;
@@ -123,20 +124,16 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
 
     switch (typeof value) {
       case "string":
-        return `'${this.escapeString(value)}'`;
+        return `'${escapeString(value)}'`;
       case "number":
         return value;
       case "boolean":
         return value;
       case "object":
-        return `'${this.escapeString(JSON.stringify(value))}'`;
+        return `'${escapeString(JSON.stringify(value))}'`;
       default:
-        return `'${this.escapeString(String(value))}'`;
+        return `'${escapeString(String(value))}'`;
     }
-  }
-
-  protected escapeString(value: string): string {
-    return value.replace(/'/g, "''");
   }
 
   protected escapeIdentifier(identifier: string): string {

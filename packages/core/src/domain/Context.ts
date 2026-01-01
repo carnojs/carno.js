@@ -1,6 +1,8 @@
-import { Server } from 'bun';
-import { Injectable } from '../commons/decorators/Injectable.decorator';
-import { ProviderScope } from './provider-scope';
+import {Server} from 'bun';
+import {HttpCode} from '../commons/http-code.enum';
+import {Injectable} from '../commons/decorators/Injectable.decorator';
+import {HttpException} from '../exceptions/HttpException';
+import {ProviderScope} from './provider-scope';
 
 
 @Injectable({ scope: ProviderScope.REQUEST })
@@ -110,18 +112,65 @@ export class Context {
 
   private async resolveBody(request: Request) {
     const contentType = request.headers.get('content-type') || '';
-    this.rawBody = await request.clone().arrayBuffer();
+
+    // Clone request once - preserve original request untouched
+    const clonedRequest = request.clone();
+
+    // FormData multipart requires consuming as formData
+    if (contentType.includes('multipart/form-data')) {
+      // Need separate clone for rawBody since formData() consumes the body
+      this.rawBody = await request.clone().arrayBuffer();
+      this.setBody(await clonedRequest.formData());
+      return;
+    }
+
+    // For all other content types, consume body once as ArrayBuffer from clone
+    this.rawBody = await clonedRequest.arrayBuffer();
 
     if (contentType.includes('application/json')) {
-      this.body = await request.clone().json();
+      this.body = this.parseJsonFromBuffer(this.rawBody);
       return;
     }
 
-    if (contentType.includes('application/x-www-form-urlencoded') || contentType.includes('multipart/form-data')) {
-      this.setBody(await request.clone().formData());
+    if (contentType.includes('application/x-www-form-urlencoded')) {
+      this.body = this.parseUrlEncodedFromBuffer(this.rawBody);
       return;
     }
 
-    this.body = { body: await request.clone().text() };
+    // Plain text or unknown content type
+    this.body = { body: this.decodeBuffer(this.rawBody) };
+  }
+
+  private parseJsonFromBuffer(buffer: ArrayBuffer): Record<string, any> {
+    if (this.isEmptyBuffer(buffer)) {
+      return {};
+    }
+
+    return this.parseJsonText(this.decodeBuffer(buffer));
+  }
+
+  private parseJsonText(text: string): Record<string, any> {
+    try {
+      return JSON.parse(text);
+    } catch {
+      throw new HttpException("Invalid JSON body", HttpCode.BAD_REQUEST);
+    }
+  }
+
+  private isEmptyBuffer(buffer: ArrayBuffer): boolean {
+    return buffer.byteLength === 0;
+  }
+
+  private parseUrlEncodedFromBuffer(buffer: ArrayBuffer): Record<string, any> {
+    if (buffer.byteLength === 0) {
+      return {};
+    }
+
+    const text = this.decodeBuffer(buffer);
+    return Object.fromEntries(new URLSearchParams(text));
+  }
+
+  private decodeBuffer(buffer: ArrayBuffer): string {
+    return new TextDecoder().decode(buffer);
   }
 }

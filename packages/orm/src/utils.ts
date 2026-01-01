@@ -2,10 +2,19 @@ export function getDefaultLength(type: string): number {
   return null;
 }
 
-export function toSnakeCase(propertyKey1: string) {
-  propertyKey1 = propertyKey1[0].toLowerCase() + propertyKey1.slice(1);
+const snakeCaseCache = new Map<string, string>();
 
-  return propertyKey1.replace(/([A-Z])/g, '_$1').toLowerCase();
+export function toSnakeCase(str: string): string {
+  let cached = snakeCaseCache.get(str);
+
+  if (cached) {
+    return cached;
+  }
+
+  cached = str[0].toLowerCase() + str.slice(1).replace(/([A-Z])/g, '_$1').toLowerCase();
+  snakeCaseCache.set(str, cached);
+
+  return cached;
 }
 
 export function extendsFrom(baseClass, instance) {

@@ -1,9 +1,11 @@
-import { ConnectionSettings, DriverInterface } from './driver/driver.interface';
+import { CacheSettings, ConnectionSettings, DriverInterface } from './driver/driver.interface';
 import { LoggerService, Service, CacheService } from '@carno.js/core';
 import { SqlBuilder } from './SqlBuilder';
 import { QueryCacheManager } from './cache/query-cache-manager';
 import { transactionContext } from './transaction/transaction-context';
 import { ormSessionContext } from './orm-session-context';
+
+const DEFAULT_MAX_KEYS_PER_TABLE = 10000;
 
 @Service()
 export class Orm<T extends DriverInterface = DriverInterface> {
@@ -17,13 +19,15 @@ export class Orm<T extends DriverInterface = DriverInterface> {
     public cacheService?: CacheService
   ) {
     Orm.instance = this
-    this.initializeQueryCacheManager();
   }
 
-  private initializeQueryCacheManager(): void {
-    if (this.cacheService) {
-      this.queryCacheManager = new QueryCacheManager(this.cacheService);
+  private initializeQueryCacheManager(cacheSettings?: CacheSettings): void {
+    if (!this.cacheService) {
+      return;
     }
+
+    const maxKeys = cacheSettings?.maxKeysPerTable ?? DEFAULT_MAX_KEYS_PER_TABLE;
+    this.queryCacheManager = new QueryCacheManager(this.cacheService, maxKeys);
   }
 
   static getInstance(): Orm<any> {
@@ -39,6 +43,7 @@ export class Orm<T extends DriverInterface = DriverInterface> {
     this.connection = connection
     // @ts-ignore
     this.driverInstance = new this.connection.driver(connection)
+    this.initializeQueryCacheManager(connection.cache);
   }
 
   createQueryBuilder<Model>(model: new() => Model): SqlBuilder<Model> {
