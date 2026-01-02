@@ -28,6 +28,25 @@ describe('ParamResolverFactory', () => {
       expect(info.needsValidation).toBe(false);
     });
 
+    it('should respect explicit param type metadata', () => {
+      // Given
+      const resolver = (context: Context) => context.body;
+      const meta = {
+        fun: resolver,
+        param: 'name',
+        type: 'body',
+      };
+
+      resolver.toString = () => 'minified';
+
+      // When
+      const info = analyzeParamDecorator(meta, String);
+
+      // Then
+      expect(info.type).toBe('body');
+      expect(info.key).toBe('name');
+    });
+
     it('should identify query decorator', () => {
       // Given
       const meta = {

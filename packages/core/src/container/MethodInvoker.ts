@@ -13,6 +13,7 @@ import { isClassValidator } from "../utils/isClassValidator";
 type MethodCache = {
   args: any;
   params: any;
+  needsBody: boolean;
 };
 
 export class MethodInvoker {
@@ -29,6 +30,9 @@ export class MethodInvoker {
     invokeCallback: (token: TokenProvider, locals: LocalsContainer) => any
   ): Promise<any> {
     const methodInfo = this.getMethodInfo(instance, methodName);
+
+    await this.ensureBodyParsed(methodInfo, context);
+
     const services = this.resolveMethodServices(
       methodInfo,
       context,
@@ -55,7 +59,8 @@ export class MethodInvoker {
   private cacheMethodInfo(instance: any, methodName: string): MethodCache {
     const args = getMethodArgTypes(instance, methodName);
     const params = Metadata.getParamDecoratorFunc(instance, methodName);
-    const methodInfo = { args, params };
+    const needsBody = this.hasBodyParam(params);
+    const methodInfo = { args, params, needsBody };
 
     this.setCachedMethod(instance, methodName, methodInfo);
 
@@ -95,6 +100,41 @@ export class MethodInvoker {
     return services;
   }
 
+  private async ensureBodyParsed(
+    methodInfo: MethodCache,
+    context: Context
+  ): Promise<void> {
+    if (!methodInfo.needsBody) {
+      return;
+    }
+
+    if (context.isBodyParsed()) {
+      return;
+    }
+
+    await context.getBody();
+  }
+
+  private hasBodyParam(params: any): boolean {
+    if (!params) {
+      return false;
+    }
+
+    return Object.values(params).some((param) => this.isBodyParam(param));
+  }
+
+  private isBodyParam(param: any): boolean {
+    if (param?.type === "body") {
+      return true;
+    }
+
+    if (!param?.fun) {
+      return false;
+    }
+
+    return String(param.fun).includes("context.body");
+  }
+
   private resolveService(
     token: any,
     param: any,
@@ -116,7 +156,8 @@ export class MethodInvoker {
   private validateAndTransform(token: any, value: any): any {
     const obj = plainToInstance(token, value);
     const errors = validateSync(obj, this.applicationConfig.validation);
-    // todo: deve retornar apenas os erros e não o objeto class-validator inteiro.
+    // todo: deve retornar apenas os erros e no o objeto class-validator intei
+    // ro.
     if (errors.length > 0) {
       throw new HttpException(errors, 400);
     }
@@ -124,3 +165,4 @@ export class MethodInvoker {
     return obj;
   }
 }
+

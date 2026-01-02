@@ -1,19 +1,26 @@
 import { plainToInstance } from 'class-transformer';
 import { validateSync, type ValidatorOptions } from 'class-validator';
-
 import type { Context } from '../domain/Context';
 import { HttpException } from '../exceptions/HttpException';
 import { isValidatable } from '../utils/ValidationCache';
-
 import type { ParamResolver, AsyncParamResolver } from './CompiledRoute';
+
+export type ParamDecoratorType =
+  | 'body'
+  | 'query'
+  | 'param'
+  | 'headers'
+  | 'req'
+  | 'locals';
 
 export interface ParamDecoratorMeta {
   fun: (context: Context, data?: any) => any;
   param?: any;
+  type?: ParamDecoratorType;
 }
 
 export interface ParamInfo {
-  type: 'body' | 'query' | 'param' | 'headers' | 'req' | 'locals' | 'di';
+  type: ParamDecoratorType | 'di';
   key?: string;
   needsValidation: boolean;
   token?: any;
@@ -27,36 +34,63 @@ export function analyzeParamDecorator(
     return { type: 'di', needsValidation: false, token };
   }
 
-  const funcStr = decoratorMeta.fun.toString();
+  const paramType = resolveParamType(decoratorMeta);
   const key = decoratorMeta.param;
   const needsValidation =
     typeof token === 'function' && isValidatable(token);
 
-  if (funcStr.includes('context.body')) {
-    return { type: 'body', key, needsValidation, token };
-  }
-
-  if (funcStr.includes('context.query')) {
-    return { type: 'query', key, needsValidation, token };
-  }
-
-  if (funcStr.includes('context.param')) {
-    return { type: 'param', key, needsValidation, token };
-  }
-
-  if (funcStr.includes('context.headers')) {
-    return { type: 'headers', key, needsValidation, token };
-  }
-
-  if (funcStr.includes('context.req')) {
-    return { type: 'req', needsValidation: false, token };
-  }
-
-  if (funcStr.includes('context.locals')) {
-    return { type: 'locals', needsValidation: false, token };
+  if (paramType) {
+    return {
+      type: paramType,
+      key,
+      needsValidation,
+      token,
+    };
   }
 
   return { type: 'di', needsValidation: false, token };
+}
+
+function resolveParamType(
+  decoratorMeta: ParamDecoratorMeta
+): ParamDecoratorType | null {
+  if (decoratorMeta.type) {
+    return decoratorMeta.type;
+  }
+
+  return inferTypeFromSource(decoratorMeta.fun);
+}
+
+function inferTypeFromSource(
+  resolver: (context: Context, data?: any) => any
+): ParamDecoratorType | null {
+  const funcStr = resolver.toString();
+
+  if (funcStr.includes('context.body')) {
+    return 'body';
+  }
+
+  if (funcStr.includes('context.query')) {
+    return 'query';
+  }
+
+  if (funcStr.includes('context.param')) {
+    return 'param';
+  }
+
+  if (funcStr.includes('context.headers')) {
+    return 'headers';
+  }
+
+  if (funcStr.includes('context.req')) {
+    return 'req';
+  }
+
+  if (funcStr.includes('context.locals')) {
+    return 'locals';
+  }
+
+  return null;
 }
 
 function createValidationResolver(

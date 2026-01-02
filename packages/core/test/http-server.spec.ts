@@ -10,10 +10,42 @@ import {
   Query,
   Param,
   Headers,
+  Middleware,
+  createParamDecorator,
 } from "../src";
 import { withCoreApplication } from "../src/testing";
+import type { Context, CarnoClosure, CarnoMiddleware } from "../src";
 
 describe("HTTP server integration tests", () => {
+  const minifiedBodyResolver = (context: Context, data?: string) => {
+    const body = context.body || {};
+
+    if (data) {
+      return body[data];
+    }
+
+    return body;
+  };
+
+  (minifiedBodyResolver as any).__carnoParamType = "body";
+  minifiedBodyResolver.toString = () => "minified";
+
+  const BodyMinified = createParamDecorator(minifiedBodyResolver);
+
+  class PassMiddleware implements CarnoMiddleware {
+    async handle(_context: Context, next: CarnoClosure): Promise<void> {
+      await next();
+    }
+  }
+
+  @Controller({ path: "/minified" })
+  class MinifiedBodyController {
+    @Post("/login")
+    @Middleware(PassMiddleware)
+    login(@BodyMinified() body: any) {
+      return { selectedAnswer: body?.selectedAnswer };
+    }
+  }
   @Controller({ path: "/users" })
   class UserController {
     @Get()
@@ -282,6 +314,32 @@ describe("HTTP server integration tests", () => {
       {
         listen: true,
         config: { providers: [AuthController] },
+      }
+    );
+  });
+
+  test("POST request parses body when decorator source is minified", async () => {
+    await withCoreApplication(
+      async ({ request }) => {
+        const payload = {
+          selectedAnswer: "she did",
+          responseTime: 4,
+        };
+
+        const response = await request("/minified/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+
+        const result = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(result.selectedAnswer).toBe("she did");
+      },
+      {
+        listen: true,
+        config: { providers: [MinifiedBodyController, PassMiddleware] },
       }
     );
   });

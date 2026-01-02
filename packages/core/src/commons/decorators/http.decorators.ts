@@ -3,6 +3,19 @@ import { TokenRoute } from "../../container/ContainerConfiguration";
 import { CONTROLLER_ROUTES, ROUTE_PARAM } from "../../constants";
 import { Context } from "../../domain/Context";
 
+const PARAM_TYPE_KEY = "__carnoParamType";
+
+type ParamType = "body" | "query" | "param" | "headers" | "req" | "locals";
+
+const markParamType = (
+  func: (context: Context, data?: any) => any,
+  paramType: ParamType
+) => {
+  (func as any)[PARAM_TYPE_KEY] = paramType;
+
+  return func;
+};
+
 const createMethodDecorator = (methodType: string) => {
   return (path: string = ""): MethodDecorator => {
     return (target, propertyKey) => {
@@ -33,28 +46,60 @@ export function createParamDecorator(
     (target, propertyKey, parameterIndex) => {
       const existingArgs: Record<number, any> =
         Metadata.get(ROUTE_PARAM, target.constructor, propertyKey) || {};
-      existingArgs[parameterIndex] = { fun: func, param: data };
+      existingArgs[parameterIndex] = {
+        fun: func,
+        param: data,
+        type: (func as any)[PARAM_TYPE_KEY],
+      };
 
       Metadata.set(ROUTE_PARAM, existingArgs, target.constructor, propertyKey);
     };
 }
 
-export const Body = createParamDecorator((context: Context, data: string) =>
-  data ? context.body[data] : context.body || {}
+const bodyResolver = markParamType(
+  (context: Context, data: string) =>
+    data ? context.body[data] : context.body || {},
+  "body"
 );
-export const Query = createParamDecorator((context: Context, data: string) =>
-  data ? context.query[data] : context.query || {}
+
+const queryResolver = markParamType(
+  (context: Context, data: string) =>
+    data ? context.query[data] : context.query || {},
+  "query"
 );
-export const Param = createParamDecorator((context: Context, data: string) =>
-  data ? context.param[data] : null
+
+const paramResolver = markParamType(
+  (context: Context, data: string) =>
+    data ? context.param[data] : null,
+  "param"
 );
-export const Req = createParamDecorator((context: Context) => context.req);
-export const Headers = createParamDecorator((context: Context, data: string) =>
-  data ? (context.headers.has(data) ? context.headers.get(data) : undefined) : context.headers || {}
+
+const reqResolver = markParamType(
+  (context: Context) => context.req,
+  "req"
 );
-export const Locals = createParamDecorator(
-  (context: Context) => context.locals || {}
+
+const headersResolver = markParamType(
+  (context: Context, data: string) =>
+    data
+      ? context.headers.has(data)
+        ? context.headers.get(data)
+        : undefined
+      : context.headers || {},
+  "headers"
 );
+
+const localsResolver = markParamType(
+  (context: Context) => context.locals || {},
+  "locals"
+);
+
+export const Body = createParamDecorator(bodyResolver);
+export const Query = createParamDecorator(queryResolver);
+export const Param = createParamDecorator(paramResolver);
+export const Req = createParamDecorator(reqResolver);
+export const Headers = createParamDecorator(headersResolver);
+export const Locals = createParamDecorator(localsResolver);
 export const Get = createMethodDecorator("GET");
 export const Post = createMethodDecorator("POST");
 export const Put = createMethodDecorator("PUT");
