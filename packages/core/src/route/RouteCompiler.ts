@@ -9,7 +9,6 @@ import type { Context } from '../domain/Context';
 import { Metadata } from '../domain/Metadata';
 import { HttpException } from '../exceptions/HttpException';
 import { getMethodArgTypes } from '../utils/getMethodArgTypes';
-import { isValidatable } from '../utils/ValidationCache';
 
 import {
   type CompiledRoute,
