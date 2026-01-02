@@ -252,6 +252,12 @@ export class Memoirist<T> {
 
     if (node.params?.store === oldStore) {
       node.params.store = newStore
+      
+      const paramName = node.params.names.get(oldStore)
+      if (paramName) {
+        node.params.names.set(newStore, paramName)
+      }
+      
       this.updateHistoryStore(method, path, newStore)
 
       return true

@@ -11,6 +11,7 @@ import {
   Param,
   Headers,
   Middleware,
+  Locals,
   createParamDecorator,
 } from "../src";
 import { withCoreApplication } from "../src/testing";
@@ -283,7 +284,6 @@ describe("HTTP server integration tests", () => {
         expect(response.status).toBe(200);
         expect(payload.token).toBe("mock-jwt-token");
         expect(payload.user).toBe("user@test.com");
-        console.log(payload.device);
         expect(payload.device).toContain("CarnoTest");
       },
       {
@@ -421,6 +421,93 @@ describe("HTTP server integration tests", () => {
       {
         listen: 4567,
         config: { providers: [UserController] },
+      }
+    );
+  });
+
+  test("GET request with @Param, @Middleware and @Locals", async () => {
+    class OptionalAuthMiddleware implements CarnoMiddleware {
+      async handle(context: Context, next: CarnoClosure): Promise<void> {
+        // Simulate optional authentication
+        context.locals = { user: { id: "user-123" } };
+        await next();
+      }
+    }
+
+    @Controller({ path: "/courses" })
+    class CourseController {
+      @Get(":id")
+      @Middleware(OptionalAuthMiddleware)
+      async findOne(@Param("id") id: string, @Locals() locals: any) {
+        const userId = locals.user?.id ?? null;
+        
+        return {
+          courseId: id,
+          userId: userId,
+          name: "Test Course",
+        };
+      }
+    }
+
+    await withCoreApplication(
+      async ({ request }) => {
+        const response = await request("/courses/019b33a6-2afc-7079-8bbe-e5439bb2e94d");
+        const payload = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(payload.courseId).toBe("019b33a6-2afc-7079-8bbe-e5439bb2e94d");
+        expect(payload.userId).toBe("user-123");
+        expect(payload.name).toBe("Test Course");
+      },
+      {
+        listen: true,
+        config: { providers: [CourseController, OptionalAuthMiddleware] },
+      }
+    );
+  });
+
+  test("Different param names in same position don't conflict", async () => {
+    // This test prevents a regression where updateStore() didn't update param.names
+    // causing param name conflicts when different routes shared the same tree node
+    
+    @Controller({ path: "/items" })
+    class ItemController {
+      @Get(":itemId")
+      findItem(@Param("itemId") itemId: string) {
+        return { type: "item", id: itemId };
+      }
+    }
+
+    @Controller({ path: "/products" })
+    class ProductController {
+      @Get(":productId")
+      @Middleware(PassMiddleware)
+      findProduct(@Param("productId") productId: string) {
+        return { type: "product", id: productId };
+      }
+    }
+
+    await withCoreApplication(
+      async ({ request }) => {
+        // Test first route
+        const itemResponse = await request("/items/item-123");
+        const itemPayload = await itemResponse.json();
+        
+        expect(itemResponse.status).toBe(200);
+        expect(itemPayload.type).toBe("item");
+        expect(itemPayload.id).toBe("item-123");
+
+        // Test second route with different param name
+        const productResponse = await request("/products/product-456");
+        const productPayload = await productResponse.json();
+        
+        expect(productResponse.status).toBe(200);
+        expect(productPayload.type).toBe("product");
+        expect(productPayload.id).toBe("product-456");
+      },
+      {
+        listen: true,
+        config: { providers: [ItemController, ProductController, PassMiddleware] },
       }
     );
   });

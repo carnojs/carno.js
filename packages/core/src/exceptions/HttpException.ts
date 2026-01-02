@@ -1,4 +1,4 @@
-import { isObject } from "../utils";
+import { formatValidationErrors, isObject } from "../utils";
 
 
 export class HttpException {
@@ -9,11 +9,14 @@ export class HttpException {
   }
 
   public initMessage() {
-    if (isObject(this.response)) {
-      this.message = this.response as any
-    } else {
-      this.message = this.response
+    const formatted = formatValidationErrors(this.response)
+
+    if (isObject(formatted)) {
+      this.message = formatted as any
+      return
     }
+
+    this.message = formatted as string
   }
 
   public getResponse(): string | object {
