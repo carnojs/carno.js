@@ -1,29 +1,28 @@
-import type { ApplicationConfig } from "../Carno";
-import { Injectable } from "../commons/decorators/Injectable.decorator";
-import { registerProvider } from "../commons";
-import { GlobalProvider, TokenProvider, } from "../commons/registries/ProviderControl";
-import { CONTROLLER_EVENTS } from "../constants";
-import { DefaultRoutesCarno } from "../default-routes-carno";
-import { Context } from "../domain/Context";
-import { LocalsContainer } from "../domain/LocalsContainer";
-import { Metadata } from "../domain/Metadata";
-import { Provider } from "../domain/provider";
-import { ProviderScope } from "../domain/provider-scope";
-import { ProviderType } from "../domain/provider-type";
-import { EventType, OnEvent } from "../events/on-event";
+import type {ApplicationConfig} from "../Carno";
+import {Injectable} from "../commons/decorators/Injectable.decorator";
+import {registerProvider} from "../commons";
+import {GlobalProvider, TokenProvider,} from "../commons/registries/ProviderControl";
+import {CONTROLLER_EVENTS} from "../constants";
+import {DefaultRoutesCarno} from "../default-routes-carno";
+import {Context} from "../domain/Context";
+import {LocalsContainer} from "../domain/LocalsContainer";
+import {Metadata} from "../domain/Metadata";
+import {Provider} from "../domain/provider";
+import {ProviderScope} from "../domain/provider-scope";
+import {ProviderType} from "../domain/provider-type";
+import {EventType, OnEvent} from "../events/on-event";
 import Memoirist from "../route/memoirist";
-import { LoggerService } from "../services/logger.service";
-import { CacheService } from "../cache/cache.service";
-import { isPrimitiveType } from "../utils/isPrimitiveType";
-import { nameOf } from "../utils/nameOf";
-import { ContainerConfiguration, TokenRouteWithProvider, } from "./ContainerConfiguration";
-import { Container } from "./container";
-import { MiddlewareRes } from "./middleware.resolver";
-import { RouteResolver } from "./RouteResolver";
-import { DependencyResolver } from "./DependencyResolver";
-import { MethodInvoker } from "./MethodInvoker";
-import { RouteCompiler } from "../route/RouteCompiler";
-import type { CompiledRoute } from "../route/CompiledRoute";
+import {LoggerService} from "../services/logger.service";
+import {CacheService} from "../cache/cache.service";
+import {isPrimitiveType} from "../utils/isPrimitiveType";
+import {nameOf} from "../utils/nameOf";
+import {ContainerConfiguration, TokenRouteWithProvider,} from "./ContainerConfiguration";
+import {Container} from "./container";
+import {MiddlewareRes} from "./middleware.resolver";
+import {RouteResolver} from "./RouteResolver";
+import {DependencyResolver} from "./DependencyResolver";
+import {MethodInvoker} from "./MethodInvoker";
+import {RouteCompiler} from "../route/RouteCompiler";
 
 @Injectable()
 export class InjectorService {
@@ -53,10 +52,10 @@ export class InjectorService {
     this.saveInjector();
     this.routeResolver.resolveControllers();
     this.cacheControllerScopes();
-    this.preInstantiateSingletonControllers();
     this.cacheHooks();
-    this.compileRoutes();
     await this.callHook(EventType.OnApplicationInit);
+    this.preInstantiateSingletonControllers();
+    this.compileRoutes();
   }
 
   private initializeResolvers(): void {
