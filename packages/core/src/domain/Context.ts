@@ -9,29 +9,74 @@ import {ProviderScope} from './provider-scope';
 export class Context {
 
   query: Record<string, any> = {}
-  body: Record<string, any> = {}
+  private _body: Record<string, any> = {}
   rawBody?: ArrayBuffer;
   param: Record<string, any> = {}
   req: Request;
   headers: Request["headers"] = new Headers();
   locals: Record<string, any> = {};
-  trackingId: string;
 
   private resultStatus: number;
+  private _pendingRequest: Request | null = null;
+  private _bodyParsed: boolean = false;
+
   private constructor() {}
 
-  static async createFromRequest(url: any, request: Request, server: Server<any>) {
-    const context = new Context();
-    context.setQuery(url);
+  get body(): Record<string, any> {
+    return this._body;
+  }
 
-    if (request.method !== 'GET') {
-      await context.resolveBody(request);
+  set body(value: Record<string, any>) {
+    this._body = value;
+    this._bodyParsed = true;
+  }
+
+  async getBody(): Promise<Record<string, any>> {
+    if (!this._bodyParsed && this._pendingRequest) {
+      await this.resolveBody(this._pendingRequest);
+      this._pendingRequest = null;
+      this._bodyParsed = true;
     }
 
+    return this._body;
+  }
+
+  isBodyParsed(): boolean {
+    return this._bodyParsed;
+  }
+
+  static async createFromRequest(url: any, request: Request, server: Server<any>): Promise<Context> {
+    const context = Context.createFromRequestSync(url, request, server);
+
+    if (context._pendingRequest) {
+      await context.getBody();
+    }
+
+    return context;
+  }
+
+  static createFromRequestSync(url: any, request: Request, server: Server<any>): Context {
+    const context = new Context();
+    context.setQuery(url);
     context.setReq(request);
     // @ts-ignore
     context.setHeaders(request.headers);
-    context.setTrackingId(request);
+
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      context._pendingRequest = request;
+    } else {
+      context._bodyParsed = true;
+    }
+
+    return context;
+  }
+
+  static async createFromRequestWithBody(url: any, request: Request, server: Server<any>): Promise<Context> {
+    const context = Context.createFromRequestSync(url, request, server);
+
+    if (context._pendingRequest) {
+      await context.getBody();
+    }
 
     return context;
   }
@@ -39,8 +84,6 @@ export class Context {
 
   static createFromJob(job: any): Context {
     const context = new Context();
-
-    context.setTrackingIdFromJob(job);
 
     return context;
   }
@@ -52,7 +95,7 @@ export class Context {
 
   private setBody(body: any) {
     for (const [key, value] of body.entries()) {
-      this.body[key] = value;
+      this._body[key] = value;
     }
   }
 
@@ -64,35 +107,6 @@ export class Context {
     this.headers = headers;
   }
 
-  private setTrackingId(request: Request) {
-    const headerTrackingId = request.headers.get('x-tracking-id');
-
-    if (headerTrackingId) {
-      this.trackingId = headerTrackingId;
-      return;
-    }
-
-    this.trackingId = crypto.randomUUID();
-  }
-
-
-  private setTrackingIdFromJob(job: any) {
-    const trackingIdFromData = job.data?.__trackingId;
-
-    if (trackingIdFromData) {
-      this.trackingId = trackingIdFromData;
-      return;
-    }
-
-    const trackingIdFromProperty = job.trackingId;
-
-    if (trackingIdFromProperty) {
-      this.trackingId = trackingIdFromProperty;
-      return;
-    }
-
-    this.trackingId = crypto.randomUUID();
-  }
 
   setParam(param: Record<string, any>) {
     this.param = param;
@@ -128,17 +142,17 @@ export class Context {
     this.rawBody = await clonedRequest.arrayBuffer();
 
     if (contentType.includes('application/json')) {
-      this.body = this.parseJsonFromBuffer(this.rawBody);
+      this._body = this.parseJsonFromBuffer(this.rawBody);
       return;
     }
 
     if (contentType.includes('application/x-www-form-urlencoded')) {
-      this.body = this.parseUrlEncodedFromBuffer(this.rawBody);
+      this._body = this.parseUrlEncodedFromBuffer(this.rawBody);
       return;
     }
 
     // Plain text or unknown content type
-    this.body = { body: this.decodeBuffer(this.rawBody) };
+    this._body = { body: this.decodeBuffer(this.rawBody) };
   }
 
   private parseJsonFromBuffer(buffer: ArrayBuffer): Record<string, any> {
@@ -174,3 +188,6 @@ export class Context {
     return new TextDecoder().decode(buffer);
   }
 }
+
+
+

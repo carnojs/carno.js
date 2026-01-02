@@ -39,7 +39,13 @@ export class DependencyResolver {
     const deps = this.getConstructorDependencies(provider.useClass);
     const hasRequestDep = this.hasRequestScopeDependency(deps);
 
-    return hasRequestDep ? ProviderScope.REQUEST : ProviderScope.SINGLETON;
+    return hasRequestDep ? ProviderScope.REQUEST : ProviderScope.SINGLETON;     
+  }
+
+  public resolveScope(provider: Provider): ProviderScope {
+    const scope = this.determineScope(provider);
+
+    return scope;
   }
 
   private hasRequestScopeDependency(deps: TokenProvider[]): boolean {

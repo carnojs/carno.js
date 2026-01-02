@@ -86,8 +86,8 @@ export class Memoirist<T> {
   history: [string, string, T][] = []
 
   private static regex = {
-    static: /:.+?(?=\/|$)/,
-    params: /:.+?(?=\/|$)/g
+    static: /:[^/]+/,
+    params: /:[^/]+/g
   }
 
   add(method: string, path: string, store: T): FindResult<T>['store'] {
@@ -229,6 +229,133 @@ export class Memoirist<T> {
     if (!root) return null
 
     return matchRoute(url, url.length, root, 0)
+  }
+
+  updateStore(
+    method: string,
+    path: string,
+    oldStore: T,
+    newStore: T
+  ): boolean {
+    const node = this.findNode(method, path)
+
+    if (!node) {
+      return false
+    }
+
+    if (node.store === oldStore) {
+      node.store = newStore
+      this.updateHistoryStore(method, path, newStore)
+
+      return true
+    }
+
+    if (node.params?.store === oldStore) {
+      node.params.store = newStore
+      this.updateHistoryStore(method, path, newStore)
+
+      return true
+    }
+
+    if (node.wildcardStore === oldStore) {
+      node.wildcardStore = newStore
+      this.updateHistoryStore(method, path, newStore)
+
+      return true
+    }
+
+    return false
+  }
+
+  private updateHistoryStore(method: string, path: string, newStore: T): void {
+    const normalizedPath = this.normalizePath(path)
+
+    for (let i = 0; i < this.history.length; i++) {
+      const [m, p] = this.history[i]
+
+      if (m === method && this.normalizePath(p) === normalizedPath) {
+        this.history[i] = [method, p, newStore]
+
+        break
+      }
+    }
+  }
+
+  private normalizePath(path: string): string {
+    if (path === '') {
+      return '/'
+    }
+
+    return path[0] !== '/' ? `/${path}` : path
+  }
+
+  private findNode(method: string, path: string): Node<T> | null {
+    if (path === '') {
+      path = '/'
+    } else if (path[0] !== '/') {
+      path = `/${path}`
+    }
+
+    const isWildcard = path[path.length - 1] === '*'
+
+    if (isWildcard) {
+      path = path.slice(0, -1)
+    }
+
+    const inertParts = path.split(Memoirist.regex.static)
+    const paramParts = path.match(Memoirist.regex.params) || []
+
+    if (inertParts[inertParts.length - 1] === '') {
+      inertParts.pop()
+    }
+
+    let node = this.root[method]
+
+    if (!node) {
+      return null
+    }
+
+    let paramPartsIndex = 0
+
+    for (let i = 0; i < inertParts.length; ++i) {
+      let part = inertParts[i]
+
+      if (i > 0) {
+        paramPartsIndex++
+
+        if (!node.params?.inert) {
+          return null
+        }
+
+        node = node.params.inert
+      }
+
+      for (let j = 0; ; ) {
+        if (j === part.length) {
+          break
+        }
+
+        if (j === node.part.length) {
+          if (!node.inert?.has(part.charCodeAt(j))) {
+            return null
+          }
+
+          node = node.inert.get(part.charCodeAt(j))!
+          part = part.slice(j)
+          j = 0
+
+          continue
+        }
+
+        if (part[j] !== node.part[j]) {
+          return null
+        }
+
+        ++j
+      }
+    }
+
+    return node
   }
 }
 
