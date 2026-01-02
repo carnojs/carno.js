@@ -86,8 +86,8 @@ export class Memoirist<T> {
   history: [string, string, T][] = []
 
   private static regex = {
-    static: /:.+?(?=\/|$)/,
-    params: /:.+?(?=\/|$)/g
+    static: /:[^/]+/,
+    params: /:[^/]+/g
   }
 
   add(method: string, path: string, store: T): FindResult<T>['store'] {
