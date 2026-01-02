@@ -99,7 +99,6 @@ Use decorators to access request data.
 | `@Param(key?)` | Route parameters | `@Param() params` or `@Param('id') id` |
 | `@Headers(key?)` | Request headers | `@Headers() headers` or `@Headers('authorization') token` |
 | `@Req()` | The raw `Request` object | `@Req() req` |
-| `@Context()` | The framework `Context` object | `@Context() ctx` |
 | `@Locals()` | Request-scoped locals | `@Locals() locals` |
 
 ### Example
@@ -157,16 +156,5 @@ You can return a native `Response` object for full control.
 @Get()
 custom() {
   return new Response('Custom', { status: 201 });
-}
-```
-
-### Accessing Context
-For more advanced scenarios (like setting cookies or status codes imperatively), access the `Context`.
-
-```ts
-@Get()
-create(@Context() ctx: Context) {
-  ctx.setResponseStatus(201);
-  return 'Created';
 }
 ```
