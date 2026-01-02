@@ -9,6 +9,7 @@ import { LocalsContainer } from "../domain/LocalsContainer";
 import { Metadata } from "../domain/Metadata";
 import { Provider } from "../domain/provider";
 import { ProviderScope } from "../domain/provider-scope";
+import { ProviderType } from "../domain/provider-type";
 import { EventType, OnEvent } from "../events/on-event";
 import Memoirist from "../route/memoirist";
 import { LoggerService } from "../services/logger.service";
@@ -21,7 +22,8 @@ import { MiddlewareRes } from "./middleware.resolver";
 import { RouteResolver } from "./RouteResolver";
 import { DependencyResolver } from "./DependencyResolver";
 import { MethodInvoker } from "./MethodInvoker";
-import { RequestLogger } from "../services/request-logger.service";
+import { RouteCompiler } from "../route/RouteCompiler";
+import type { CompiledRoute } from "../route/CompiledRoute";
 
 @Injectable()
 export class InjectorService {
@@ -29,6 +31,10 @@ export class InjectorService {
   container: Container = new Container();
   applicationConfig: ApplicationConfig = {};
   router: Memoirist<TokenRouteWithProvider>;
+  private hooksByEvent: Map<EventType, OnEvent[]> = new Map();
+  private _hasOnRequestHook: boolean = false;
+  private _hasOnResponseHook: boolean = false;
+  private controllerScopes: Map<TokenProvider, ProviderScope> = new Map();
   private routeResolver: RouteResolver;
   private dependencyResolver: DependencyResolver;
   private methodInvoker: MethodInvoker;
@@ -46,6 +52,10 @@ export class InjectorService {
     this.removeUnknownProviders();
     this.saveInjector();
     this.routeResolver.resolveControllers();
+    this.cacheControllerScopes();
+    this.preInstantiateSingletonControllers();
+    this.cacheHooks();
+    this.compileRoutes();
     await this.callHook(EventType.OnApplicationInit);
   }
 
@@ -95,20 +105,50 @@ export class InjectorService {
     );
   }
 
+  public resolveControllerInstance(
+    token: TokenProvider,
+    locals: LocalsContainer
+  ): any {
+    const provider = this.ensureProvider(token);
+
+    if (!provider) {
+      const message =
+        `Provider not found for: ${nameOf(token)}, check if it was ` +
+        `imported into the module or imported without type-only import.`;
+
+      throw new Error(message);
+    }
+
+    const scope = this.getControllerScope(provider);
+
+    if (scope !== ProviderScope.SINGLETON) {
+      return this.invoke(token, locals);
+    }
+
+    if (provider.instance) {
+      return provider.instance;
+    }
+
+    return this.invoke(token, locals);
+  }
+
   async invokeRoute(
     route: TokenRouteWithProvider,
     context: Context,
-    locals: LocalsContainer
+    locals: LocalsContainer,
+    instance: any
   ): Promise<any> {
     await MiddlewareRes.resolveMiddlewares(route, this, locals);
 
-    return this.methodInvoker.invoke(
-      route.provider.instance,
+    const result = await this.methodInvoker.invoke(
+      instance,
       route.methodName,
       locals,
       context,
       (t, l) => this.invoke(t, l)
     );
+
+    return result;
   }
 
   scopeOf(provider: Provider): ProviderScope | undefined {
@@ -116,7 +156,7 @@ export class InjectorService {
   }
 
   public async callHook(event: EventType, data: unknown = null): Promise<void> {
-    const hooks = this.getHooksByEvent(event);
+    const hooks = this.getCachedHooks(event);
 
     if (hooks.length === 0) {
       return;
@@ -125,16 +165,165 @@ export class InjectorService {
     await this.runHookHandlers(hooks, data ?? {});
   }
 
-  private getHooksByEvent(event: EventType): OnEvent[] {
-    const hooks = Metadata.get(CONTROLLER_EVENTS, Reflect) as OnEvent[] | undefined;
+  private getCachedHooks(event: EventType): OnEvent[] {
+    return this.hooksByEvent.get(event) ?? [];
+  }
 
-    if (!hooks) {
-      return [];
+  private cacheHooks(): void {
+    this.hooksByEvent = this.buildHooksByEvent();
+    this._hasOnRequestHook = (this.hooksByEvent.get(EventType.OnRequest)?.length ?? 0) > 0;
+    this._hasOnResponseHook = (this.hooksByEvent.get(EventType.OnResponse)?.length ?? 0) > 0;
+  }
+
+  hasHook(event: EventType): boolean {
+    if (event === EventType.OnRequest) {
+      return this._hasOnRequestHook;
     }
 
-    const filtered = hooks.filter((hook: OnEvent) => hook.eventName === event);
+    if (event === EventType.OnResponse) {
+      return this._hasOnResponseHook;
+    }
 
-    return this.sortHooksByPriority(filtered);
+    return (this.hooksByEvent.get(event)?.length ?? 0) > 0;
+  }
+
+  hasOnRequestHook(): boolean {
+    return this._hasOnRequestHook;
+  }
+
+  hasOnResponseHook(): boolean {
+    return this._hasOnResponseHook;
+  }
+
+  private cacheControllerScopes(): void {
+    const controllers = this.getControllers();
+
+    this.controllerScopes = this.buildControllerScopeMap(controllers);
+  }
+
+  private buildControllerScopeMap(
+    controllers: Provider[]
+  ): Map<TokenProvider, ProviderScope> {
+    const scoped = new Map<TokenProvider, ProviderScope>();
+
+    controllers.forEach((controller) => {
+      const scope = this.dependencyResolver.resolveScope(controller);
+
+      scoped.set(controller.token, scope);
+    });
+
+    return scoped;
+  }
+
+  private getControllers(): Provider[] {
+    const controllers = GlobalProvider.getByType(ProviderType.CONTROLLER);
+
+    return controllers;
+  }
+
+  private getControllerScope(controller: Provider): ProviderScope {
+    const cached = this.controllerScopes.get(controller.token);
+
+    if (cached) {
+      return cached;
+    }
+
+    const scope = this.dependencyResolver.resolveScope(controller);
+
+    this.controllerScopes.set(controller.token, scope);
+
+    return scope;
+  }
+
+  private preInstantiateSingletonControllers(): void {
+    const controllers = this.getControllers();
+
+    for (const controller of controllers) {
+      const scope = this.getControllerScope(controller);
+
+      if (scope !== ProviderScope.SINGLETON) {
+        continue;
+      }
+
+      this.ensureControllerInstance(controller);
+    }
+  }
+
+
+  private compileRoutes(): void {
+    const compiler = new RouteCompiler({
+      container: this.container,
+      controllerScopes: this.controllerScopes,
+      validationConfig: this.applicationConfig.validation,
+      hasOnRequestHook: this._hasOnRequestHook,
+      hasOnResponseHook: this._hasOnResponseHook,
+    });
+
+    const routesToCompile = [...this.router.history];
+
+    for (const [method, path, store] of routesToCompile) {
+      if (!store || (store as any).routeType !== undefined) {
+        continue;
+      }
+
+      const compiled = compiler.compile(store as TokenRouteWithProvider);
+
+      if (!compiled) {
+        continue;
+      }
+
+      this.router.updateStore(
+        method,
+        path,
+        store as TokenRouteWithProvider,
+        compiled as any
+      );
+    }
+  }
+
+  private ensureControllerInstance(controller: Provider): void {
+    if (controller.instance) {
+      return;
+    }
+
+    this.invoke(controller.token);
+  }
+
+  private buildHooksByEvent(): Map<EventType, OnEvent[]> {
+    const hooks = this.readAllHooks();
+    return this.groupHooksByEvent(hooks);
+  }
+
+  private readAllHooks(): OnEvent[] {
+    return Metadata.get(CONTROLLER_EVENTS, Reflect) ?? [];
+  }
+
+  private groupHooksByEvent(hooks: OnEvent[]): Map<EventType, OnEvent[]> {
+    const grouped = new Map<EventType, OnEvent[]>();
+    hooks.forEach((hook) => this.appendHook(grouped, hook));
+    return this.sortHookMap(grouped);
+  }
+
+  private appendHook(grouped: Map<EventType, OnEvent[]>, hook: OnEvent): void {
+    const list = grouped.get(hook.eventName) ?? [];
+    list.push(hook);
+    grouped.set(hook.eventName, list);
+  }
+
+  private sortHookMap(
+    grouped: Map<EventType, OnEvent[]>
+  ): Map<EventType, OnEvent[]> {
+    const sorted = new Map<EventType, OnEvent[]>();
+    grouped.forEach((hooks, event) => this.sortAndStore(sorted, event, hooks));
+    return sorted;
+  }
+
+  private sortAndStore(
+    target: Map<EventType, OnEvent[]>,
+    event: EventType,
+    hooks: OnEvent[]
+  ): void {
+    target.set(event, this.sortHooksByPriority(hooks));
   }
 
   private sortHooksByPriority(hooks: OnEvent[]): OnEvent[] {
@@ -171,8 +360,7 @@ export class InjectorService {
       Context,
       LoggerService,
       DefaultRoutesCarno,
-      CacheService,
-        RequestLogger
+      CacheService
     ];
 
     this.applicationConfig.providers = this.applicationConfig.providers || [];

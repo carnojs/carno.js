@@ -26,24 +26,6 @@ export class AppController {
 }
 ```
 
-## Request Context Logging
-
-For tracking requests across the application, use `RequestLogger`. This service is **request-scoped** and automatically attaches the `trackingId` (from headers or generated) to every log message.
-
-```ts
-import { Service, RequestLogger } from '@carno.js/core';
-
-@Service({ scope: 'request' })
-export class PaymentService {
-  constructor(private logger: RequestLogger) {}
-
-  process() {
-    // This log will include "trackingId": "..." automatically
-    this.logger.info('Processing payment');
-  }
-}
-```
-
 ## Configuration
 
 You can configure Pino options via the `Carno` constructor.

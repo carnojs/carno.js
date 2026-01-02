@@ -3,7 +3,7 @@ import { Queue, Worker, Job } from 'bullmq'
 import { Context } from '@carno.js/core'
 
 
-describe('Full TrackingId Flow', () => {
+describe('Full Context Flow', () => {
 
   const connection = {
     host: 'localhost',
@@ -23,7 +23,7 @@ describe('Full TrackingId Flow', () => {
   })
 
 
-  it('processes job data without enforcing trackingId injection', async () => {
+  it('processes job data without enforcing context injection', async () => {
     const jobData = { userId: '123' }
 
     const job = await queue.add('test-job', jobData)
@@ -36,8 +36,8 @@ describe('Full TrackingId Flow', () => {
       'tracking-test',
       async (processingJob: Job) => {
         processedData = processingJob.data
-        const context = Context.createFromJob(processingJob)
-        return { success: true, trackingId: context.trackingId }
+        Context.createFromJob(processingJob)
+        return { success: true }
       },
       { connection }
     )

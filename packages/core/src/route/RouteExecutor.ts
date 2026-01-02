@@ -1,34 +1,53 @@
 import { InjectorService, TokenRouteWithProvider } from "../container";
 import { Context, LocalsContainer } from "../domain";
 import { EventType } from "../events";
+import type { CompiledRoute } from "./CompiledRoute";
 
 class Router {
     private readonly jsonHeaders = { "Content-Type": "application/json" };
     private readonly textHeaders = { "Content-Type": "text/html" };
 
     public async executeRoute(
-        route: TokenRouteWithProvider,
+        routeStore: CompiledRoute | TokenRouteWithProvider,
         injector: InjectorService,
         context: Context,
         locals: LocalsContainer
     ): Promise<Response> {
-        const provider = injector.invoke(route.provider, locals);
+        const isCompiled = (routeStore as CompiledRoute).routeType !== undefined;
 
-        route.provider.instance = provider;
+        const tokenRoute = isCompiled
+            ? (routeStore as CompiledRoute).original
+            : routeStore as TokenRouteWithProvider;
 
-        // @ts-ignore
-        if (!provider[route.methodName]) {
+        const controllerInstance = isCompiled
+            ? (routeStore as CompiledRoute).controllerInstance
+            : null;
+
+        const controller = controllerInstance
+            ?? injector.resolveControllerInstance(
+                tokenRoute.provider,
+                locals
+            );
+
+        if (!controller[tokenRoute.methodName]) {
             throw new Error("Controller not found");
         }
 
-        const result = await injector.invokeRoute(route, context, locals);
+        const result = await injector.invokeRoute(
+            tokenRoute,
+            context,
+            locals,
+            controller
+        );
 
-        await injector.callHook(EventType.OnResponse, { context, result });
+        if (injector.hasOnResponseHook()) {
+            await injector.callHook(EventType.OnResponse, { context, result });
+        }
 
         return this.mountResponse(result, context);
     }
 
-    private mountResponse(result: unknown, context: Context) {
+    public mountResponse(result: unknown, context: Context) {
         const status = context.getResponseStatus() || 200;
 
         if (this.isNativeResponse(result)) {
@@ -94,3 +113,5 @@ class Router {
 }
 
 export const RouteExecutor = new Router();
+
+

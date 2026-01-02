@@ -49,6 +49,10 @@ export class UserController {
 
 Both syntaxes are equivalent when you only need to specify a path. Use the object syntax when you need additional options like `scope` or `children`.
 
+### Lifecycle
+
+Controllers are singleton by default and are pre-instantiated at startup for faster first request handling. If a controller is marked as `ProviderScope.REQUEST` or depends on any request-scoped provider, it becomes request-scoped and is instantiated per request.
+
 To register the controller, add it to the `providers` list in your application configuration.
 
 ```ts

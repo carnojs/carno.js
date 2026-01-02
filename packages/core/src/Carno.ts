@@ -17,6 +17,8 @@ import { EventType } from "./events/on-event";
 import { HttpException } from "./exceptions/HttpException";
 import { RouteExecutor } from "./route/RouteExecutor";
 import Memoirist from "./route/memoirist";
+import { RouteType, type CompiledRoute } from "./route/CompiledRoute";
+import { executeSimpleRoute } from "./route/FastPathExecutor";
 import { LoggerService } from "./services/logger.service";
 
 export interface ApplicationConfig {
@@ -31,9 +33,10 @@ export interface ApplicationConfig {
 const parseUrl = require("parseurl-fast");
 // todo: change console.log for LoggerService.
 export class Carno {
-  router: Memoirist<TokenRouteWithProvider> = new Memoirist();
+  router: Memoirist<CompiledRoute | TokenRouteWithProvider> = new Memoirist();  
   private injector = createInjector();
   private corsCache?: CorsHeadersCache;
+  private readonly emptyLocals = new LocalsContainer();
   private fetch = async (request: Request, server: Server<any>) => {
     try {
       return await this.fetcher(request, server);
@@ -232,11 +235,6 @@ export class Carno {
     }
 
     const urlParsed = parseUrl(request);
-
-    const context = await Context.createFromRequest(urlParsed, request, server);
-    await this.injector.callHook(EventType.OnRequest, { context });
-    const local = new LocalsContainer();
-
     const routePath = this.discoverRoutePath(urlParsed);
 
     const route = this.router.find(
@@ -248,16 +246,39 @@ export class Carno {
       throw new HttpException("Method not allowed", 404);
     }
 
+    const compiled = route.store as CompiledRoute;
+    const context = Context.createFromRequestSync(urlParsed, request, server);
     context.param = route.params;
 
-    local.set(Context, context);
+    let response: Response;
 
-    let response = await RouteExecutor.executeRoute(
-      route.store,
-      this.injector,
-      context,
-      local
-    );
+    const isCompiledRoute = compiled.routeType !== undefined;
+
+    if (isCompiledRoute && compiled.routeType === RouteType.SIMPLE) {
+      const result = await executeSimpleRoute(compiled, context);
+
+      response = RouteExecutor.mountResponse(result, context);
+    } else {
+      const needsLocalsContainer = isCompiledRoute
+        ? compiled.needsLocalsContainer
+        : true;
+
+      const locals = this.resolveLocalsContainer(
+        needsLocalsContainer,
+        context
+      );
+
+      if (this.injector.hasOnRequestHook()) {
+        await this.injector.callHook(EventType.OnRequest, { context });
+      }
+
+      response = await RouteExecutor.executeRoute(
+        compiled,
+        this.injector,
+        context,
+        locals
+      );
+    }
 
     if (this.isCorsEnabled()) {
       const origin = request.headers.get("origin");
@@ -357,12 +378,31 @@ export class Carno {
     });
   }
 
-  private applyCorsHeaders(response: Response, origin: string): Response {
+  private applyCorsHeaders(response: Response, origin: string): Response {      
     return this.corsCache!.applyToResponse(response, origin);
   }
 
   close(closeActiveConnections: boolean = false) {
     this.server?.stop(closeActiveConnections);
+  }
+
+  private resolveLocalsContainer(
+    needsLocalsContainer: boolean,
+    context: Context
+  ): LocalsContainer {
+    if (!needsLocalsContainer) {
+      return this.emptyLocals;
+    }
+
+    return this.buildLocalsContainer(context);
+  }
+
+  private buildLocalsContainer(context: Context): LocalsContainer {
+    const locals = new LocalsContainer();
+
+    locals.set(Context, context);
+
+    return locals;
   }
 
   private discoverRoutePath(url: { pathname?: string; path?: string }): string {

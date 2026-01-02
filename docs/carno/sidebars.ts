@@ -19,7 +19,6 @@ const sidebars: SidebarsConfig = {
         'core/logging',
         'core/caching',
         'core/lifecycle',
-        'core/tracking-id',
       ],
     },
     {
