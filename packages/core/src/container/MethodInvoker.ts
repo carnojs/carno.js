@@ -1,14 +1,11 @@
-import { plainToInstance } from "class-transformer";
-import { validateSync } from "class-validator";
 import { ApplicationConfig } from "../Carno";
 import { TokenProvider } from "../commons/registries/ProviderControl";
 import { Context } from "../domain/Context";
 import { LocalsContainer } from "../domain/LocalsContainer";
 import { Metadata } from "../domain/Metadata";
-import { HttpException } from "../exceptions/HttpException";
 import { getClassOrSymbol } from "../utils/getClassOrSymbol";
 import { getMethodArgTypes } from "../utils/getMethodArgTypes";
-import { isClassValidator } from "../utils/isClassValidator";
+import type { ValidatorAdapter } from "../validation/ValidatorAdapter";
 
 type MethodCache = {
   args: any;
@@ -20,7 +17,10 @@ export class MethodInvoker {
   private historyMethods: WeakMap<any, { [key: string]: MethodCache }> =
     new WeakMap();
 
-  constructor(private applicationConfig: ApplicationConfig) {}
+  constructor(
+    private applicationConfig: ApplicationConfig,
+    private validatorAdapter: ValidatorAdapter
+  ) {}
 
   async invoke(
     instance: any,
@@ -148,21 +148,9 @@ export class MethodInvoker {
 
     const value = param.fun(context, param.param);
 
-    return isClassValidator(token)
-      ? this.validateAndTransform(token, value)
+    return this.validatorAdapter.hasValidation(token)
+      ? this.validatorAdapter.validateAndTransform(token, value)
       : value;
-  }
-
-  private validateAndTransform(token: any, value: any): any {
-    const obj = plainToInstance(token, value);
-    const errors = validateSync(obj, this.applicationConfig.validation);
-    // todo: deve retornar apenas os erros e no o objeto class-validator intei
-    // ro.
-    if (errors.length > 0) {
-      throw new HttpException(errors, 400);
-    }
-
-    return obj;
   }
 }
 

@@ -27,9 +27,15 @@ You can pass an `ApplicationConfig` object to the constructor to configure the a
 ```ts
 interface ApplicationConfig {
   /**
-   * Options for class-validator
+   * Validation configuration.
+   * By default, Carno uses Zod via ZodAdapter.
+   * To use class-validator, set adapter to ClassValidatorAdapter
+   * and install its `bun add class-validator`.
    */
-  validation?: ValidatorOptions;
+  validation?: {
+    adapter?: new (options?: any) => ValidatorAdapter;
+    options?: any;
+  };
 
   /**
    * Options for the built-in Pino logger

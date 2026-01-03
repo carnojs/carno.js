@@ -48,8 +48,19 @@ const config: ConnectionSettings = {
   database: 'my_db',
   // Optional:
   migrationPath: './migrations',
-  debug: true
 };
 
 export default config;
+```
+
+## Debugging SQL
+
+Carno ORM does not have a specific `debug` flag in the connection settings. Instead, it utilizes the standard application logger. To see the executed SQL queries, set your application's logger level to `debug`.
+
+```ts
+const app = new Carno({
+  logger: {
+    level: 'debug'
+  }
+});
 ```
