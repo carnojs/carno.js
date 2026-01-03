@@ -1,7 +1,11 @@
 import { Server } from "bun";
 import process from "node:process";
 import * as pino from "pino";
-import type { ValidatorAdapter, ValidationConfig } from "./validation/ValidatorAdapter";
+import type {
+  ValidatorAdapter,
+  ValidationConfig,
+  ValidatorAdapterConstructor,
+} from "./validation/ValidatorAdapter";
 import { ZodAdapter } from "./validation/adapters/ZodAdapter";
 import { setValidatorAdapter } from "./utils/ValidationCache";
 import { registerController, registerProvider } from "./commons/index";
@@ -24,9 +28,7 @@ import { executeSimpleRoute } from "./route/FastPathExecutor";
 import { LoggerService } from "./services/logger.service";
 
 export interface ApplicationConfig<
-  TAdapter extends new (options?: any) => ValidatorAdapter = new (
-    options?: any
-  ) => ValidatorAdapter
+  TAdapter extends ValidatorAdapterConstructor = ValidatorAdapterConstructor
 > {
   validation?: ValidationConfig<TAdapter>;
   logger?: pino.LoggerOptions;
@@ -38,7 +40,9 @@ export interface ApplicationConfig<
 
 const parseUrl = require("parseurl-fast");
 // todo: change console.log for LoggerService.
-export class Carno {
+export class Carno<
+  TAdapter extends ValidatorAdapterConstructor = ValidatorAdapterConstructor
+> {
   router: Memoirist<CompiledRoute | TokenRouteWithProvider> = new Memoirist();  
   private injector = createInjector();
   private corsCache?: CorsHeadersCache;
@@ -75,7 +79,7 @@ export class Carno {
   };
   private server: Server<any>;
 
-  constructor(public config: ApplicationConfig = {}) {
+  constructor(public config: ApplicationConfig<TAdapter> = {}) {
     this.validatorAdapter = this.resolveValidatorAdapter();
 
     if (config.cors) {

@@ -167,10 +167,14 @@ the expected shape and error handling, not a real library.
 import { HttpException, Metadata } from "@carno.js/core";
 import type { ValidatorAdapter } from "@carno.js/core";
 
-const JSON_SCHEMA = Symbol("json-schema");
+const JSON_SCHEMA = "json-schema";
 
-export class JsonSchemaAdapter implements ValidatorAdapter {
-  constructor(private options: { stopAtFirstError?: boolean } = {}) {}
+export interface JsonSchemaAdapterOptions {
+  stopAtFirstError?: boolean;
+}
+
+export class JsonSchemaAdapter implements ValidatorAdapter<JsonSchemaAdapterOptions> {
+  constructor(private options: JsonSchemaAdapterOptions = {}) {}
 
   getName(): string {
     return "JsonSchemaAdapter";
@@ -215,7 +219,7 @@ define a decorator that stores a schema on the DTO class.
 ```ts
 import { Metadata } from "@carno.js/core";
 
-const JSON_SCHEMA = Symbol("json-schema");
+const JSON_SCHEMA = "json-schema";
 
 export function JsonSchema(schema: any): ClassDecorator {
   return (target: Function) => {

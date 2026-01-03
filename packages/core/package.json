@@ -43,7 +43,7 @@
   "devDependencies": {
     "@types/globby": "^9.1.0",
     "bun-types": "latest",
-    "class-validator": "^0.14.0",
+    "class-validator": "^0.14.3",
     "class-transformer": "^0.5.1"
   },
   "peerDependencies": {

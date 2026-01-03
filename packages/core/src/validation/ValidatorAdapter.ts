@@ -36,23 +36,47 @@ export interface ValidatorAdapter<TOptions = any> {
 }
 
 /**
+ * Constructor type for validator adapters
+ */
+export type ValidatorAdapterConstructor<TOptions = any> = new (
+  options?: TOptions
+) => ValidatorAdapter<TOptions>;
+
+/**
  * Type to extract options type from a ValidatorAdapter constructor
  */
-export type ValidatorAdapterOptions<T> = T extends new (
-  options?: infer O
-) => ValidatorAdapter<any>
-  ? O
+export type ValidatorAdapterOptions<TAdapter> = TAdapter extends new (
+  options?: infer TOptions
+) => any
+  ? TOptions
   : never;
 
 /**
- * Strongly-typed validation configuration
- * When TAdapter is specified, TOptions is automatically inferred
+ * Validation configuration with adapter and options
  */
 export interface ValidationConfig<
-  TAdapter extends new (options?: any) => ValidatorAdapter = new (
-    options?: any
-  ) => ValidatorAdapter
+  TAdapter extends ValidatorAdapterConstructor = ValidatorAdapterConstructor
 > {
   adapter?: TAdapter;
   options?: ValidatorAdapterOptions<TAdapter>;
+}
+
+/**
+ * Helper function to create a strongly-typed validation config.
+ * Use this to get proper autocomplete for adapter options.
+ *
+ * @example
+ * ```typescript
+ * const app = new Carno({
+ *   validation: defineValidation({
+ *     adapter: ClassValidatorAdapter,
+ *     options: { whitelist: true } // ✓ Autocomplete works!
+ *   })
+ * });
+ * ```
+ */
+export function defineValidation<TAdapter extends ValidatorAdapterConstructor>(
+  config: { adapter: TAdapter; options?: ValidatorAdapterOptions<TAdapter> }
+): ValidationConfig<TAdapter> {
+  return config;
 }
