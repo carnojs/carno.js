@@ -42,7 +42,9 @@
   },
   "devDependencies": {
     "@types/globby": "^9.1.0",
-    "bun-types": "latest"
+    "bun-types": "latest",
+    "class-validator": "^0.14.0",
+    "class-transformer": "^0.5.1"
   },
   "peerDependencies": {
     "typescript": "^5.0.0",
