@@ -1,6 +1,6 @@
 {
   "name": "@carno.js/core",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "description": "Carno.js is a framework for building web applications object oriented with TypeScript and Bun.sh",
   "keywords": [
     "bun",
@@ -43,13 +43,13 @@
   "devDependencies": {
     "@types/globby": "^9.1.0",
     "bun-types": "latest",
-    "class-validator": "^0.14.3",
-    "class-transformer": "^0.5.1"
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.3"
   },
   "peerDependencies": {
-    "typescript": "^5.0.0",
+    "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
-    "class-transformer": "^0.5.1"
+    "typescript": "^5.0.0"
   },
   "peerDependenciesMeta": {
     "class-validator": {
