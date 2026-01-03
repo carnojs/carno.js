@@ -1,7 +1,9 @@
 import { Server } from "bun";
-import { ValidatorOptions } from "class-validator";
 import process from "node:process";
 import * as pino from "pino";
+import type { ValidatorAdapter, ValidationConfig } from "./validation/ValidatorAdapter";
+import { ZodAdapter } from "./validation/adapters/ZodAdapter";
+import { setValidatorAdapter } from "./utils/ValidationCache";
 import { registerController, registerProvider } from "./commons/index";
 import { CONTROLLER, PROVIDER } from "./constants";
 import { TokenRouteWithProvider } from "./container/ContainerConfiguration";
@@ -21,8 +23,12 @@ import { RouteType, type CompiledRoute } from "./route/CompiledRoute";
 import { executeSimpleRoute } from "./route/FastPathExecutor";
 import { LoggerService } from "./services/logger.service";
 
-export interface ApplicationConfig {
-  validation?: ValidatorOptions;
+export interface ApplicationConfig<
+  TAdapter extends new (options?: any) => ValidatorAdapter = new (
+    options?: any
+  ) => ValidatorAdapter
+> {
+  validation?: ValidationConfig<TAdapter>;
   logger?: pino.LoggerOptions;
   exports?: any[];
   providers?: any[];
@@ -37,6 +43,7 @@ export class Carno {
   private injector = createInjector();
   private corsCache?: CorsHeadersCache;
   private readonly emptyLocals = new LocalsContainer();
+  private validatorAdapter: ValidatorAdapter;
   private fetch = async (request: Request, server: Server<any>) => {
     try {
       return await this.fetcher(request, server);
@@ -69,11 +76,26 @@ export class Carno {
   private server: Server<any>;
 
   constructor(public config: ApplicationConfig = {}) {
+    this.validatorAdapter = this.resolveValidatorAdapter();
+
     if (config.cors) {
       this.corsCache = new CorsHeadersCache(config.cors);
     }
 
     void this.bootstrapApplication();
+  }
+
+  private resolveValidatorAdapter(): ValidatorAdapter {
+    const config = this.config.validation;
+
+    if (!config?.adapter) {
+      return new ZodAdapter();
+    }
+
+    const AdapterClass = config.adapter;
+    const options = config.options || {};
+
+    return new AdapterClass(options);
   }
 
   /**
@@ -192,8 +214,14 @@ export class Carno {
   }
 
   public async init(): Promise<void> {
+    setValidatorAdapter(this.validatorAdapter);
     this.loadProvidersAndControllers();
-    await this.injector.loadModule(createContainer(), this.config, this.router);
+    await this.injector.loadModule(
+      createContainer(),
+      this.config,
+      this.router,
+      this.validatorAdapter
+    );
   }
 
   async listen(port: number = 3000) {

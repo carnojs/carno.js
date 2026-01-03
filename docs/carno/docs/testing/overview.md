@@ -2,52 +2,77 @@
 sidebar_position: 1
 ---
 
-# Testing
+# Testing Overview
 
-Carno.js provides utilities to test your application in an integrated environment.
+Testing is a first-class citizen in Carno.js. We provide utilities to make it easy to write unit and integration tests for your applications.
 
-## Installation
+## Testing with the Database
 
-The testing utilities are included in `@carno.js/core`.
+When writing integration tests that involve the ORM, you need a clean database state for each test. The `withDatabase` helper simplifies this process by handling connection management, schema creation, and cleanup.
 
-## Integration Testing
+### Basic Usage
 
-Use `createCoreTestHarness` or `withCoreApplication` to spin up a test instance of your application.
+The `withDatabase` helper creates a temporary schema, runs your migrations (or provided SQL statements), and executes your test routine within an ORM session.
 
-```ts
-import { describe, it, expect } from 'bun:test';
-import { withCoreApplication } from '@carno.js/core/testing';
-import { Carno } from '@carno.js/core';
+```typescript
+import { withDatabase } from '@carno.js/orm/testing';
+import { User } from '../entities/User';
 
-describe('App', () => {
-  it('should return 200 OK', async () => {
-    await withCoreApplication(async (harness) => {
-      // Make a request to the running server
-      const response = await harness.request('/health');
-      
-      expect(response.status).toBe(200);
-      
-      // Resolve services from the internal injector
-      const myService = harness.resolve(MyService);
-      expect(myService).toBeDefined();
+describe('UserRepository', () => {
+  it('should create a user', async () => {
+    await withDatabase(async ({ orm }) => {
+      const user = await User.create({
+        name: 'John Doe',
+        email: 'john@example.com'
+      });
 
-    }, {
-      config: {
-        // Test configuration
-        providers: [MyService]
-      },
-      listen: true // Start HTTP server
+      expect(user.id).toBeDefined();
     });
   });
 });
 ```
 
-## Harness API
+### Providing SQL Statements
 
-The `harness` object provides:
+You can provide an array of SQL statements to initialize the database schema manually if you don't want to rely on migrations.
 
-- `app`: The `Carno` instance.
-- `injector`: Access to the DI container.
-- `resolve(token)`: Get a provider instance.
-- `request(url, init)`: Fetch wrapper for testing HTTP endpoints.
-- `close()`: Manually close the app (handled automatically by `withCoreApplication`).
+```typescript
+await withDatabase(
+  [
+    'CREATE TABLE users (id SERIAL PRIMARY KEY, name TEXT, email TEXT)'
+  ],
+  async ({ orm, executeSql }) => {
+    // Your test logic here
+    await executeSql("INSERT INTO users (name) VALUES ('Jane')");
+  }
+);
+```
+
+### Options
+
+`withDatabase` accepts an options object to customize the connection and behavior.
+
+```typescript
+await withDatabase(
+  async ({ orm }) => { /* ... */ },
+  {
+    schema: 'test_schema', // Custom schema name (default: public)
+    entityFile: 'src/**/*.entity.ts', // Glob pattern to load entities
+    connection: {
+      host: 'localhost',
+      // ... overrides for ConnectionSettings
+    }
+  }
+);
+```
+
+### How it Works
+
+1. **Schema Isolation**: For every call, it drops and recreates the specified schema (defaulting to `public`).
+2. **Auto-Migrations**: If `migrationPath` is found in your `carno.config.ts` (or provided in options), it automatically loads and executes the SQL migration files.
+3. **Session Context**: It wraps the execution in an `ormSessionContext`, so that Active Record methods and Repositories use the correct `Orm` instance.
+4. **Cleanup**: Since it recreates the schema every time, each test starts with a completely fresh database.
+
+## Testing Controllers
+
+TODO: Document `TestingHelper` for HTTP testing.

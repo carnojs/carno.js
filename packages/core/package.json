@@ -33,20 +33,31 @@
   "license": "MIT",
   "dependencies": {
     "bentocache": "^1.0.0-beta.5",
-    "class-transformer": "^0.5.1",
-    "class-validator": "^0.14.0",
     "globby": "^10.0.2",
     "parseurl-fast": "^1.2.0",
     "pino": "^8.16.1",
     "pino-pretty": "^10.2.3",
-    "reflect-metadata": "^0.1.13"
+    "reflect-metadata": "^0.1.13",
+    "zod": "^4.3.4"
   },
   "devDependencies": {
     "@types/globby": "^9.1.0",
-    "bun-types": "latest"
+    "bun-types": "latest",
+    "class-validator": "^0.14.0",
+    "class-transformer": "^0.5.1"
   },
   "peerDependencies": {
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "class-validator": "^0.14.0",
+    "class-transformer": "^0.5.1"
+  },
+  "peerDependenciesMeta": {
+    "class-validator": {
+      "optional": true
+    },
+    "class-transformer": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public"

@@ -2,6 +2,7 @@ import type {ApplicationConfig} from "../Carno";
 import {Injectable} from "../commons/decorators/Injectable.decorator";
 import {registerProvider} from "../commons";
 import {GlobalProvider, TokenProvider,} from "../commons/registries/ProviderControl";
+import type {ValidatorAdapter} from "../validation/ValidatorAdapter";
 import {CONTROLLER_EVENTS} from "../constants";
 import {DefaultRoutesCarno} from "../default-routes-carno";
 import {Context} from "../domain/Context";
@@ -37,15 +38,18 @@ export class InjectorService {
   private routeResolver: RouteResolver;
   private dependencyResolver: DependencyResolver;
   private methodInvoker: MethodInvoker;
+  private validatorAdapter: ValidatorAdapter;
 
   async loadModule(
     container: Container,
     applicationConfig: ApplicationConfig,
-    router: Memoirist<any>
+    router: Memoirist<any>,
+    validatorAdapter: ValidatorAdapter
   ): Promise<void> {
     this.container = container;
     this.router = router;
     this.applicationConfig = applicationConfig;
+    this.validatorAdapter = validatorAdapter;
 
     this.initializeResolvers();
     this.removeUnknownProviders();
@@ -64,7 +68,10 @@ export class InjectorService {
       this.applicationConfig.globalMiddlewares
     );
     this.dependencyResolver = new DependencyResolver(this.container);
-    this.methodInvoker = new MethodInvoker(this.applicationConfig);
+    this.methodInvoker = new MethodInvoker(
+      this.applicationConfig,
+      this.validatorAdapter
+    );
   }
 
   private ensureProvider(token: TokenProvider): Provider | undefined {
@@ -253,7 +260,7 @@ export class InjectorService {
     const compiler = new RouteCompiler({
       container: this.container,
       controllerScopes: this.controllerScopes,
-      validationConfig: this.applicationConfig.validation,
+      validatorAdapter: this.validatorAdapter,
       hasOnRequestHook: this._hasOnRequestHook,
       hasOnResponseHook: this._hasOnResponseHook,
     });

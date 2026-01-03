@@ -110,7 +110,7 @@ export class User {
 
 ### Partial Indexes (Where Clause)
 
-You can create partial indexes by specifying a `where` condition.
+You can create partial indexes by specifying a `where` condition. This follows the same syntax as find queries, allowing you to use complex filters and operators. For more details on supported operators, see [Querying & Operators](./querying).
 
 ```ts
 @Entity()
@@ -122,3 +122,7 @@ export class User {
   // ...
 }
 ```
+
+## Nested Relationship Filtering
+
+You can filter entities based on properties of their relations. The ORM handles the necessary joins automatically. For detailed information on how this works, see the [Relations](./relations#nested-relationship-filtering) documentation.

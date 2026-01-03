@@ -8,14 +8,18 @@ The Query Builder is a powerful tool for constructing complex SQL queries progra
 
 ## Creating a Query Builder
 
-You can access the Query Builder from an entity class or a repository.
+You can access the Query Builder from an entity class, a repository, or directly from the `Orm` service.
 
 ```typescript
-// From Entity
+// From Entity (Active Record)
 const qb = User.createQueryBuilder();
 
 // From Repository
 const qb = this.repository.createQueryBuilder();
+
+// From Orm Service
+import { Orm } from '@carno.js/orm';
+const qb = orm.createQueryBuilder(User);
 ```
 
 ## Selecting Data
@@ -76,6 +80,9 @@ const users = await User.createQueryBuilder()
   .load(['posts', 'posts.comments']) // Load nested relations
   .executeAndReturnAll();
 ```
+
+> **Implicit Loading**: If you filter by a relationship property in the `where` clause (e.g., `.where({ posts: { title: 'Hello' } })`), the ORM automatically joins that relationship to perform the filter. You do not need to explicitly `load` it unless you also want the related data returned in the result set.
+
 
 ## Update Operations
 

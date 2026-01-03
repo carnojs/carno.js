@@ -13,3 +13,4 @@ export * from "./services/logger.service";
 export * from "./cache/cache.service";
 export * from "./cache/bento-cache.driver";
 export * from "./testing";
+export * from "./validation";

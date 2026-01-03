@@ -5,11 +5,14 @@ import {
   isValidatable,
   preloadValidationForParams,
   clearValidationCache,
+  setValidatorAdapter,
 } from '../src/utils/ValidationCache';
+import { ClassValidatorAdapter } from '../src/validation/adapters/ClassValidatorAdapter';
 
 describe('ValidationCache', () => {
   beforeEach(() => {
     clearValidationCache();
+    setValidatorAdapter(new ClassValidatorAdapter());
   });
 
   describe('isValidatable', () => {

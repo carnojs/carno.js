@@ -1,7 +1,5 @@
-import { plainToInstance } from 'class-transformer';
-import { validateSync, type ValidatorOptions } from 'class-validator';
-
 import type { TokenRouteWithProvider } from '../container/ContainerConfiguration';
+import type { ValidatorAdapter } from '../validation/ValidatorAdapter';
 import type { Container } from '../container/container';
 import type { Provider } from '../domain/provider';
 import { ProviderScope } from '../domain/provider-scope';
@@ -26,7 +24,7 @@ import { compileRouteHandler } from './JITCompiler';
 export interface RouteCompilerOptions {
   container: Container;
   controllerScopes: Map<any, ProviderScope>;
-  validationConfig?: ValidatorOptions;
+  validatorAdapter: ValidatorAdapter;
   hasOnRequestHook: boolean;
   hasOnResponseHook: boolean;
 }
@@ -36,7 +34,7 @@ export class RouteCompiler {
 
   private controllerScopes: Map<any, ProviderScope>;
 
-  private validationConfig?: ValidatorOptions;
+  private validatorAdapter: ValidatorAdapter;
 
   private hasOnRequestHook: boolean;
 
@@ -45,7 +43,7 @@ export class RouteCompiler {
   constructor(options: RouteCompilerOptions) {
     this.container = options.container;
     this.controllerScopes = options.controllerScopes;
-    this.validationConfig = options.validationConfig;
+    this.validatorAdapter = options.validatorAdapter;
     this.hasOnRequestHook = options.hasOnRequestHook;
     this.hasOnResponseHook = options.hasOnResponseHook;
   }
@@ -255,7 +253,6 @@ export class RouteCompiler {
     hasBodyParam: boolean
   ): (context: Context) => any {
     const handler = instance[methodName].bind(instance);
-    const config = this.validationConfig;
 
     const resolveArg = (ctx: Context, param: ParamInfo): any => {
       let value: any;
@@ -290,14 +287,7 @@ export class RouteCompiler {
       }
 
       if (param.needsValidation && param.token) {
-        const obj = plainToInstance(param.token, value);
-        const errors = validateSync(obj, config);
-
-        if (errors.length > 0) {
-          throw new HttpException(errors, 400);
-        }
-
-        return obj;
+        return this.validatorAdapter.validateAndTransform(param.token, value);
       }
 
       return value;
