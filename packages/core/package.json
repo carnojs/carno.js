@@ -1,6 +1,6 @@
 {
   "name": "@carno.js/core",
-  "version": "0.2.10",
+  "version": "0.2.11",
   "description": "Carno.js is a framework for building web applications object oriented with TypeScript and Bun.sh",
   "keywords": [
     "bun",
