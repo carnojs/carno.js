@@ -5,7 +5,7 @@ import {
     TestCourseEntity,
     TestUserEntity,
     TestUserLibraryEntity,
-} from './fixtures/user-library.entities';
+} from './user-library.entities';
 import { ConnectionSettings } from "../src";
 import config from "../carno.config";
 

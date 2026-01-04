@@ -23,7 +23,7 @@ Carno.js is built from the ground up for the **Bun** runtime. It focuses on raw 
 - 💉 **Powerful DI**: Robust Dependency Injection container with multiple scopes (Singleton, Request, Instance).
 - 🛠️ **Performance-First ORM**: A Data Mapper ORM that uses native Bun drivers directly, avoiding heavy query builders like Knex.js.
 - ⚡ **Zero-Overhead References**: Handle circular dependencies between entities with zero runtime cost.
-- 🔍 **Integrated Validation**: Automatic request validation using `class-validator` and `class-transformer`.
+- 🔍 **Integrated Validation**: Zod-first validation out of the box, with an optional `class-validator` + `class-transformer` adapter when you need decorators.
 
 ## Ecosystem
 
@@ -73,6 +73,10 @@ new Carno({
   providers: [AppController]
 }).listen(3000);
 ```
+
+## Validation (Default: Zod)
+
+Carno.js validates request payloads using **Zod** by default. If you prefer decorator-based DTOs, you can switch to the optional `class-validator` + `class-transformer` adapter and keep the rest of the framework unchanged.
 
 ## Modularity & Clean Code
 

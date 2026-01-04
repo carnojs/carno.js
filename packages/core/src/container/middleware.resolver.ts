@@ -19,9 +19,9 @@ class MiddlewareResolver {
 
     const next = async () => {
       if (currentIndex >= middlewares.length) {
-        // Se já processamos todos os middlewares, não faz nada.
-        // Isso evita o erro "Middleware stack exhausted" se um middleware chamar `next()`
-        // quando não há mais middlewares.
+        // If all middlewares are already processed, do nothing.
+        // This avoids "Middleware stack exhausted" if a middleware calls `next()`
+        // when there are no more middlewares.
         return;
       }
 
@@ -30,14 +30,14 @@ class MiddlewareResolver {
       // @ts-ignore
       const instance = injector.invoke(middleware, local) as CarnoMiddleware
       
-      // Await a execução do middleware.
-      // Se o middleware lançar uma exceção, ela será propagada.
+      // Await the middleware execution.
+      // If the middleware throws, the exception will propagate.
       await instance.handle(context, next)
     }
 
     if (middlewares.length === 0) return;
 
-    // Inicia a execução dos middlewares
+    // Start the middleware execution
     await next()
   }
 }

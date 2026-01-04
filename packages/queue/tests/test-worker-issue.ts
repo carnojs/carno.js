@@ -7,7 +7,7 @@ const connection = {
 
 const queue = new Queue('test-queue', { connection });
 
-// Simulando o comportamento atual: múltiplos workers ouvindo a mesma queue
+// Simulating the current behavior: multiple workers listening to the same queue
 const worker1 = new Worker(
   'test-queue',
   async (job: Job) => {

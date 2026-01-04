@@ -24,7 +24,7 @@ import { HttpException } from "./exceptions/HttpException";
 import { RouteExecutor } from "./route/RouteExecutor";
 import Memoirist from "./route/memoirist";
 import { RouteType, type CompiledRoute } from "./route/CompiledRoute";
-import { executeSimpleRoute } from "./route/FastPathExecutor";
+
 import { LoggerService } from "./services/logger.service";
 
 export interface ApplicationConfig<
@@ -39,9 +39,8 @@ export interface ApplicationConfig<
 }
 
 const parseUrl = require("parseurl-fast");
-// todo: change console.log for LoggerService.
 export class Carno<
-  TAdapter extends ValidatorAdapterConstructor = ValidatorAdapterConstructor
+  TAdapter extends ValidatorAdapterConstructor = ValidatorAdapterConstructor    
 > {
   router: Memoirist<CompiledRoute | TokenRouteWithProvider> = new Memoirist();  
   private injector = createInjector();
@@ -67,7 +66,7 @@ export class Carno<
         if (this.isCorsEnabled()) {
           const origin = request.headers.get("origin");
 
-          if (origin && this.isOriginAllowed(origin)) {
+          if (origin && this.corsCache!.isOriginAllowed(origin)) {
             response = this.applyCorsHeaders(response, origin);
           }
         }
@@ -236,7 +235,9 @@ export class Carno<
 
   private registerShutdownHandlers(): void {
     const shutdown = async (signal: string) => {
-      console.log(`\nReceived ${signal}, starting graceful shutdown...`);
+      this.resolveLogger().info(
+        `Received ${signal}, starting graceful shutdown...`
+      );
       await this.handleShutdownHook();
     };
 
@@ -253,8 +254,8 @@ export class Carno<
   }
 
   private createHttpServer(port: number) {
-    this.server = Bun.serve({ port, fetch: this.fetch, error: this.catcher });
-    console.log(`Server running on port ${port}`);
+    this.server = Bun.serve({ port, fetch: this.fetch, error: this.catcher });  
+    this.resolveLogger().info(`Server running on port ${port}`);
   }
 
   private async fetcher(request: Request, server: Server<any>): Promise<Response> {
@@ -287,9 +288,9 @@ export class Carno<
     const isCompiledRoute = compiled.routeType !== undefined;
 
     if (isCompiledRoute && compiled.routeType === RouteType.SIMPLE) {
-      const result = await executeSimpleRoute(compiled, context);
-
-      response = RouteExecutor.mountResponse(result, context);
+      response = compiled.isAsync
+        ? await compiled.boundHandler!(context)
+        : compiled.boundHandler!(context);
     } else {
       const needsLocalsContainer = isCompiledRoute
         ? compiled.needsLocalsContainer
@@ -315,7 +316,7 @@ export class Carno<
     if (this.isCorsEnabled()) {
       const origin = request.headers.get("origin");
 
-      if (origin && this.isOriginAllowed(origin)) {
+      if (origin && this.corsCache!.isOriginAllowed(origin)) {
         response = this.applyCorsHeaders(response, origin);
       }
     }
@@ -324,7 +325,7 @@ export class Carno<
   }
 
   private catcher = (error: Error) => {
-    console.error("Unhandled error:", error);
+    this.resolveLogger().error("Unhandled error", error);
     return new Response("Internal Server Error", { status: 500 });
   };
 
@@ -351,54 +352,35 @@ export class Carno<
 
   private closeHttpServer(): void {
     if (this.server) {
-      console.log("Closing HTTP server...");
+      this.resolveLogger().info("Closing HTTP server...");
       this.server.stop(true);
     }
   }
 
   private exitProcess(code: number = 0): void {
-    console.log("Shutdown complete.");
+    this.resolveLogger().info("Shutdown complete.");
     process.exit(code);
   }
 
   private reportHookFailure(event: EventType, error: unknown): void {
-    console.error(`Lifecycle hook ${event} failed`, error);
+    this.resolveLogger().error(`Lifecycle hook ${event} failed`, error);
+  }
+
+  private resolveLogger(): LoggerService {
+    const provider = this.injector.get(LoggerService);
+    const instance = provider?.instance as LoggerService | undefined;
+
+    return instance ?? new LoggerService(this.injector);
   }
 
   private isCorsEnabled(): boolean {
     return !!this.config.cors;
   }
 
-  private isOriginAllowed(origin: string | null): boolean {
-    if (!origin || !this.config.cors) {
-      return false;
-    }
-
-    const { origins } = this.config.cors;
-
-    if (typeof origins === "string") {
-      return origins === "*" || origins === origin;
-    }
-
-    if (Array.isArray(origins)) {
-      return origins.includes(origin);
-    }
-
-    if (origins instanceof RegExp) {
-      return origins.test(origin);
-    }
-
-    if (typeof origins === "function") {
-      return origins(origin);
-    }
-
-    return false;
-  }
-
   private handlePreflightRequest(request: Request): Response {
     const origin = request.headers.get("origin");
 
-    if (!this.isOriginAllowed(origin)) {
+    if (!origin || !this.corsCache!.isOriginAllowed(origin)) {
       return new Response(null, { status: 403 });
     }
 

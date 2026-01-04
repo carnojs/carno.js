@@ -108,16 +108,16 @@ describe('Transaction System - Integration Tests', () => {
         try {
           await context.orm.transaction(async (tx) => {
             await product.save(); // Sucesso
-            throw new Error('Simulated error'); // Erro forçado
+            throw new Error('Simulated error'); // Forced error
           });
 
-          // Não deve chegar aqui
+          // Should not reach here
           expect(true).toBe(false);
         } catch (error: any) {
           expect(error.message).toBe('Simulated error');
         }
 
-        // Then - Verificar que o produto NÃO foi salvo (rollback)
+        // Then - Verify the product was NOT saved (rollback)
         const result = await context.executeSql('SELECT * FROM "product" WHERE id = 1');
         expect(result.rows).toHaveLength(0);
       },
@@ -168,7 +168,7 @@ describe('Transaction System - Integration Tests', () => {
     await withDatabase(
       [DDL_PRODUCT],
       async (context) => {
-        // Given - Criar produto fora da transação
+        // Given - Create a product outside the transaction
         await Product.create({
           id: 1,
           name: 'Laptop',
@@ -176,7 +176,7 @@ describe('Transaction System - Integration Tests', () => {
           stock: 10,
         });
 
-        // When - Atualizar dentro de transação
+        // When - Update inside a transaction
         await context.orm.transaction(async (tx) => {
           const product = await Product.findOne({ id: 1 });
           expect(product).toBeDefined();
@@ -221,21 +221,21 @@ describe('Transaction System - Integration Tests', () => {
             await product1.save(); // Deve ser commitado
 
             try {
-              // Simulação de operação que falha
+              // Simulated failing operation
               throw new Error('Inner error');
             } catch (innerError) {
-              // Capturado, mas a transação externa deve continuar
+              // Captured, but the outer transaction should continue
             }
 
             // Continuar com sucesso
             await product3.save();
           });
         } catch (error) {
-          // Não deve chegar aqui
+          // Should not reach here
           expect(true).toBe(false);
         }
 
-        // Then - Como o erro interno foi capturado, a transação externa deve ter feito commit
+        // Then - Since the inner error was captured, the outer transaction should have committed
         const products = await context.executeSql('SELECT * FROM "product" ORDER BY id');
         expect(products.rows.length).toBe(2);
         expect(products.rows[0].name).toBe('Laptop');

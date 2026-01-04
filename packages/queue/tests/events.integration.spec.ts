@@ -107,7 +107,7 @@ describe('Queue Events Integration', () => {
 
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Then: múltiplos eventos de progresso devem ter sido disparados
+    // Then: multiple progress events must have been emitted
     expect(progressValues.length).toBeGreaterThan(0);
     expect(progressValues).toContain(25);
     expect(progressValues).toContain(100);
@@ -161,7 +161,7 @@ describe('Queue Events Integration', () => {
     await new Promise(resolve => setTimeout(resolve, 2000));
 
     // Then: evento drained pode ter sido disparado
-    // (depende do timing, então apenas verificamos o tipo)
+    // (timing dependent, so we only verify the type)
     expect(typeof drainedCalled).toBe('boolean');
   });
 });

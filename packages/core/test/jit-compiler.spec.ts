@@ -4,9 +4,9 @@ import { Context } from '../src/domain/Context';
 import { compileRouteHandler } from '../src/route/JITCompiler';
 import type { ParamInfo } from '../src/route/ParamResolverFactory';
 
-describe('JITCompiler', () => {
+describe('JITCompiler - Inline Response Building', () => {
   describe('compileRouteHandler', () => {
-    it('should compile handler with no params', () => {
+    it('should compile handler with no params and return Response', async () => {
       // Given
       const controller = {
         ping() {
@@ -19,10 +19,14 @@ describe('JITCompiler', () => {
 
       // Then
       const context = new Context();
-      expect(handler(context)).toBe('pong');
+      const response = handler(context);
+      expect(response).toBeInstanceOf(Response);
+      expect(await response.text()).toBe('pong');
+      expect(response.status).toBe(200);
+      expect(response.headers.get('Content-Type')).toBe('text/html');
     });
 
-    it('should compile handler with param decorator', () => {
+    it('should compile handler with param decorator', async () => {
       // Given
       const controller = {
         getUser(id: string) {
@@ -40,10 +44,12 @@ describe('JITCompiler', () => {
       // Then
       const context = new Context();
       context.param = { id: '123' };
-      expect(handler(context)).toBe('User: 123');
+      const response = handler(context);
+      expect(response).toBeInstanceOf(Response);
+      expect(await response.text()).toBe('User: 123');
     });
 
-    it('should compile handler with query decorator', () => {
+    it('should compile handler with query decorator', async () => {
       // Given
       const controller = {
         search(query: string, page: number) {
@@ -62,10 +68,30 @@ describe('JITCompiler', () => {
       // Then
       const context = new Context();
       context.query = { q: 'test', page: 1 };
-      expect(handler(context)).toBe('test page 1');
+      const response = handler(context);
+      expect(await response.text()).toBe('test page 1');
     });
 
-    it('should compile handler with multiple decorator types', async () => {
+    it('should compile handler returning JSON object', async () => {
+      // Given
+      const controller = {
+        getData() {
+          return { message: 'success', code: 42 };
+        },
+      };
+
+      // When
+      const handler = compileRouteHandler(controller, 'getData', []);
+
+      // Then
+      const context = new Context();
+      const response = handler(context);
+      expect(response).toBeInstanceOf(Response);
+      expect(response.headers.get('Content-Type')).toBe('application/json');
+      expect(await response.json()).toEqual({ message: 'success', code: 42 });
+    });
+
+    it('should compile handler with multiple decorator types and body', async () => {
       // Given
       const controller = {
         update(id: string, data: any) {
@@ -85,14 +111,14 @@ describe('JITCompiler', () => {
       const context = new Context();
       context.param = { id: '456' };
       context.body = { name: 'John' };
-      // Mock getBody for now
       (context as any).getBody = async () => context.body;
 
-      const result = await handler(context);
-      expect(result).toEqual({ id: '456', data: { name: 'John' } });
+      const response = await handler(context);
+      expect(response).toBeInstanceOf(Response);
+      expect(await response.json()).toEqual({ id: '456', data: { name: 'John' } });
     });
 
-    it('should compile handler with headers decorator', () => {
+    it('should compile handler with headers decorator', async () => {
       // Given
       const controller = {
         getAuth(token: string) {
@@ -109,11 +135,14 @@ describe('JITCompiler', () => {
 
       // Then
       const context = new Context();
-      context.headers = new Headers({ authorization: 'Bearer xyz' });
-      expect(handler(context)).toBe('Token: Bearer xyz');
+      context.req = new Request('http://localhost', {
+        headers: { authorization: 'Bearer xyz' }
+      });
+      const response = handler(context);
+      expect(await response.text()).toBe('Token: Bearer xyz');
     });
 
-    it('should compile handler with req decorator', () => {
+    it('should compile handler with req decorator', async () => {
       // Given
       const controller = {
         getRaw(req: Request) {
@@ -131,10 +160,11 @@ describe('JITCompiler', () => {
       // Then
       const context = new Context();
       context.req = new Request('http://localhost', { method: 'POST' });
-      expect(handler(context)).toBe('POST');
+      const response = handler(context);
+      expect(await response.text()).toBe('POST');
     });
 
-    it('should preserve this context', () => {
+    it('should preserve this context', async () => {
       // Given
       class Controller {
         prefix = 'Hello';
@@ -155,27 +185,63 @@ describe('JITCompiler', () => {
       // Then
       const context = new Context();
       context.query = { name: 'World' };
-      expect(handler(context)).toBe('Hello, World');
+      const response = handler(context);
+      expect(await response.text()).toBe('Hello, World');
     });
 
-    it('should use fallback for DI params', () => {
+    it('should handle null return value', async () => {
       // Given
       const controller = {
-        test(service: any) {
-          return 'fallback';
+        empty() {
+          return null;
         },
       };
 
-      const paramInfos: ParamInfo[] = [
-        { type: 'di', needsValidation: false, token: Object },
-      ];
-
       // When
-      const handler = compileRouteHandler(controller, 'test', paramInfos);
+      const handler = compileRouteHandler(controller, 'empty', []);
 
       // Then
       const context = new Context();
-      expect(handler(context)).toBe('fallback');
+      const response = handler(context);
+      expect(response).toBeInstanceOf(Response);
+      expect(await response.text()).toBe('');
+    });
+
+    it('should handle custom Response return', async () => {
+      // Given
+      const customResponse = new Response('Custom', { status: 201 });
+      const controller = {
+        custom() {
+          return customResponse;
+        },
+      };
+
+      // When
+      const handler = compileRouteHandler(controller, 'custom', []);
+
+      // Then
+      const context = new Context();
+      const response = handler(context);
+      expect(response).toBe(customResponse);
+      expect(response.status).toBe(201);
+    });
+
+    it('should respect custom status from context', async () => {
+      // Given
+      const controller = {
+        created() {
+          return { created: true };
+        },
+      };
+
+      // When
+      const handler = compileRouteHandler(controller, 'created', []);
+
+      // Then
+      const context = new Context();
+      context.setResponseStatus(201);
+      const response = handler(context);
+      expect(response.status).toBe(201);
     });
   });
 });

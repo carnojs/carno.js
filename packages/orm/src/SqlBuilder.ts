@@ -232,10 +232,10 @@ export class SqlBuilder<T> {
   }
 
   private getPrimaryKeyColumnName(entity: Options): string {
-    // Lógica para obter o nome da coluna de chave primária da entidade
-    // Aqui você pode substituir por sua própria lógica, dependendo da estrutura do seu projeto
-    // Por exemplo, se a chave primária for sempre 'id', você pode retornar 'id'.
-    // Se a lógica for mais complexa, você pode adicionar um método na classe Options para obter a chave primária.
+    // Logic to resolve the entity primary key column name
+    // Replace this with your own logic based on your project structure
+    // For example, if the primary key is always 'id', you can return 'id'.
+    // If the logic becomes more complex, add a method on Options to resolve the primary key.
     return 'id';
   }
 

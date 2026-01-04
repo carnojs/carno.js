@@ -88,16 +88,16 @@ describe('Transaction System', () => {
         try {
           await context.orm.transaction(async (tx) => {
             await user1.save(); // Sucesso
-            throw new Error('Simulated error'); // Erro forçado
+            throw new Error('Simulated error'); // Forced error
           });
 
-          // Não deve chegar aqui
+          // Should not reach here
           expect(true).toBe(false);
         } catch (error: any) {
           expect(error.message).toBe('Simulated error');
         }
 
-        // Then - Verificar que o usuário NÃO foi salvo (rollback)
+        // Then - Verify the user was NOT saved (rollback)
         const result = await context.executeSql('SELECT * FROM "test_user" WHERE id = 1');
         expect(result.rows).toHaveLength(0);
       },

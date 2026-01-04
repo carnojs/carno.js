@@ -52,8 +52,8 @@ export abstract class ValueObject<T, Vo> {
 
   /**
    * Valor do Value Object.
-   * É privado para não ser alterado diretamente.
-   * O valor também é imutável.
+   * It is private to prevent direct changes.
+   * The value is immutable as well.
    *
    * @private
    */

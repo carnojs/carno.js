@@ -47,7 +47,7 @@ export function Property(options?: PropertyOptions): PropertyDecorator {
     return (target, propertyKey) => {
         const properties: Prop[] = Metadata.get(PROPERTIES, target.constructor) || [];
 
-        // 1) Resolva o tipo logo no início
+        // 1) Resolve the type as early as possible
         const propType = Metadata.getType(target, propertyKey);
         const length = (options && options.length) || getDefaultLength(propType?.name);
 
@@ -81,7 +81,7 @@ export function Property(options?: PropertyOptions): PropertyDecorator {
 
         // 2) Atualize PROPERTIES_METADATA apenas para esta propriedade
         const existingTypes = Metadata.get(PROPERTIES_METADATA, target.constructor) || {};
-        // Cria uma cópia para evitar mutação compartilhada entre entidades
+        // Create a copy to avoid shared mutation between entities
         const types = { ...existingTypes };
         types[propertyKey as string] = { type: propType, options };
         Metadata.set(PROPERTIES_METADATA, types, target.constructor);

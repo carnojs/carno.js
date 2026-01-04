@@ -44,7 +44,31 @@ class Router {
             await injector.callHook(EventType.OnResponse, { context, result });
         }
 
-        return this.mountResponse(result, context);
+        const status = context.getResponseStatus() || 200;
+
+        if (result instanceof Response) {
+            return result;
+        }
+
+        if (result === null || result === undefined) {
+            return new Response("", { status, headers: this.textHeaders });
+        }
+
+        const resultType = typeof result;
+
+        if (resultType === "string") {
+            return new Response(result as string, { status, headers: this.textHeaders });
+        }
+
+        if (resultType === "number" || resultType === "boolean") {
+            return new Response(String(result), { status, headers: this.textHeaders });
+        }
+
+        if (this.isBodyInit(result)) {
+            return new Response(result as BodyInit, { status });
+        }
+
+        return this.createJsonResponse(result, status);
     }
 
     public mountResponse(result: unknown, context: Context) {
