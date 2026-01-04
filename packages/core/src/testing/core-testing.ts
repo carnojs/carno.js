@@ -26,7 +26,13 @@ export type CoreTestHarness = {
 export type CoreTestRoutine = (harness: CoreTestHarness) => Promise<void>;
 
 export async function createCoreTestHarness(options: CoreTestOptions = {}): Promise<CoreTestHarness> {
-  const app = new Carno(options.config);
+  const config: ApplicationConfig = { ...options.config };
+
+  if (config.disableStartupLog === undefined) {
+    config.disableStartupLog = true;
+  }
+
+  const app = new Carno(config);
   applyPlugins(app, options.plugins);
   const boot = await bootApplication(app, options);
   const injector = app.getInjector();

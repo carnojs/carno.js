@@ -36,6 +36,7 @@ export interface ApplicationConfig<
   providers?: any[];
   cors?: CorsConfig;
   globalMiddlewares?: any[];
+  disableStartupLog?: boolean;
 }
 
 const METHOD_MAP: Record<string, string> = {
@@ -279,11 +280,12 @@ export class Carno<
     return this.injector;
   }
 
-  private createHttpServer(port: number) {
-    this.server = Bun.serve({ port, fetch: this.fetch, error: this.catcher });  
-    this.resolveLogger().info(`Server running on port ${port}`);
-  }
-
+    private createHttpServer(port: number) {
+      this.server = Bun.serve({ port, fetch: this.fetch, error: this.catcher });
+      if (!this.config.disableStartupLog) {
+        this.resolveLogger().info(`Server running on port ${port}`);
+      }
+    }
   private async fetcherAsync(
     request: Request,
     server: Server<any>,
