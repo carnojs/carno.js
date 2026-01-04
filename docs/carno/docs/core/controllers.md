@@ -158,3 +158,20 @@ custom() {
   return new Response('Custom', { status: 201 });
 }
 ```
+
+
+## Listing Registered Routes
+
+As your application grows, it can be helpful to see a complete list of all registered routes, including their methods and full paths (resolving nesting).
+
+You can use the Carno CLI to inspect your project:
+
+```bash
+# Analyze carno.config.ts and list routes
+carno routes
+
+# Or point to your entry file if config is not enough
+carno routes src/index.ts
+```
+
+This command outputs a table showing the HTTP Method, Full URI, and the Controller Action, making it easy to debug routing issues or verify your API structure.

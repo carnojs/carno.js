@@ -92,7 +92,7 @@ export class Memoirist<T> {
   root: Record<string, Node<T>> = {}
   history: [string, string, T][] = []
 
-  private routeCache = new Map<string, FindResult<T> | null>()
+  private routeCache = new Map<string, Record<string, FindResult<T> | null>>()
 
   private static regex = {
     static: /:[^/]+/,
@@ -236,10 +236,10 @@ export class Memoirist<T> {
   }
 
   find(method: string, url: string): FindResult<T> | null {
-    const cacheKey = this.buildCacheKey(method, url)
+    let methodCache = this.routeCache.get(url)
 
-    if (this.routeCache.has(cacheKey)) {
-      return this.routeCache.get(cacheKey)!
+    if (methodCache && methodCache[method] !== undefined) {
+      return methodCache[method]
     }
 
     const root = this.root[method]
@@ -247,7 +247,12 @@ export class Memoirist<T> {
 
     const result = matchRoute(url, url.length, root, 0)
 
-    this.routeCache.set(cacheKey, result)
+    if (!methodCache) {
+      methodCache = {}
+      this.routeCache.set(url, methodCache)
+    }
+
+    methodCache[method] = result
 
     return result
   }
@@ -295,12 +300,6 @@ export class Memoirist<T> {
     }
 
     return false
-  }
-
-  private buildCacheKey(method: string, url: string): string {
-    const normalizedMethod = method.toLowerCase()
-
-    return `${normalizedMethod}:${url}`
   }
 
   private invalidateCache(): void {
