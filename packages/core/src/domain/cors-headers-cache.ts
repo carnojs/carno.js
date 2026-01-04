@@ -1,4 +1,63 @@
-import { CorsConfig, DEFAULT_CORS_METHODS, DEFAULT_CORS_ALLOWED_HEADERS } from './cors-config';
+import {
+  CorsConfig,
+  CorsOrigin,
+  DEFAULT_CORS_METHODS,
+  DEFAULT_CORS_ALLOWED_HEADERS,
+} from './cors-config';
+
+type OriginAllowed = (origin: string) => boolean;
+
+const allowAnyOrigin: OriginAllowed = () => {
+  return true;
+};
+
+const denyAnyOrigin: OriginAllowed = () => {
+  return false;
+};
+
+function buildOriginAllowed(origins: CorsOrigin): OriginAllowed {
+  if (origins === '*') {
+    return allowAnyOrigin;
+  }
+
+  if (typeof origins === 'string') {
+    return createExactOriginMatcher(origins);
+  }
+
+  if (Array.isArray(origins)) {
+    return createSetOriginMatcher(origins);
+  }
+
+  if (origins instanceof RegExp) {
+    return createRegexOriginMatcher(origins);
+  }
+
+  if (typeof origins === 'function') {
+    return origins;
+  }
+
+  return denyAnyOrigin;
+}
+
+function createExactOriginMatcher(origin: string): OriginAllowed {
+  return (value: string) => {
+    return value === origin;
+  };
+}
+
+function createSetOriginMatcher(origins: string[]): OriginAllowed {
+  const originSet = new Set(origins);
+
+  return (value: string) => {
+    return originSet.has(value);
+  };
+}
+
+function createRegexOriginMatcher(origins: RegExp): OriginAllowed {
+  return (value: string) => {
+    return origins.test(value);
+  };
+}
 
 export class CorsHeadersCache {
   private readonly cache = new Map<string, Record<string, string>>();
@@ -8,6 +67,7 @@ export class CorsHeadersCache {
   private readonly maxAgeString: string | null;
   private readonly hasCredentials: boolean;
   private readonly isWildcard: boolean;
+  private readonly originAllowed: OriginAllowed;
 
   constructor(private readonly config: CorsConfig) {
     const methods = config.methods || DEFAULT_CORS_METHODS;
@@ -26,6 +86,7 @@ export class CorsHeadersCache {
 
     this.hasCredentials = !!config.credentials;
     this.isWildcard = config.origins === '*';
+    this.originAllowed = buildOriginAllowed(config.origins);
   }
 
   get(origin: string): Record<string, string> {
@@ -72,5 +133,9 @@ export class CorsHeadersCache {
     }
 
     return response;
+  }
+
+  isOriginAllowed(origin: string): boolean {
+    return this.originAllowed(origin);
   }
 }

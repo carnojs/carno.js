@@ -18,6 +18,13 @@ export interface Node<T> {
   wildcardStore: T | null
 }
 
+
+/**
+ * * Empty object shared for static routes without parameters.
+ * * Frozen for V8 optimization and immutability.
+ * * Avoid allocating an empty object on every request in static routes.
+ * */
+const EMPTY_PARAMS: Readonly<Record<string, string>> = Object.freeze({});
 const createNode = <T>(part: string, inert?: Node<T>[]): Node<T> => ({
   part,
   store: null,
@@ -85,6 +92,8 @@ export class Memoirist<T> {
   root: Record<string, Node<T>> = {}
   history: [string, string, T][] = []
 
+  private routeCache = new Map<string, FindResult<T> | null>()
+
   private static regex = {
     static: /:[^/]+/,
     params: /:[^/]+/g
@@ -96,6 +105,8 @@ export class Memoirist<T> {
 
     if (path === '') path = '/'
         else if (path[0] !== '/') path = `/${path}`
+
+    this.invalidateCache()
 
     this.history.push([method, path, store])
 
@@ -225,10 +236,20 @@ export class Memoirist<T> {
   }
 
   find(method: string, url: string): FindResult<T> | null {
+    const cacheKey = this.buildCacheKey(method, url)
+
+    if (this.routeCache.has(cacheKey)) {
+      return this.routeCache.get(cacheKey)!
+    }
+
     const root = this.root[method]
     if (!root) return null
 
-    return matchRoute(url, url.length, root, 0)
+    const result = matchRoute(url, url.length, root, 0)
+
+    this.routeCache.set(cacheKey, result)
+
+    return result
   }
 
   updateStore(
@@ -246,19 +267,21 @@ export class Memoirist<T> {
     if (node.store === oldStore) {
       node.store = newStore
       this.updateHistoryStore(method, path, newStore)
+      this.invalidateCache()
 
       return true
     }
 
     if (node.params?.store === oldStore) {
       node.params.store = newStore
-      
+
       const paramName = node.params.names.get(oldStore)
       if (paramName) {
         node.params.names.set(newStore, paramName)
       }
-      
+
       this.updateHistoryStore(method, path, newStore)
+      this.invalidateCache()
 
       return true
     }
@@ -266,11 +289,22 @@ export class Memoirist<T> {
     if (node.wildcardStore === oldStore) {
       node.wildcardStore = newStore
       this.updateHistoryStore(method, path, newStore)
+      this.invalidateCache()
 
       return true
     }
 
     return false
+  }
+
+  private buildCacheKey(method: string, url: string): string {
+    const normalizedMethod = method.toLowerCase()
+
+    return `${normalizedMethod}:${url}`
+  }
+
+  private invalidateCache(): void {
+    this.routeCache.clear()
   }
 
   private updateHistoryStore(method: string, path: string, newStore: T): void {
@@ -391,7 +425,7 @@ const matchRoute = <T>(
     if (node.store !== null)
       return {
       store: node.store,
-        params: {}
+        params: EMPTY_PARAMS
     }
 
     if (node.wildcardStore !== null)
@@ -441,11 +475,13 @@ const matchRoute = <T>(
 
         if (route !== null) {
           const paramName = resolveParamName(param, route.store)
+          const paramValue = url.substring(endIndex, slashIndex)
 
-          route.params[paramName] = url.substring(
-            endIndex,
-            slashIndex
-            )
+          if (route.params === EMPTY_PARAMS) {
+            route.params = { [paramName]: paramValue }
+          } else {
+            route.params[paramName] = paramValue
+          }
 
           return route
         }

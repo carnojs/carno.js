@@ -3,15 +3,10 @@ import type { ValidatorAdapter } from '../validation/ValidatorAdapter';
 import type { Container } from '../container/container';
 import type { Provider } from '../domain/provider';
 import { ProviderScope } from '../domain/provider-scope';
-import type { Context } from '../domain/Context';
 import { Metadata } from '../domain/Metadata';
-import { HttpException } from '../exceptions/HttpException';
 import { getMethodArgTypes } from '../utils/getMethodArgTypes';
-
 import {
   type CompiledRoute,
-  type ParamResolver,
-  type AsyncParamResolver,
   RouteType,
 } from './CompiledRoute';
 import {
@@ -19,7 +14,7 @@ import {
   type ParamDecoratorMeta,
   type ParamInfo,
 } from './ParamResolverFactory';
-import { compileRouteHandler } from './JITCompiler';
+import { compileRouteHandler, compileValidatedHandler } from './JITCompiler';
 
 export interface RouteCompilerOptions {
   container: Container;
@@ -137,11 +132,11 @@ export class RouteCompiler {
     let boundHandler;
 
     if (hasValidation) {
-      boundHandler = this.createValidatedHandler(
+      boundHandler = compileValidatedHandler(
         instance,
         route.methodName,
         paramInfos,
-        hasBodyParam
+        this.validatorAdapter
       );
     } else {
       boundHandler = compileRouteHandler(instance, route.methodName, paramInfos);
@@ -246,67 +241,5 @@ export class RouteCompiler {
     };
   }
 
-  private createValidatedHandler(
-    instance: any,
-    methodName: string,
-    paramInfos: ParamInfo[],
-    hasBodyParam: boolean
-  ): (context: Context) => any {
-    const handler = instance[methodName].bind(instance);
-
-    const resolveArg = (ctx: Context, param: ParamInfo): any => {
-      let value: any;
-
-      switch (param.type) {
-        case 'param':
-          value = param.key ? ctx.param[param.key] : ctx.param;
-          break;
-
-        case 'query':
-          value = param.key ? ctx.query[param.key] : ctx.query;
-          break;
-
-        case 'body':
-          value = param.key ? ctx.body[param.key] : ctx.body;
-          break;
-
-        case 'headers':
-          value = param.key ? ctx.headers.get(param.key) : ctx.headers;
-          break;
-
-        case 'req':
-          value = ctx.req;
-          break;
-
-        case 'locals':
-          value = ctx.locals;
-          break;
-
-        default:
-          value = undefined;
-      }
-
-      if (param.needsValidation && param.token) {
-        return this.validatorAdapter.validateAndTransform(param.token, value);
-      }
-
-      return value;
-    };
-
-    if (hasBodyParam) {
-      return async (ctx: Context) => {
-        await ctx.getBody();
-
-        const args = paramInfos.map((p) => resolveArg(ctx, p));
-
-        return handler(...args);
-      };
-    }
-
-    return (ctx: Context) => {
-      const args = paramInfos.map((p) => resolveArg(ctx, p));
-
-      return handler(...args);
-    };
-  }
+  
 }

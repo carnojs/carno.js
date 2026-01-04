@@ -24,7 +24,7 @@ import { HttpException } from "./exceptions/HttpException";
 import { RouteExecutor } from "./route/RouteExecutor";
 import Memoirist from "./route/memoirist";
 import { RouteType, type CompiledRoute } from "./route/CompiledRoute";
-import { executeSimpleRoute } from "./route/FastPathExecutor";
+
 import { LoggerService } from "./services/logger.service";
 
 export interface ApplicationConfig<
@@ -66,7 +66,7 @@ export class Carno<
         if (this.isCorsEnabled()) {
           const origin = request.headers.get("origin");
 
-          if (origin && this.isOriginAllowed(origin)) {
+          if (origin && this.corsCache!.isOriginAllowed(origin)) {
             response = this.applyCorsHeaders(response, origin);
           }
         }
@@ -288,9 +288,9 @@ export class Carno<
     const isCompiledRoute = compiled.routeType !== undefined;
 
     if (isCompiledRoute && compiled.routeType === RouteType.SIMPLE) {
-      const result = await executeSimpleRoute(compiled, context);
-
-      response = RouteExecutor.mountResponse(result, context);
+      response = compiled.isAsync
+        ? await compiled.boundHandler!(context)
+        : compiled.boundHandler!(context);
     } else {
       const needsLocalsContainer = isCompiledRoute
         ? compiled.needsLocalsContainer
@@ -316,7 +316,7 @@ export class Carno<
     if (this.isCorsEnabled()) {
       const origin = request.headers.get("origin");
 
-      if (origin && this.isOriginAllowed(origin)) {
+      if (origin && this.corsCache!.isOriginAllowed(origin)) {
         response = this.applyCorsHeaders(response, origin);
       }
     }
@@ -377,36 +377,10 @@ export class Carno<
     return !!this.config.cors;
   }
 
-  private isOriginAllowed(origin: string | null): boolean {
-    if (!origin || !this.config.cors) {
-      return false;
-    }
-
-    const { origins } = this.config.cors;
-
-    if (typeof origins === "string") {
-      return origins === "*" || origins === origin;
-    }
-
-    if (Array.isArray(origins)) {
-      return origins.includes(origin);
-    }
-
-    if (origins instanceof RegExp) {
-      return origins.test(origin);
-    }
-
-    if (typeof origins === "function") {
-      return origins(origin);
-    }
-
-    return false;
-  }
-
   private handlePreflightRequest(request: Request): Response {
     const origin = request.headers.get("origin");
 
-    if (!this.isOriginAllowed(origin)) {
+    if (!origin || !this.corsCache!.isOriginAllowed(origin)) {
       return new Response(null, { status: 403 });
     }
 
