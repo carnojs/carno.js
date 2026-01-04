@@ -164,7 +164,7 @@ custom() {
 
 As your application grows, it can be helpful to see a complete list of all registered routes, including their methods and full paths (resolving nesting).
 
-You can use the Carno CLI to inspect your project:
+You can use the Carno CLI to inspect your project (see [CLI Installation](../cli.md) if you haven't installed it yet):
 
 ```bash
 # Analyze carno.config.ts and list routes

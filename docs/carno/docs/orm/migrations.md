@@ -25,7 +25,7 @@ export default config;
 
 ## Installation
 
-To use the migration commands, you need to install the Carno CLI:
+To use the migration commands, you need to install the Carno CLI. See the [CLI Documentation](../cli.md) for detailed installation and usage instructions.
 
 ```bash
 bun install -d @carno.js/cli
