@@ -1,8 +1,8 @@
-import { BaseEntity } from '../../src/domain/base-entity';
-import { Entity } from '../../src/decorators/entity.decorator';
-import { ManyToOne } from '../../src/decorators/one-many.decorator';
-import { PrimaryKey } from '../../src/decorators/primary-key.decorator';
-import { Property } from '../../src/decorators/property.decorator';
+import { BaseEntity } from '../src/domain/base-entity';
+import { Entity } from '../src/decorators/entity.decorator';
+import { ManyToOne } from '../src/decorators/one-many.decorator';
+import { PrimaryKey } from '../src/decorators/primary-key.decorator';
+import { Property } from '../src/decorators/property.decorator';
 
 @Entity({ tableName: 'test_users' })
 export class TestUserEntity extends BaseEntity {

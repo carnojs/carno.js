@@ -422,7 +422,7 @@ export type Scalar =
   | {
       toHexString(): string;
     };
-//TODO: editar
+// TODO: revise
 export type ExpandProperty<T> = T extends Reference<infer U>
   ? NonNullable<U>
   : T extends Collection<infer U, any>

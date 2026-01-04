@@ -297,38 +297,38 @@ window.onload = () => {
       /**
        * Search controllers classes
        */
-      // Percorra todos os arquivos de origem
+      // Walk through all source files
       for (const sourceFile of sourceFiles) {
-        // Obtenha todas as classes no arquivo de origem
+        // Read all classes from the source file
         const classes = sourceFile.getClasses();
 
-        // Percorra todas as classes
+        // Walk through each class
         for (const cls of classes) {
           // Verifique se a classe tem um decorador 'Controller'
           const controllerDecorator = cls.getDecorator('Controller');
           if (controllerDecorator) {
-            // Obtenha o prefixo do controlador do decorador 'Controller'
+            // Read the controller prefix from the 'Controller' decorator
             const controllerPrefix = controllerDecorator.getArguments()[0]?.getText();
 
-            // Percorra todos os métodos na classe
+            // Walk through every method in the class
             for (const method of cls.getMethods()) {
-              // Verifique se o método tem um decorador HTTP
+              // Check whether the method has an HTTP decorator
               const httpDecorator = method.getDecorators().find(decorator => ['Get', 'Post', 'Put', 'Delete'].includes(decorator.getName()));
               if (httpDecorator) {
-                // Obtenha o caminho da rota do decorador HTTP
+                // Read the route path from the HTTP decorator
                 let routePath = httpDecorator.getArguments()[0]?.getText();
                 routePath = controllerPrefix + routePath;
 
-                // Obtenha o tipo de método HTTP do nome do decorador
+                // Read the HTTP method from the decorator name
                 const httpMethod = httpDecorator.getName().toLowerCase();
 
-                // Adicione a rota ao objeto Swagger
+                // Add the route to the Swagger object
                 if (!swaggerObject.paths[routePath]) {
                   swaggerObject.paths[routePath] = {};
                 }
                 swaggerObject.paths[routePath][httpMethod] = {
                   summary: method.getJsDocs().map(jsDoc => jsDoc.getComment()).join('\n'),
-                  // Adicione mais propriedades conforme necessário
+                  // Add more properties as needed
                 };
               }
             }

@@ -39,9 +39,8 @@ export interface ApplicationConfig<
 }
 
 const parseUrl = require("parseurl-fast");
-// todo: change console.log for LoggerService.
 export class Carno<
-  TAdapter extends ValidatorAdapterConstructor = ValidatorAdapterConstructor
+  TAdapter extends ValidatorAdapterConstructor = ValidatorAdapterConstructor    
 > {
   router: Memoirist<CompiledRoute | TokenRouteWithProvider> = new Memoirist();  
   private injector = createInjector();
@@ -236,7 +235,9 @@ export class Carno<
 
   private registerShutdownHandlers(): void {
     const shutdown = async (signal: string) => {
-      console.log(`\nReceived ${signal}, starting graceful shutdown...`);
+      this.resolveLogger().info(
+        `Received ${signal}, starting graceful shutdown...`
+      );
       await this.handleShutdownHook();
     };
 
@@ -253,8 +254,8 @@ export class Carno<
   }
 
   private createHttpServer(port: number) {
-    this.server = Bun.serve({ port, fetch: this.fetch, error: this.catcher });
-    console.log(`Server running on port ${port}`);
+    this.server = Bun.serve({ port, fetch: this.fetch, error: this.catcher });  
+    this.resolveLogger().info(`Server running on port ${port}`);
   }
 
   private async fetcher(request: Request, server: Server<any>): Promise<Response> {
@@ -324,7 +325,7 @@ export class Carno<
   }
 
   private catcher = (error: Error) => {
-    console.error("Unhandled error:", error);
+    this.resolveLogger().error("Unhandled error", error);
     return new Response("Internal Server Error", { status: 500 });
   };
 
@@ -351,18 +352,25 @@ export class Carno<
 
   private closeHttpServer(): void {
     if (this.server) {
-      console.log("Closing HTTP server...");
+      this.resolveLogger().info("Closing HTTP server...");
       this.server.stop(true);
     }
   }
 
   private exitProcess(code: number = 0): void {
-    console.log("Shutdown complete.");
+    this.resolveLogger().info("Shutdown complete.");
     process.exit(code);
   }
 
   private reportHookFailure(event: EventType, error: unknown): void {
-    console.error(`Lifecycle hook ${event} failed`, error);
+    this.resolveLogger().error(`Lifecycle hook ${event} failed`, error);
+  }
+
+  private resolveLogger(): LoggerService {
+    const provider = this.injector.get(LoggerService);
+    const instance = provider?.instance as LoggerService | undefined;
+
+    return instance ?? new LoggerService(this.injector);
   }
 
   private isCorsEnabled(): boolean {

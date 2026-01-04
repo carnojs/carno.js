@@ -295,7 +295,7 @@ export class OrmService {
       const relationshipsFromMetadata: Relationship<any>[] = Metadata.get(PROPERTIES_RELATIONS, entity.target) || [];
       const hooks = Metadata.get(EVENTS_METADATA, entity.target)
 
-      // Cria uma cópia profunda das propriedades para evitar mutação compartilhada
+      // Create a deep copy of properties to avoid shared mutation
       const properties: { [key: string]: Property } = {};
       if (propertiesFromMetadata) {
         for (const [key, value] of Object.entries(propertiesFromMetadata)) {

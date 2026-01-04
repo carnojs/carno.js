@@ -363,7 +363,7 @@ export class EntityStorage {
    * @param relationShip
    */
   private getFkKey(relationShip: Relationship<any>): string | number {
-    // se for nullable, deverá retornar o primary key da entidade target
+    // if nullable, it should return the primary key of the target entity
     if (typeof relationShip.fkKey === "undefined") {
       const entity = this.entities.get(relationShip.entity() as any);
       const property = Object.entries(entity!.properties).find(([_key, value]) => value.options.isPrimary === true);
@@ -374,7 +374,7 @@ export class EntityStorage {
       return property[0];
     }
 
-    // se o fkKey é uma função, ele retornará a propriedade da entidade que é a chave estrangeira
+    // if fkKey is a function, it will return the property that is the foreign key
     // precisamos pegar o nome dessa propriedade
     if (typeof relationShip.fkKey === "string") {
       return relationShip.fkKey;

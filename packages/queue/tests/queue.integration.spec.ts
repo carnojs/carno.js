@@ -11,7 +11,7 @@ describe('Queue Module Integration', () => {
   let testWorker: Worker;
 
   beforeAll(async () => {
-    // Given: configuração do módulo de filas
+    // Given: queue module configuration
     app = new Carno();
 
     app.use(
@@ -99,7 +99,7 @@ describe('Queue Module Integration', () => {
       email: 'test@example.com',
     };
 
-    // When: adicionar job à fila
+    // When: adding a job to the queue
     const job = await testQueue.add('email-job', jobData);
 
     // Then: job deve ser criado
@@ -114,7 +114,7 @@ describe('Queue Module Integration', () => {
     const state = await job.getState();
     expect(state).toBe('completed');
 
-    // Tentar obter resultado se disponível
+    // Try to read the result if available
     try {
       const result = await job.returnvalue;
       if (result) {
@@ -122,26 +122,26 @@ describe('Queue Module Integration', () => {
         expect(result.data).toEqual(jobData);
       }
     } catch (e) {
-      // Job pode já ter sido limpo, apenas verificar que completou
+      // The job may have been cleaned up, only verify that it completed
       expect(state).toBe('completed');
     }
   });
 
   test('should handle multiple jobs', async () => {
-    // Given: múltiplos jobs
+    // Given: multiple jobs
     const jobs = await Promise.all([
       testQueue.add('job1', { index: 1 }),
       testQueue.add('job2', { index: 2 }),
       testQueue.add('job3', { index: 3 }),
     ]);
 
-    // Then: todos os jobs devem ser criados
+    // Then: all jobs must be created
     expect(jobs).toHaveLength(3);
 
     // When: aguardar processamento
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Then: todos os jobs devem estar completos
+    // Then: all jobs must be completed
     const states = await Promise.all(
       jobs.map(job => job.getState())
     );

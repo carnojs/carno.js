@@ -9,8 +9,8 @@ const queue = new Queue('course-processing', { connection });
 
 console.log('📋 Teste: Múltiplos workers na mesma queue com jobs nomeados\n');
 
-// Simulando o comportamento atual do Carno.js:
-// Cada @Process cria um worker separado, mas todos na mesma queue
+// Simulating the current Carno.js behavior:
+// Each @Process creates a separate worker, all on the same queue
 
 const workerProcessPlaylist = new Worker(
   'course-processing',

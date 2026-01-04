@@ -9,13 +9,13 @@ const queue = new Queue('course-processing', { connection });
 
 console.log('📋 Teste: Worker pegando job errado (retorna vazio)\n');
 
-// Worker que IGNORA jobs que não são dele
+// Worker that ignores jobs that are not its own
 const workerProcessPlaylist = new Worker(
   'course-processing',
   async (job: Job) => {
     console.log(`🎬 Worker process-playlist pegou job: "${job.name}"`);
 
-    // Se não for o job dele, retorna vazio (sem executar)
+    // If the job is not its own, return early (no execution)
     if (job.name !== 'process-playlist') {
       console.log(`⚠️  Ignorando job "${job.name}" - não é meu!`);
       return; // Retorna undefined
