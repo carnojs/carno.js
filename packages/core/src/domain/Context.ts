@@ -45,7 +45,6 @@ export class Context {
 
   private constructor() {
     this.req = undefined as any;
-    this.param = {};
     this.status = 200;
   }
 
@@ -140,6 +139,19 @@ export class Context {
     } else {
       ctx._bodyParsed = true;
     }
+
+    return ctx;
+  }
+
+  static createFastContext(
+    request: Request,
+    params: Record<string, any>
+  ): Context {
+    const ctx = new Context();
+
+    ctx.req = request;
+    ctx.param = params;
+    ctx._bodyParsed = true;
 
     return ctx;
   }

@@ -4,7 +4,6 @@ import { EventType } from "../events";
 import type { CompiledRoute } from "./CompiledRoute";
 
 class Router {
-    private readonly jsonHeaders = { "Content-Type": "application/json" };
     private readonly textHeaders = { "Content-Type": "text/html" };
 
     public async executeRoute(
@@ -68,7 +67,7 @@ class Router {
             return new Response(result as BodyInit, { status });
         }
 
-        return this.createJsonResponse(result, status);
+        return Response.json(result, { status });
     }
 
     public mountResponse(result: unknown, context: Context) {
@@ -96,7 +95,7 @@ class Router {
             return new Response(result as BodyInit, { status });
         }
 
-        return this.createJsonResponse(result, status);
+        return Response.json(result, { status });
     }
 
     private isNativeResponse(result: unknown): result is Response {
@@ -121,18 +120,6 @@ class Router {
         }
 
         return result instanceof FormData || result instanceof URLSearchParams;
-    }
-
-    private createJsonResponse(body: unknown, status: number) {
-        try {
-            const json = JSON.stringify(body);
-
-            return new Response(json, { status, headers: this.jsonHeaders });
-        } catch (error) {
-            const fallback = JSON.stringify({ error: "Serialization failed" });
-
-            return new Response(fallback, { status: 500, headers: this.jsonHeaders });
-        }
     }
 }
 

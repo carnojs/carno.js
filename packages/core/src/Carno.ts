@@ -38,7 +38,15 @@ export interface ApplicationConfig<
   globalMiddlewares?: any[];
 }
 
-const parseUrl = require("parseurl-fast");
+const METHOD_MAP: Record<string, string> = {
+  GET: 'get',
+  POST: 'post',
+  PUT: 'put',
+  DELETE: 'delete',
+  PATCH: 'patch',
+  HEAD: 'head',
+  OPTIONS: 'options'
+};
 export class Carno<
   TAdapter extends ValidatorAdapterConstructor = ValidatorAdapterConstructor    
 > {
@@ -47,34 +55,48 @@ export class Carno<
   private corsCache?: CorsHeadersCache;
   private readonly emptyLocals = new LocalsContainer();
   private validatorAdapter: ValidatorAdapter;
-  private fetch = async (request: Request, server: Server<any>) => {
-    try {
-      return await this.fetcher(request, server);
-    } catch (error) {
-      if (error instanceof HttpException) {
-        let response = new Response(
-          JSON.stringify({
-            message: error.getResponse(),
-            statusCode: error.getStatus(),
-          }),
-          {
-            status: error.statusCode,
-            headers: { "Content-Type": "application/json" },
-          },
-        );
+  private corsEnabled = false;
+  private hasOnRequestHook = false;
 
-        if (this.isCorsEnabled()) {
-          const origin = request.headers.get("origin");
+  private fetch = (request: Request, server: Server<any>): Response | Promise<Response> => {
+    const method = request.method;
 
-          if (origin && this.corsCache!.isOriginAllowed(origin)) {
-            response = this.applyCorsHeaders(response, origin);
-          }
-        }
-        return response;
+    if (this.corsEnabled) {
+      const origin = request.headers.get("origin");
+
+      if (method === "OPTIONS" && origin) {
+        return this.handlePreflightRequest(request);
       }
-
-      throw error;
     }
+
+    const url = request.url;
+    const startIndex = url.indexOf('/', 12);
+    const queryIndex = url.indexOf('?', startIndex);
+
+    const pathname = queryIndex === -1
+      ? (startIndex === -1 ? '/' : url.slice(startIndex))
+      : url.slice(startIndex, queryIndex);
+
+    const methodLower = METHOD_MAP[method] || method.toLowerCase();
+    const route = this.router.find(methodLower, pathname);
+
+    if (!route) {
+      return this.errorResponse(request, "Method not allowed", 404);
+    }
+
+    const compiled = route.store as CompiledRoute;
+    const isCompiledRoute = compiled.routeType !== undefined;
+    const isSimpleRoute = isCompiledRoute && compiled.routeType === RouteType.SIMPLE;
+    const isGetOrHead = method === 'GET' || method === 'HEAD';
+    const hasQuery = queryIndex !== -1;
+
+    if (isSimpleRoute && isGetOrHead && !this.corsEnabled && !hasQuery && !compiled.isAsync) {
+      const context = Context.createFastContext(request, route.params);
+
+      return compiled.boundHandler!(context);
+    }
+
+    return this.fetcherAsync(request, server, route, compiled, isSimpleRoute, hasQuery, queryIndex, url);
   };
   private server: Server<any>;
 
@@ -219,12 +241,16 @@ export class Carno<
   public async init(): Promise<void> {
     setValidatorAdapter(this.validatorAdapter);
     this.loadProvidersAndControllers();
+
     await this.injector.loadModule(
       createContainer(),
       this.config,
       this.router,
       this.validatorAdapter
     );
+
+    this.corsEnabled = !!this.config.cors;
+    this.hasOnRequestHook = this.injector.hasOnRequestHook();
   }
 
   async listen(port: number = 3000) {
@@ -258,70 +284,64 @@ export class Carno<
     this.resolveLogger().info(`Server running on port ${port}`);
   }
 
-  private async fetcher(request: Request, server: Server<any>): Promise<Response> {
-    if (this.isCorsEnabled()) {
-      const origin = request.headers.get("origin");
+  private async fetcherAsync(
+    request: Request,
+    server: Server<any>,
+    route: any,
+    compiled: CompiledRoute,
+    isSimpleRoute: boolean,
+    hasQuery: boolean,
+    queryIndex: number,
+    url: string
+  ): Promise<Response | any> {
+    try {
+      let response: any;
+      const query = hasQuery ? url.slice(queryIndex + 1) : undefined;
+      const context = Context.createFromRequestSync({ query }, request, server);
+      context.param = route.params;
 
-      if (request.method === "OPTIONS" && origin) {
-        return this.handlePreflightRequest(request);
-      }
-    }
+      if (isSimpleRoute) {
+        response = compiled.isAsync
+          ? await compiled.boundHandler!(context)
+          : compiled.boundHandler!(context);
+      } else {
+        const needsLocalsContainer = compiled.routeType !== undefined
+          ? compiled.needsLocalsContainer
+          : true;
 
-    const urlParsed = parseUrl(request);
-    const routePath = this.discoverRoutePath(urlParsed);
+        const locals = this.resolveLocalsContainer(needsLocalsContainer, context);
 
-    const route = this.router.find(
-      request.method.toLowerCase(),
-      routePath
-    );
+        if (this.hasOnRequestHook) {
+          await this.injector.callHook(EventType.OnRequest, { context });
+        }
 
-    if (!route) {
-      throw new HttpException("Method not allowed", 404);
-    }
-
-    const compiled = route.store as CompiledRoute;
-    const context = Context.createFromRequestSync(urlParsed, request, server);
-    context.param = route.params;
-
-    let response: Response;
-
-    const isCompiledRoute = compiled.routeType !== undefined;
-
-    if (isCompiledRoute && compiled.routeType === RouteType.SIMPLE) {
-      response = compiled.isAsync
-        ? await compiled.boundHandler!(context)
-        : compiled.boundHandler!(context);
-    } else {
-      const needsLocalsContainer = isCompiledRoute
-        ? compiled.needsLocalsContainer
-        : true;
-
-      const locals = this.resolveLocalsContainer(
-        needsLocalsContainer,
-        context
-      );
-
-      if (this.injector.hasOnRequestHook()) {
-        await this.injector.callHook(EventType.OnRequest, { context });
+        response = await RouteExecutor.executeRoute(
+          compiled,
+          this.injector,
+          context,
+          locals
+        );
       }
 
-      response = await RouteExecutor.executeRoute(
-        compiled,
-        this.injector,
-        context,
-        locals
-      );
-    }
+      if (this.corsEnabled) {
+        const origin = request.headers.get("origin");
 
-    if (this.isCorsEnabled()) {
-      const origin = request.headers.get("origin");
-
-      if (origin && this.corsCache!.isOriginAllowed(origin)) {
-        response = this.applyCorsHeaders(response, origin);
+        if (origin && this.corsCache!.isOriginAllowed(origin)) {
+          if (!(response instanceof Response)) {
+              response = RouteExecutor.mountResponse(response, context);
+          }
+          return this.applyCorsHeaders(response, origin);
+        }
       }
-    }
 
-    return response;
+      return response;
+    } catch (error) {
+      if (error instanceof HttpException) {
+        return this.errorResponse(request, error.getResponse() as string, error.getStatus());
+      }
+
+      throw error;
+    }
   }
 
   private catcher = (error: Error) => {
@@ -377,6 +397,30 @@ export class Carno<
     return !!this.config.cors;
   }
 
+
+  private errorResponse(request: Request, message: string, statusCode: number): Response {
+    let response = new Response(
+      JSON.stringify({
+        message,
+        statusCode,
+      }),
+      {
+        status: statusCode,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+
+    if (this.corsEnabled) {
+      const origin = request.headers.get("origin");
+
+      if (origin && this.corsCache!.isOriginAllowed(origin)) {
+        response = this.applyCorsHeaders(response, origin);
+      }
+    }
+
+    return response;
+  }
+
   private handlePreflightRequest(request: Request): Response {
     const origin = request.headers.get("origin");
 
@@ -419,10 +463,11 @@ export class Carno<
     return locals;
   }
 
-  private discoverRoutePath(url: { pathname?: string; path?: string }): string {
-    if (url?.pathname) {
-      return url.pathname;
+  private discoverRoutePath(url: string | { pathname?: string; path?: string }): string {
+    if (typeof url === 'string') {
+      return url;
     }
-    return url?.path || "/";
+
+    return url?.pathname || url?.path || '/';
   }
 }

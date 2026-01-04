@@ -138,23 +138,33 @@ export class InjectorService {
     return this.invoke(token, locals);
   }
 
-  async invokeRoute(
+  invokeRoute(
     route: TokenRouteWithProvider,
     context: Context,
     locals: LocalsContainer,
     instance: any
   ): Promise<any> {
-    await MiddlewareRes.resolveMiddlewares(route, this, locals);
+    const middlewarePromise = MiddlewareRes.resolveMiddlewares(route, this, locals);
 
-    const result = await this.methodInvoker.invoke(
+    if (middlewarePromise instanceof Promise) {
+        return middlewarePromise.then(() => 
+             this.methodInvoker.invoke(
+              instance,
+              route.methodName,
+              locals,
+              context,
+              (t, l) => this.invoke(t, l)
+            )
+        );
+    }
+
+    return this.methodInvoker.invoke(
       instance,
       route.methodName,
       locals,
       context,
       (t, l) => this.invoke(t, l)
     );
-
-    return result;
   }
 
   scopeOf(provider: Provider): ProviderScope | undefined {
