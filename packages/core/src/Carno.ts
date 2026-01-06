@@ -39,19 +39,26 @@ export interface ApplicationConfig<
   disableStartupLog?: boolean;
 }
 
-const METHOD_MAP: Record<string, string> = {
-  GET: 'get',
-  POST: 'post',
-  PUT: 'put',
-  DELETE: 'delete',
-  PATCH: 'patch',
-  HEAD: 'head',
-  OPTIONS: 'options'
-};
+/**
+ * Ultra-optimized method lookup table.
+ * Uses char code of first letter for O(1) lookup.
+ * G=71, P=80, D=68, H=72, O=79
+ */
+const METHOD_LOOKUP: string[] = new Array(85);
+METHOD_LOOKUP[71] = 'get';     // G
+METHOD_LOOKUP[80] = 'post';    // P - also covers PUT, PATCH
+METHOD_LOOKUP[68] = 'delete';  // D
+METHOD_LOOKUP[72] = 'head';    // H
+METHOD_LOOKUP[79] = 'options'; // O
+
+// Pre-allocated error responses for common cases
+const NOT_FOUND_BODY = '{"message":"Method not allowed","statusCode":404}';
+const JSON_CONTENT_TYPE = { 'Content-Type': 'application/json' };
+
 export class Carno<
-  TAdapter extends ValidatorAdapterConstructor = ValidatorAdapterConstructor    
+  TAdapter extends ValidatorAdapterConstructor = ValidatorAdapterConstructor
 > {
-  router: Memoirist<CompiledRoute | TokenRouteWithProvider> = new Memoirist();  
+  router: Memoirist<CompiledRoute | TokenRouteWithProvider> = new Memoirist();
   private injector = createInjector();
   private corsCache?: CorsHeadersCache;
   private readonly emptyLocals = new LocalsContainer();
@@ -59,46 +66,126 @@ export class Carno<
   private corsEnabled = false;
   private hasOnRequestHook = false;
 
+  /**
+   * Ultra-optimized fetch handler.
+   * 
+   * Optimizations applied:
+   * - Inline method resolution via char code lookup (no Map/object lookup)
+   * - Early exit for OPTIONS preflight
+   * - Aggressive inlining of fast path checks
+   * - Minimal allocations in hot path
+   * - Pre-computed route classification
+   */
   private fetch = (request: Request, server: Server<any>): Response | Promise<Response> => {
     const method = request.method;
+    const methodChar = method.charCodeAt(0);
 
-    if (this.corsEnabled) {
-      const origin = request.headers.get("origin");
-
-      if (method === "OPTIONS" && origin) {
-        return this.handlePreflightRequest(request);
-      }
+    // Ultra-fast CORS preflight check
+    if (this.corsEnabled && methodChar === 79) { // 'O' for OPTIONS
+      const origin = request.headers.get('origin');
+      if (origin) return this.handlePreflightRequest(request);
     }
 
     const url = request.url;
-    const startIndex = url.indexOf('/', 12);
-    const queryIndex = url.indexOf('?', startIndex);
 
-    const pathname = queryIndex === -1
-      ? (startIndex === -1 ? '/' : url.slice(startIndex))
-      : url.slice(startIndex, queryIndex);
+    // Optimized URL parsing - find path start after protocol://host
+    // Most URLs are http:// (7) or https:// (8), host is usually short
+    let i = 12; // Skip past "http://x" minimum
+    const len = url.length;
 
-    const methodLower = METHOD_MAP[method] || method.toLowerCase();
+    // Find first '/' after host
+    while (i < len && url.charCodeAt(i) !== 47) i++; // 47 = '/'
+
+    if (i >= len) {
+      // No path found, use root
+      return this.handleRoute(request, server, method, methodChar, '/', -1, url);
+    }
+
+    // Find query string start
+    let queryIndex = -1;
+    let j = i + 1;
+    while (j < len) {
+      if (url.charCodeAt(j) === 63) { // 63 = '?'
+        queryIndex = j;
+        break;
+      }
+      j++;
+    }
+
+    const pathname = queryIndex === -1 ? url.slice(i) : url.slice(i, queryIndex);
+
+    return this.handleRoute(request, server, method, methodChar, pathname, queryIndex, url);
+  };
+
+  /**
+   * Inlined route handling for maximum performance.
+   */
+  private handleRoute(
+    request: Request,
+    server: Server<any>,
+    method: string,
+    methodChar: number,
+    pathname: string,
+    queryIndex: number,
+    url: string
+  ): Response | Promise<Response> {
+    // O(1) method lookup via char code
+    let methodLower = METHOD_LOOKUP[methodChar];
+
+    // Handle PUT vs POST vs PATCH (all start with P=80)
+    if (methodChar === 80 && method.length !== 4) {
+      methodLower = method.length === 3 ? 'put' : 'patch';
+    }
+
+    if (!methodLower) {
+      methodLower = method.toLowerCase();
+    }
+
     const route = this.router.find(methodLower, pathname);
 
     if (!route) {
-      return this.errorResponse(request, "Method not allowed", 404);
+      return this.fastErrorResponse(request, 404);
     }
 
     const compiled = route.store as CompiledRoute;
-    const isCompiledRoute = compiled.routeType !== undefined;
-    const isSimpleRoute = isCompiledRoute && compiled.routeType === RouteType.SIMPLE;
-    const isGetOrHead = method === 'GET' || method === 'HEAD';
-    const hasQuery = queryIndex !== -1;
 
-    if (isSimpleRoute && isGetOrHead && !this.corsEnabled && !hasQuery && !compiled.isAsync) {
-      const context = Context.createFastContext(request, route.params);
-
-      return compiled.boundHandler!(context);
+    // Fast path: SIMPLE route + GET/HEAD + no CORS + no query + sync
+    // This is the most common case and needs to be blazing fast
+    if (compiled.routeType === RouteType.SIMPLE) {
+      if ((methodChar === 71 || methodChar === 72) && // G or H
+        !this.corsEnabled &&
+        queryIndex === -1 &&
+        !compiled.isAsync) {
+        // Ultra-fast path - minimal allocations
+        return compiled.boundHandler!(Context.createFastContext(request, route.params));
+      }
     }
 
-    return this.fetcherAsync(request, server, route, compiled, isSimpleRoute, hasQuery, queryIndex, url);
-  };
+    return this.fetcherAsync(
+      request, server, route, compiled,
+      compiled.routeType === RouteType.SIMPLE,
+      queryIndex !== -1, queryIndex, url
+    );
+  }
+
+  /**
+   * Pre-allocated 404 response for maximum performance.
+   */
+  private fastErrorResponse(request: Request, statusCode: number): Response {
+    const response = new Response(NOT_FOUND_BODY, {
+      status: statusCode,
+      headers: JSON_CONTENT_TYPE,
+    });
+
+    if (this.corsEnabled) {
+      const origin = request.headers.get('origin');
+      if (origin && this.corsCache!.isOriginAllowed(origin)) {
+        return this.applyCorsHeaders(response, origin);
+      }
+    }
+
+    return response;
+  }
   private server: Server<any>;
 
   constructor(public config: ApplicationConfig<TAdapter> = {}) {
@@ -280,12 +367,12 @@ export class Carno<
     return this.injector;
   }
 
-    private createHttpServer(port: number) {
-      this.server = Bun.serve({ port, fetch: this.fetch, error: this.catcher });
-      if (!this.config.disableStartupLog) {
-        this.resolveLogger().info(`Server running on port ${port}`);
-      }
+  private createHttpServer(port: number) {
+    this.server = Bun.serve({ port, fetch: this.fetch, error: this.catcher });
+    if (!this.config.disableStartupLog) {
+      this.resolveLogger().info(`Server running on port ${port}`);
     }
+  }
   private async fetcherAsync(
     request: Request,
     server: Server<any>,
@@ -330,7 +417,7 @@ export class Carno<
 
         if (origin && this.corsCache!.isOriginAllowed(origin)) {
           if (!(response instanceof Response)) {
-              response = RouteExecutor.mountResponse(response, context);
+            response = RouteExecutor.mountResponse(response, context);
           }
           return this.applyCorsHeaders(response, origin);
         }
@@ -438,7 +525,7 @@ export class Carno<
     });
   }
 
-  private applyCorsHeaders(response: Response, origin: string): Response {      
+  private applyCorsHeaders(response: Response, origin: string): Response {
     return this.corsCache!.applyToResponse(response, origin);
   }
 

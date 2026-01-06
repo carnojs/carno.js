@@ -21,15 +21,25 @@ import { ProviderScope } from './provider-scope';
  *
  * V8/JSC otimiza shape consistente. Propriedades lazy não quebram
  * monomorfismo porque são getters, não props dinâmicas.
+ * 
+ * OPTIMIZATION: Object pooling for ultra-fast context creation.
+ * Pool is limited to prevent memory leaks.
  */
 @Injectable({ scope: ProviderScope.REQUEST })
 export class Context {
+  // Object pool for context reuse
+  private static readonly pool: Context[] = [];
+  private static readonly MAX_POOL_SIZE = 128;
 
-  req: Request;
+  // Pre-allocated empty objects (frozen for V8 optimization)
+  private static readonly EMPTY_PARAMS: Readonly<Record<string, string>> = Object.freeze({});
+  private static readonly EMPTY_BODY: Readonly<Record<string, any>> = Object.freeze({});
 
-  param: Record<string, string>;
+  req!: Request;
 
-  status: number;
+  param!: Record<string, string>;
+
+  status!: number;
 
   private _queryString: string | undefined;
 
@@ -43,9 +53,47 @@ export class Context {
 
   private _bodyParsed: boolean = false;
 
-  private constructor() {
-    this.req = undefined as any;
+  /**
+   * Constructor is public for test compatibility.
+   * In production, use static factory methods for pooling benefits.
+   */
+  constructor() {
     this.status = 200;
+  }
+
+  /**
+   * Reset context for reuse from pool.
+   * Inline for performance.
+   */
+  private reset(): void {
+    this.status = 200;
+    this._queryString = undefined;
+    this._query = null;
+    this._locals = null;
+    this._body = null;
+    this._rawBody = null;
+    this._bodyParsed = false;
+  }
+
+  /**
+   * Return context to pool for reuse.
+   * Call this when done with the context.
+   */
+  release(): void {
+    if (Context.pool.length < Context.MAX_POOL_SIZE) {
+      this.reset();
+      Context.pool.push(this);
+    }
+  }
+
+  /**
+   * Get a context from pool or create new.
+   * Inline allocation for speed.
+   */
+  private static acquire(): Context {
+    const pooled = Context.pool.pop();
+    if (pooled) return pooled;
+    return new Context();
   }
 
   get headers(): Headers {
@@ -121,33 +169,37 @@ export class Context {
     this.param = param;
   }
 
+  /**
+   * Sync context creation with pooling.
+   * Optimized: uses char code comparison instead of string comparison.
+   */
   static createFromRequestSync(
     url: { query?: string },
     request: Request,
     server: Server<any>
   ): Context {
-    const ctx = new Context();
+    const ctx = Context.acquire();
 
     ctx.req = request;
-    ctx.param = {};
+    ctx.param = Context.EMPTY_PARAMS as Record<string, string>;
     ctx._queryString = url.query;
 
-    const method = request.method;
-
-    if (method !== 'GET' && method !== 'HEAD') {
-      ctx._bodyParsed = false;
-    } else {
-      ctx._bodyParsed = true;
-    }
+    // Use char code for faster comparison: G=71, H=72
+    const methodChar = request.method.charCodeAt(0);
+    ctx._bodyParsed = methodChar === 71 || methodChar === 72; // GET or HEAD
 
     return ctx;
   }
 
+  /**
+   * Ultra-fast context for simple GET routes.
+   * Minimal allocations, maximum speed.
+   */
   static createFastContext(
     request: Request,
     params: Record<string, any>
   ): Context {
-    const ctx = new Context();
+    const ctx = Context.acquire();
 
     ctx.req = request;
     ctx.param = params;
@@ -171,15 +223,29 @@ export class Context {
   }
 
   static createFromJob(job: any): Context {
-    return new Context();
+    return Context.acquire();
   }
 
+  /**
+   * Optimized query string parsing.
+   * Uses native URLSearchParams but only when needed.
+   */
   private parseQueryString(): Record<string, string> {
-    if (!this._queryString) {
-      return {};
+    const qs = this._queryString;
+    if (!qs) return Context.EMPTY_BODY as Record<string, string>;
+
+    // Fast path for simple single-param queries
+    const eqIdx = qs.indexOf('=');
+    if (eqIdx === -1) return Context.EMPTY_BODY as Record<string, string>;
+
+    const ampIdx = qs.indexOf('&');
+    if (ampIdx === -1) {
+      // Single param - avoid URLSearchParams overhead
+      return { [decodeURIComponent(qs.slice(0, eqIdx))]: decodeURIComponent(qs.slice(eqIdx + 1)) };
     }
 
-    return Object.fromEntries(new URLSearchParams(this._queryString));
+    // Multiple params - use native
+    return Object.fromEntries(new URLSearchParams(qs));
   }
 
   private async parseBody(): Promise<void> {

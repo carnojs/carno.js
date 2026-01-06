@@ -20,18 +20,31 @@ export interface Node<T> {
 
 
 /**
- * * Empty object shared for static routes without parameters.
- * * Frozen for V8 optimization and immutability.
- * * Avoid allocating an empty object on every request in static routes.
- * */
+ * Empty object shared for static routes without parameters.
+ * Frozen for V8 optimization and immutability.
+ * Avoid allocating an empty object on every request in static routes.
+ */
 const EMPTY_PARAMS: Readonly<Record<string, string>> = Object.freeze({});
+
+/**
+ * Fast method index for O(1) cache lookup.
+ * Uses first char code: g=103, p=112, d=100, h=104, o=111, u=117 (for put)
+ */
+const METHOD_INDEX: number[] = new Array(120);
+METHOD_INDEX[103] = 0; // get
+METHOD_INDEX[112] = 1; // post/patch
+METHOD_INDEX[100] = 2; // delete
+METHOD_INDEX[104] = 3; // head
+METHOD_INDEX[111] = 4; // options
+METHOD_INDEX[117] = 5; // put
+
 const createNode = <T>(part: string, inert?: Node<T>[]): Node<T> => ({
   part,
   store: null,
   inert:
-        inert !== undefined
-            ? new Map(inert.map((child) => [child.part.charCodeAt(0), child]))
-            : null,
+    inert !== undefined
+      ? new Map(inert.map((child) => [child.part.charCodeAt(0), child]))
+      : null,
   params: null,
   wildcardStore: null
 })
@@ -92,11 +105,49 @@ export class Memoirist<T> {
   root: Record<string, Node<T>> = {}
   history: [string, string, T][] = []
 
-  private routeCache = new Map<string, Record<string, FindResult<T> | null>>()
+  /**
+   * Ultra-fast route cache using Map + array for O(1) method lookup.
+   * Structure: Map<pathname, [get, post, delete, head, options, put]>
+   */
+  private routeCache = new Map<string, (FindResult<T> | null | undefined)[]>()
 
   private static regex = {
     static: /:[^/]+/,
     params: /:[^/]+/g
+  }
+
+  /**
+   * Ultra-optimized route lookup.
+   * 
+   * Optimizations:
+   * - Array-based method cache (O(1) vs object lookup)
+   * - Single Map lookup per request
+   * - Minimal allocations in hot path
+   */
+  find(method: string, url: string): FindResult<T> | null {
+    let methodCache = this.routeCache.get(url)
+    const methodIdx = METHOD_INDEX[method.charCodeAt(0)] ?? 6
+
+    if (methodCache) {
+      const cached = methodCache[methodIdx]
+      if (cached !== undefined) {
+        return cached
+      }
+    }
+
+    const root = this.root[method]
+    if (!root) return null
+
+    const result = matchRoute(url, url.length, root, 0)
+
+    if (!methodCache) {
+      methodCache = new Array(7)
+      this.routeCache.set(url, methodCache)
+    }
+
+    methodCache[methodIdx] = result
+
+    return result
   }
 
   add(method: string, path: string, store: T): FindResult<T>['store'] {
@@ -104,7 +155,7 @@ export class Memoirist<T> {
       throw new TypeError('Route path must be a string')
 
     if (path === '') path = '/'
-        else if (path[0] !== '/') path = `/${path}`
+    else if (path[0] !== '/') path = `/${path}`
 
     this.invalidateCache()
 
@@ -124,7 +175,7 @@ export class Memoirist<T> {
     let node: Node<T>
 
     if (!this.root[method]) node = this.root[method] = createNode<T>('/')
-        else node = this.root[method]
+    else node = this.root[method]
 
     let paramPartsIndex = 0
 
@@ -151,7 +202,7 @@ export class Memoirist<T> {
         node = params.inert
       }
 
-      for (let j = 0; ; ) {
+      for (let j = 0; ;) {
         if (j === part.length) {
           if (j < node.part.length) {
             // Move the current node down
@@ -164,13 +215,13 @@ export class Memoirist<T> {
         if (j === node.part.length) {
           // Add static child
           if (node.inert === null) node.inert = new Map()
-                    else if (node.inert.has(part.charCodeAt(j))) {
-                      // Re-run loop with existing static node
-                      node = node.inert.get(part.charCodeAt(j))!
-                      part = part.slice(j)
-                      j = 0
-                      continue
-                    }
+          else if (node.inert.has(part.charCodeAt(j))) {
+            // Re-run loop with existing static node
+            node = node.inert.get(part.charCodeAt(j))!
+            part = part.slice(j)
+            j = 0
+            continue
+          }
 
           // Create new node
           const childNode = createNode<T>(part.slice(j))
@@ -191,7 +242,7 @@ export class Memoirist<T> {
               existingChild,
               newChild
             ])
-            )
+          )
 
           node = newChild
 
@@ -233,28 +284,6 @@ export class Memoirist<T> {
     if (node.store === null) node.store = store
 
     return node.store!
-  }
-
-  find(method: string, url: string): FindResult<T> | null {
-    let methodCache = this.routeCache.get(url)
-
-    if (methodCache && methodCache[method] !== undefined) {
-      return methodCache[method]
-    }
-
-    const root = this.root[method]
-    if (!root) return null
-
-    const result = matchRoute(url, url.length, root, 0)
-
-    if (!methodCache) {
-      methodCache = {}
-      this.routeCache.set(url, methodCache)
-    }
-
-    methodCache[method] = result
-
-    return result
   }
 
   updateStore(
@@ -369,7 +398,7 @@ export class Memoirist<T> {
         node = node.params.inert
       }
 
-      for (let j = 0; ; ) {
+      for (let j = 0; ;) {
         if (j === part.length) {
           break
         }
@@ -403,7 +432,7 @@ const matchRoute = <T>(
   urlLength: number,
   node: Node<T>,
   startIndex: number
-  ): FindResult<T> | null => {
+): FindResult<T> | null => {
   const part = node?.part
   const endIndex = startIndex + part.length
 
@@ -423,15 +452,15 @@ const matchRoute = <T>(
     // Reached the end of the URL
     if (node.store !== null)
       return {
-      store: node.store,
+        store: node.store,
         params: EMPTY_PARAMS
-    }
+      }
 
     if (node.wildcardStore !== null)
       return {
-      store: node.wildcardStore,
+        store: node.wildcardStore,
         params: { '*': '' }
-    }
+      }
 
     return null
   }
@@ -470,7 +499,7 @@ const matchRoute = <T>(
           urlLength,
           param.inert,
           slashIndex
-          )
+        )
 
         if (route !== null) {
           const paramName = resolveParamName(param, route.store)
@@ -490,11 +519,11 @@ const matchRoute = <T>(
 
   if (node.wildcardStore !== null)
     return {
-    store: node.wildcardStore,
+      store: node.wildcardStore,
       params: {
-      '*': url.substring(endIndex, urlLength)
+        '*': url.substring(endIndex, urlLength)
+      }
     }
-  }
 
   return null
 }

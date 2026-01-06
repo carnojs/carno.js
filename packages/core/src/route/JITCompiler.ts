@@ -2,6 +2,10 @@ import type { Context } from '../domain/Context';
 import type { ParamInfo } from './ParamResolverFactory';
 import type { CompiledHandler, AsyncCompiledHandler } from './CompiledRoute';
 
+/**
+ * Pre-frozen headers for V8 hidden class optimization.
+ * These are reused across all responses to avoid allocation.
+ */
 const TEXT_HEADERS: Readonly<Record<string, string>> = Object.freeze({
   'Content-Type': 'text/html'
 });
@@ -10,66 +14,96 @@ const JSON_HEADERS: Readonly<Record<string, string>> = Object.freeze({
   'Content-Type': 'application/json'
 });
 
+/**
+ * Pre-allocated empty Response bodies for common cases.
+ * Avoids string allocation in hot path.
+ */
+const EMPTY_STRING = '';
+
+/**
+ * Type check cache for Response detection.
+ * Uses typeof + instanceof combo for V8 inline cache optimization.
+ */
+const isResponse = (r: unknown): r is Response => r instanceof Response;
+
+/**
+ * Ultra-fast BodyInit detection using prototype chain.
+ * Ordered by frequency in typical web apps.
+ */
 function isBodyInitResult(result: unknown): result is BodyInit {
-  if (!result) {
-    return false;
+  if (!result) return false;
+
+  // Most common first
+  if (result instanceof ReadableStream) return true;
+  if (result instanceof Blob) return true;
+  if (result instanceof ArrayBuffer) return true;
+  if (ArrayBuffer.isView(result as ArrayBufferView)) return true;
+  if (result instanceof FormData) return true;
+  if (result instanceof URLSearchParams) return true;
+
+  return false;
+}
+
+/**
+ * Ultra-optimized response builder.
+ * Single function with minimal branching for V8 optimization.
+ * Status is passed directly to avoid getter call.
+ */
+function buildResponse(r: unknown, status: number): Response {
+  // Fast path: string (most common for simple routes)
+  if (typeof r === 'string') {
+    return new Response(r, { status, headers: TEXT_HEADERS });
   }
 
-  if (result instanceof ReadableStream) {
-    return true;
+  // Already a Response - return as-is
+  if (r instanceof Response) return r;
+
+  // Null/undefined
+  if (r == null) {
+    return new Response(EMPTY_STRING, { status, headers: TEXT_HEADERS });
   }
 
-  if (result instanceof Blob || result instanceof ArrayBuffer) {
-    return true;
+  // Primitives
+  const t = typeof r;
+  if (t === 'number' || t === 'boolean') {
+    return new Response(String(r), { status, headers: TEXT_HEADERS });
   }
 
-  if (ArrayBuffer.isView(result as ArrayBufferView)) {
-    return true;
+  // BodyInit types
+  if (isBodyInitResult(r)) {
+    return new Response(r, { status });
   }
 
-  return result instanceof FormData || result instanceof URLSearchParams;
+  // Object - JSON serialize
+  return new Response(JSON.stringify(r), { status, headers: JSON_HEADERS });
+}
+
+/**
+ * Async version of response builder.
+ */
+async function buildResponseAsync(r: Promise<unknown>, status: number): Promise<Response> {
+  return buildResponse(await r, status);
 }
 
 
 /**
- * Cria handler inline com response building integrado.
- * Usado quando não há parâmetros.
+ * Creates ultra-optimized inline handler for zero-param routes.
+ * These are the fastest possible handlers.
  */
 function createInlineResponseHandler(
   handler: Function,
   isAsync: boolean
 ): CompiledHandler | AsyncCompiledHandler {
   if (isAsync) {
+    // Async handler - minimal wrapper
     return async (c: Context) => {
       const r = await handler();
-      const s = c.getResponseStatus() || 200;
-      if (typeof r === 'string') return new Response(r, { status: s, headers: TEXT_HEADERS });
-      if (r instanceof Response) return r;
-      if (r == null) return new Response('', { status: s, headers: TEXT_HEADERS });
-      if (typeof r === 'number' || typeof r === 'boolean') {
-        return new Response(String(r), { status: s, headers: TEXT_HEADERS });
-      }
-      if (isBodyInitResult(r)) {
-        return new Response(r, { status: s });
-      }
-      return new Response(JSON.stringify(r), { status: s, headers: JSON_HEADERS });
+      return buildResponse(r, c.status || 200);
     };
   }
 
-  return (c: Context) => {
-    const r = handler();
-    const s = c.getResponseStatus() || 200;
-    if (typeof r === 'string') return new Response(r, { status: s, headers: TEXT_HEADERS });
-    if (r instanceof Response) return r;
-    if (r == null) return new Response('', { status: s, headers: TEXT_HEADERS });
-    if (typeof r === 'number' || typeof r === 'boolean') {
-      return new Response(String(r), { status: s, headers: TEXT_HEADERS });
-    }
-    if (isBodyInitResult(r)) {
-      return new Response(r, { status: s });
-    }
-    return new Response(JSON.stringify(r), { status: s, headers: JSON_HEADERS });
-  };
+  // Sync handler - zero overhead
+  return (c: Context) => buildResponse(handler(), c.status || 200);
 }
 
 function escapeKey(key: string): string {
@@ -108,23 +142,15 @@ function buildArgExpression(param: ParamInfo): string {
 }
 
 /**
- * Compila route handler em função otimizada.
+ * Compila route handler em função ultra-otimizada.
  *
  * Estratégias de otimização:
- * - Inline de acesso a parâmetros
+ * - Inline de acesso a parâmetros via code generation
+ * - buildResponse centralizado para V8 inlining
  * - Bind do handler no compile time
  * - Código gerado monomórfico
  * - Sem overhead de resolvers array
- */
-/**
- * Compila route handler em função otimizada que retorna Response inline.
- *
- * Estratégias de otimização:
- * - Inline de acesso a parâmetros
- * - Inline de response building (elimina executeFastPath)
- * - Bind do handler no compile time
- * - Código gerado monomórfico
- * - Headers pré-frozen para otimização V8
+ * - Status direto via c.status (não getter)
  */
 export function compileRouteHandler(
   instance: any,
@@ -133,12 +159,13 @@ export function compileRouteHandler(
 ): CompiledHandler | AsyncCompiledHandler {
   const handler = instance[methodName].bind(instance);
 
+  // Zero params - use ultra-fast inline handler
   if (paramInfos.length === 0) {
     return createInlineResponseHandler(handler, false);
   }
 
+  // Check for DI params - fallback path
   const hasDIParam = paramInfos.some((p) => p.type === 'di');
-
   if (hasDIParam) {
     return createFallbackHandler(handler, paramInfos);
   }
@@ -148,43 +175,23 @@ export function compileRouteHandler(
   const argsCode = argExpressions.join(',');
 
   if (hasBodyParam) {
+    // Async body handler with buildResponse
     const code = `return async function(c){
 await c.getBody();
 const r=await h(${argsCode});
-const s=c.getResponseStatus()||200;
-if(typeof r==='string')return new Response(r,{status:s,headers:TH});
-if(r instanceof Response)return r;
-if(r==null)return new Response('',{status:s,headers:TH});
-if(typeof r==='number'||typeof r==='boolean')return new Response(String(r),{status:s,headers:TH});
-if(isBI(r))return new Response(r,{status:s});
-return new Response(JSON.stringify(r),{status:s,headers:JH});
+return br(r,c.status||200);
 }`;
 
-    return new Function('h', 'TH', 'JH', 'isBI', code)(
-      handler,
-      TEXT_HEADERS,
-      JSON_HEADERS,
-      isBodyInitResult
-    );
+    return new Function('h', 'br', code)(handler, buildResponse);
   }
 
+  // Sync handler with buildResponse
   const code = `return function(c){
 const r=h(${argsCode});
-const s=c.getResponseStatus()||200;
-if(typeof r==='string')return new Response(r,{status:s,headers:TH});
-if(r instanceof Response)return r;
-if(r==null)return new Response('',{status:s,headers:TH});
-if(typeof r==='number'||typeof r==='boolean')return new Response(String(r),{status:s,headers:TH});
-if(isBI(r))return new Response(r,{status:s});
-return new Response(JSON.stringify(r),{status:s,headers:JH});
+return br(r,c.status||200);
 }`;
 
-  return new Function('h', 'TH', 'JH', 'isBI', code)(
-    handler,
-    TEXT_HEADERS,
-    JSON_HEADERS,
-    isBodyInitResult
-  );
+  return new Function('h', 'br', code)(handler, buildResponse);
 }
 
 /**
@@ -245,6 +252,7 @@ function resolveArg(param: ParamInfo, ctx: Context): any {
 
 /**
  * Compila handler com validação inline.
+ * Uses centralized buildResponse for consistency.
  */
 export function compileValidatedHandler(
   instance: any,
@@ -267,43 +275,35 @@ export function compileValidatedHandler(
   } = buildValidatedArgs(paramInfos);
 
   if (hasBodyParam) {
-    const code = `return async function(c){\nawait c.getBody();\n${argAssignments}\nconst r=await h(${argList});\nconst s=c.getResponseStatus()||200;\nif(typeof r==='string')return new Response(r,{status:s,headers:TH});\nif(r instanceof Response)return r;\nif(r==null)return new Response('',{status:s,headers:TH});\nif(typeof r==='number'||typeof r==='boolean')return new Response(String(r),{status:s,headers:TH});\nif(isBI(r))return new Response(r,{status:s});\nreturn new Response(JSON.stringify(r),{status:s,headers:JH});\n}`;
+    const code = `return async function(c){\nawait c.getBody();\n${argAssignments}\nconst r=await h(${argList});\nreturn br(r,c.status||200);\n}`;
 
     return new Function(
       'h',
       'va',
       ...tokenParams,
-      'TH',
-      'JH',
-      'isBI',
+      'br',
       code
     )(
       handler,
       validatorAdapter,
       ...tokenValues,
-      TEXT_HEADERS,
-      JSON_HEADERS,
-      isBodyInitResult
+      buildResponse
     );
   }
 
-  const code = `return function(c){\n${argAssignments}\nconst r=h(${argList});\nconst s=c.getResponseStatus()||200;\nif(typeof r==='string')return new Response(r,{status:s,headers:TH});\nif(r instanceof Response)return r;\nif(r==null)return new Response('',{status:s,headers:TH});\nif(typeof r==='number'||typeof r==='boolean')return new Response(String(r),{status:s,headers:TH});\nif(isBI(r))return new Response(r,{status:s});\nreturn new Response(JSON.stringify(r),{status:s,headers:JH});\n}`;
+  const code = `return function(c){\n${argAssignments}\nconst r=h(${argList});\nreturn br(r,c.status||200);\n}`;
 
   return new Function(
     'h',
     'va',
     ...tokenParams,
-    'TH',
-    'JH',
-    'isBI',
+    'br',
     code
   )(
     handler,
     validatorAdapter,
     ...tokenValues,
-    TEXT_HEADERS,
-    JSON_HEADERS,
-    isBodyInitResult
+    buildResponse
   );
 }
 
