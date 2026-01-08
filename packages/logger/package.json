@@ -1,5 +1,5 @@
 {
-    "name": "@carno/logger",
+    "name": "@carno.js/logger",
     "version": "1.0.0",
     "description": "High-performance async logger for carno.js",
     "main": "src/index.ts",
