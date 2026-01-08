@@ -24,7 +24,7 @@ export interface TestHarness {
     container: Container;
 
     /** The HTTP server (if listening) */
-    server?: Server;
+    server?: Server<any>;
 
     /** The port the server is running on */
     port?: number;
@@ -87,7 +87,7 @@ export async function createTestHarness(options: TestOptions = {}): Promise<Test
     }
 
     const port = resolvePort(options);
-    let server: Server | undefined;
+    let server: Server<any> | undefined;
 
     if (shouldListen(options.listen)) {
         app.listen(port);
