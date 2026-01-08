@@ -39,3 +39,47 @@ export type { Token, ProviderConfig } from './container/Container';
 // Router
 export { RadixRouter } from './router/RadixRouter';
 export type { RouteMatch } from './router/RadixRouter';
+
+// CORS
+export { CorsHandler } from './cors/CorsHandler';
+export type { CorsConfig, CorsOrigin } from './cors/CorsHandler';
+
+// Validation
+export type { ValidatorAdapter, ValidationResult, ValidationError, ValidationConfig } from './validation/ValidatorAdapter';
+export { Schema, getSchema, VALIDATION_SCHEMA } from './validation/ValidatorAdapter';
+export { ZodAdapter, ValidationException } from './validation/ZodAdapter';
+export { ValibotAdapter } from './validation/ValibotAdapter';
+
+// Exceptions
+export {
+    HttpException,
+    BadRequestException,
+    UnauthorizedException,
+    ForbiddenException,
+    NotFoundException,
+    MethodNotAllowedException,
+    ConflictException,
+    UnprocessableEntityException,
+    TooManyRequestsException,
+    InternalServerErrorException,
+    ServiceUnavailableException
+} from './exceptions/HttpException';
+
+// Lifecycle Events
+export {
+    EventType,
+    OnApplicationInit,
+    OnApplicationBoot,
+    OnApplicationShutdown
+} from './events/Lifecycle';
+
+// Cache
+export { CacheService } from './cache/CacheService';
+export { MemoryDriver } from './cache/MemoryDriver';
+export { RedisDriver } from './cache/RedisDriver';
+export type { RedisConfig } from './cache/RedisDriver';
+export type { CacheDriver, CacheConfig } from './cache/CacheDriver';
+
+// Testing
+export { createTestHarness, withTestApp } from './testing/TestHarness';
+export type { TestHarness, TestOptions } from './testing/TestHarness';

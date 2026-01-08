@@ -8,6 +8,14 @@ import { compileHandler } from './compiler/JITCompiler';
 import { Context } from './context/Context';
 import { Container, Scope } from './container/Container';
 import type { Token, ProviderConfig } from './container/Container';
+import { CorsHandler, type CorsConfig } from './cors/CorsHandler';
+import type { ValidatorAdapter } from './validation/ValidatorAdapter';
+import { HttpException } from './exceptions/HttpException';
+import { ValidationException } from './validation/ZodAdapter';
+import { EventType, hasEventHandlers, getEventHandlers } from './events/Lifecycle';
+import { CacheService } from './cache/CacheService';
+import type { CacheConfig } from './cache/CacheDriver';
+import { DEFAULT_STATIC_ROUTES } from './DefaultRoutes';
 
 export type MiddlewareHandler = (ctx: Context) => Response | void | Promise<Response | void>;
 
@@ -18,6 +26,9 @@ export interface TurboConfig {
     exports?: (Token | ProviderConfig)[];
     globalMiddlewares?: MiddlewareHandler[];
     disableStartupLog?: boolean;
+    cors?: CorsConfig;
+    validation?: ValidatorAdapter | boolean;
+    cache?: CacheConfig | boolean;
 }
 
 interface CompiledRoute {
@@ -44,6 +55,11 @@ const JSON_OPTS = Object.freeze({
     headers: { 'Content-Type': 'application/json' }
 });
 
+const INTERNAL_ERROR_RESPONSE = new Response(
+    '{"statusCode":500,"message":"Internal Server Error"}',
+    { status: 500, headers: { 'Content-Type': 'application/json' } }
+);
+
 /**
  * Turbo Application - Ultra-aggressive performance.
  * 
@@ -60,11 +76,22 @@ export class Turbo {
     private dynamicRoutes: Record<string, Function> = {};
     private router = new RadixRouter<CompiledRoute>();
     private container = new Container();
+    private corsHandler: CorsHandler | null = null;
     private server: any;
+
+    // Cached lifecycle event flags - checked once at startup
+    private hasInitHooks = false;
+    private hasBootHooks = false;
+    private hasShutdownHooks = false;
 
     constructor(public config: TurboConfig = {}) {
         this.config.exports = this.config.exports || [];
         this.config.globalMiddlewares = this.config.globalMiddlewares || [];
+
+        // Initialize CORS handler if configured
+        if (this.config.cors) {
+            this.corsHandler = new CorsHandler(this.config.cors);
+        }
     }
 
     /**
@@ -145,26 +172,52 @@ export class Turbo {
             fetch: this.handleRequest.bind(this)
         };
 
+        config.static = DEFAULT_STATIC_ROUTES;
+
         if (hasStatic) {
-            config.static = this.staticRoutes;
+            config.static = {
+                ...config.static,
+                ...this.staticRoutes
+            };
         }
 
         if (hasDynamic) {
             config.routes = this.dynamicRoutes;
         }
 
+        // Error handler for uncaught exceptions
+        config.error = this.handleError.bind(this);
+
         this.server = Bun.serve(config);
+
+        // Execute BOOT hooks after server is ready
+        if (this.hasBootHooks) {
+            this.executeLifecycleHooks(EventType.BOOT);
+        }
+
+        // Register shutdown handlers
+        if (this.hasShutdownHooks) {
+            this.registerShutdownHandlers();
+        }
 
         if (!this.config.disableStartupLog) {
             console.log(`Turbo running on port ${port}`);
         }
     }
 
-    /**
-     * Bootstrap: register and pre-instantiate all singleton services.
-     * This happens BEFORE the server starts.
-     */
     private bootstrap(): void {
+        // Cache lifecycle event flags
+        this.hasInitHooks = hasEventHandlers(EventType.INIT);
+        this.hasBootHooks = hasEventHandlers(EventType.BOOT);
+        this.hasShutdownHooks = hasEventHandlers(EventType.SHUTDOWN);
+
+        // Always register CacheService (Memory by default)
+        const cacheConfig = typeof this.config.cache === 'object' ? this.config.cache : {};
+        this.container.register({
+            token: CacheService,
+            useValue: new CacheService(cacheConfig)
+        });
+
         for (const service of this.services) {
             this.container.register(service);
         }
@@ -180,6 +233,11 @@ export class Turbo {
             if (!serviceConfig || serviceConfig.scope !== Scope.REQUEST) {
                 this.container.get(token);
             }
+        }
+
+        // Execute INIT hooks after DI is ready, before server starts
+        if (this.hasInitHooks) {
+            this.executeLifecycleHooks(EventType.INIT);
         }
     }
 
@@ -256,6 +314,14 @@ export class Turbo {
         const url = req.url;
         const method = req.method.toLowerCase();
 
+        // CORS preflight handling
+        if (this.corsHandler && method === 'options') {
+            const origin = req.headers.get('origin');
+            if (origin) {
+                return this.corsHandler.preflight(origin);
+            }
+        }
+
         let pathEnd = url.indexOf('?');
 
         if (pathEnd === -1) pathEnd = url.length;
@@ -282,7 +348,23 @@ export class Turbo {
             return this.executeAsync(ctx, route);
         }
 
-        return this.buildResponse(route.handler(ctx));
+        return this.applyCorsBuild(req, route.handler(ctx));
+    }
+
+    /**
+     * Apply CORS headers and build response.
+     */
+    private applyCorsBuild(req: Request, result: any): Response {
+        const response = this.buildResponse(result);
+
+        if (this.corsHandler) {
+            const origin = req.headers.get('origin');
+            if (origin) {
+                return this.corsHandler.apply(response, origin);
+            }
+        }
+
+        return response;
     }
 
     private async executeWithMiddleware(ctx: Context, route: CompiledRoute): Promise<Response> {
@@ -338,5 +420,67 @@ export class Turbo {
 
     stop(): void {
         this.server?.stop?.();
+    }
+
+    /**
+     * Error handler for Bun.serve.
+     * Converts exceptions to proper HTTP responses.
+     */
+    private handleError(error: Error): Response {
+        // HttpException - return custom response
+        if (error instanceof HttpException) {
+            return error.toResponse();
+        }
+
+        // ValidationException - return 400 with errors
+        if (error instanceof ValidationException) {
+            return error.toResponse();
+        }
+
+        // Unknown error - return 500
+        console.error('Unhandled error:', error);
+        return INTERNAL_ERROR_RESPONSE;
+    }
+
+    /**
+     * Execute lifecycle hooks for a specific event type.
+     */
+    private executeLifecycleHooks(type: EventType): void {
+        const handlers = getEventHandlers(type);
+
+        for (const handler of handlers) {
+            try {
+                const instance = this.container.has(handler.target)
+                    ? this.container.get(handler.target)
+                    : null;
+
+                if (instance && typeof (instance as any)[handler.methodName] === 'function') {
+                    const result = (instance as any)[handler.methodName]();
+
+                    // Handle async hooks
+                    if (result instanceof Promise) {
+                        result.catch((err: Error) =>
+                            console.error(`Error in ${type} hook ${handler.methodName}:`, err)
+                        );
+                    }
+                }
+            } catch (err) {
+                console.error(`Error in ${type} hook ${handler.methodName}:`, err);
+            }
+        }
+    }
+
+    /**
+     * Register SIGTERM/SIGINT handlers for graceful shutdown.
+     */
+    private registerShutdownHandlers(): void {
+        const shutdown = () => {
+            this.executeLifecycleHooks(EventType.SHUTDOWN);
+            this.stop();
+            process.exit(0);
+        };
+
+        process.on('SIGTERM', shutdown);
+        process.on('SIGINT', shutdown);
     }
 }
