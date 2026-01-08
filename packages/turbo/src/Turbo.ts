@@ -64,9 +64,9 @@ const INTERNAL_ERROR_RESPONSE = new Response(
  * - No function calls in hot path
  */
 export class Turbo {
-    private controllers: any[] = [];
-    private services: (Token | ProviderConfig)[] = [];
-    private middlewares: MiddlewareHandler[] = [];
+    private _controllers: any[] = [];
+    private _services: (Token | ProviderConfig)[] = [];
+    private _middlewares: MiddlewareHandler[] = [];
     private routes: Record<string, Record<string, Response | Function> | Response | Function> = {};
     private container = new Container();
     private corsHandler: CorsHandler | null = null;
@@ -100,18 +100,18 @@ export class Turbo {
                 ? { ...existingService }
                 : exported;
 
-            this.services.push(serviceToAdd);
+            this._services.push(serviceToAdd);
         }
 
         if (plugin.config.globalMiddlewares) {
-            this.middlewares.push(...plugin.config.globalMiddlewares);
+            this._middlewares.push(...plugin.config.globalMiddlewares);
         }
 
         return this;
     }
 
     private findServiceInPlugin(plugin: Turbo, exported: any): any | undefined {
-        return plugin.services.find(
+        return plugin._services.find(
             s => this.getServiceToken(s) === this.getServiceToken(exported)
         );
     }
@@ -125,26 +125,29 @@ export class Turbo {
     }
 
     /**
-     * Register a service/provider.
+     * Register one or more services/providers.
      */
-    service(serviceClass: Token | ProviderConfig): this {
-        this.services.push(serviceClass);
+    services(serviceClass: Token | ProviderConfig | (Token | ProviderConfig)[]): this {
+        const items = Array.isArray(serviceClass) ? serviceClass : [serviceClass];
+        this._services.push(...items);
         return this;
     }
 
     /**
-     * Register a global middleware.
+     * Register one or more global middlewares.
      */
-    middleware(handler: MiddlewareHandler): this {
-        this.middlewares.push(handler);
+    middlewares(handler: MiddlewareHandler | MiddlewareHandler[]): this {
+        const items = Array.isArray(handler) ? handler : [handler];
+        this._middlewares.push(...items);
         return this;
     }
 
     /**
-     * Register a controller.
+     * Register one or more controllers.
      */
-    controller(controllerClass: new () => any): this {
-        this.controllers.push(controllerClass);
+    controllers(controllerClass: (new () => any) | (new () => any)[]): this {
+        const items = Array.isArray(controllerClass) ? controllerClass : [controllerClass];
+        this._controllers.push(...items);
         return this;
     }
 
@@ -200,15 +203,15 @@ export class Turbo {
             useValue: new CacheService(cacheConfig)
         });
 
-        for (const service of this.services) {
+        for (const service of this._services) {
             this.container.register(service);
         }
 
-        for (const ControllerClass of this.controllers) {
+        for (const ControllerClass of this._controllers) {
             this.container.register(ControllerClass);
         }
 
-        for (const service of this.services) {
+        for (const service of this._services) {
             const token = typeof service === 'function' ? service : service.token;
             const serviceConfig = typeof service === 'function' ? null : service;
 
@@ -224,7 +227,7 @@ export class Turbo {
     }
 
     private compileRoutes(): void {
-        for (const ControllerClass of this.controllers) {
+        for (const ControllerClass of this._controllers) {
             this.compileController(ControllerClass);
         }
     }
@@ -245,7 +248,7 @@ export class Turbo {
 
             const allMiddlewares = [
                 ...(this.config.globalMiddlewares || []),
-                ...this.middlewares,
+                ...this._middlewares,
                 ...routeMiddlewares.map(m => m.handler as MiddlewareHandler)
             ];
 

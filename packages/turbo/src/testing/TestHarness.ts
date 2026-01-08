@@ -78,16 +78,12 @@ export async function createTestHarness(options: TestOptions = {}): Promise<Test
 
     // Register controllers
     if (options.controllers) {
-        for (const controller of options.controllers) {
-            app.controller(controller);
-        }
+        app.controllers(options.controllers);
     }
 
     // Register services
     if (options.services) {
-        for (const service of options.services) {
-            app.service(service);
-        }
+        app.services(options.services);
     }
 
     const port = resolvePort(options);
