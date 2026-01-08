@@ -10,7 +10,6 @@ import {
 } from './driver/driver.interface';
 import { EntityStorage, Options } from './domain/entities';
 import { Orm } from './orm';
-import { LoggerService, CacheService } from '@carno.js/core';
 import { ValueObject } from './common/value-object';
 import { BaseEntity } from './domain/base-entity';
 import { extendsFrom } from './utils';
@@ -21,6 +20,7 @@ import { ModelTransformer } from './query/model-transformer';
 import { SqlColumnManager } from './query/sql-column-manager';
 import { SqlJoinManager } from './query/sql-join-manager';
 import { QueryCacheManager } from './cache/query-cache-manager';
+import type { Logger } from './logger';
 
 export class SqlBuilder<T> {
   private readonly driver: DriverInterface;
@@ -29,7 +29,7 @@ export class SqlBuilder<T> {
   private entity!: Options;
   private model!: new () => T;
   private aliases: Set<string> = new Set();
-  private logger: LoggerService;
+  private logger: Logger;
   private updatedColumns: any[] = [];
   private originalColumns: any[] = [];
   private conditionBuilder!: SqlConditionBuilder<T>;

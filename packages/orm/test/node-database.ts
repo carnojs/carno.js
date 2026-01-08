@@ -1,18 +1,23 @@
 import {EntityStorage} from 'packages/orm/src/domain/entities';
-import {LoggerService, BentoCacheDriver} from '@carno.js/core';
+import {CacheService} from '@carno.js/core';
 import {spyOn} from 'bun:test';
-import {Orm, OrmService, BunPgDriver} from "../src";
+import {Orm, OrmService, BunPgDriver, setDebugEnabled, resetLogger} from "../src";
 
-const loggerInstance = new LoggerService({applicationConfig: {logger: { level: 'info'}}} as any)
-const cacheService = new BentoCacheDriver(loggerInstance)
+const cacheService = new CacheService();
 
 export let app: Orm<BunPgDriver>
-export const mockLogger = spyOn(loggerInstance, 'debug')
+export let mockLogger: ReturnType<typeof spyOn>
 export { cacheService }
 
-export async function startDatabase(entityFile: string | undefined = undefined, logger: LoggerService = loggerInstance) {
-  app = new Orm(logger, cacheService)
-  const service = new OrmService(app, new EntityStorage(), entityFile)
+export async function startDatabase(entityFile: string | undefined = undefined) {
+  resetLogger();
+  setDebugEnabled(true);
+
+  app = new Orm(cacheService);
+  mockLogger = spyOn(app.logger, 'debug');
+
+  const service = new OrmService(app, new EntityStorage(), entityFile);
+
   await service.onInit({
     host: 'localhost',
     port: 5433,
@@ -20,7 +25,7 @@ export async function startDatabase(entityFile: string | undefined = undefined, 
     username: 'postgres',
     password: 'postgres',
     driver: BunPgDriver,
-  })
+  });
 }
 
 export async function purgeDatabase(schema: string = 'public') {

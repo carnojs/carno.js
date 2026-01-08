@@ -3,7 +3,7 @@ import { EntityStorage, Options } from '../domain/entities';
 import { SqlConditionBuilder } from './sql-condition-builder';
 import { SqlColumnManager } from './sql-column-manager';
 import { ModelTransformer } from './model-transformer';
-import { LoggerService } from '@carno.js/core';
+import type { Logger } from '../logger';
 
 export class SqlJoinManager<T> {
   constructor(
@@ -12,7 +12,7 @@ export class SqlJoinManager<T> {
     private entity: Options,
     private model: new () => T,
     private driver: DriverInterface,
-    private logger: LoggerService,
+    private logger: Logger,
     private conditionBuilder: SqlConditionBuilder<T>,
     private columnManager: SqlColumnManager,
     private modelTransformer: ModelTransformer,

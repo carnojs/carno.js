@@ -1,9 +1,10 @@
 import { CacheSettings, ConnectionSettings, DriverInterface } from './driver/driver.interface';
-import { LoggerService, Service, CacheService } from '@carno.js/core';
+import { Service, CacheService } from '@carno.js/core';
 import { SqlBuilder } from './SqlBuilder';
 import { QueryCacheManager } from './cache/query-cache-manager';
 import { transactionContext } from './transaction/transaction-context';
 import { ormSessionContext } from './orm-session-context';
+import { createLogger, type Logger } from './logger';
 
 const DEFAULT_MAX_KEYS_PER_TABLE = 10000;
 
@@ -13,12 +14,11 @@ export class Orm<T extends DriverInterface = DriverInterface> {
   static instance: Orm<any>
   public connection: ConnectionSettings<T>
   public queryCacheManager?: QueryCacheManager;
+  public logger: Logger;
 
-  constructor(
-    public logger: LoggerService,
-    public cacheService?: CacheService
-  ) {
-    Orm.instance = this
+  constructor(public cacheService?: CacheService) {
+    this.logger = createLogger();
+    Orm.instance = this;
   }
 
   private initializeQueryCacheManager(cacheSettings?: CacheSettings): void {

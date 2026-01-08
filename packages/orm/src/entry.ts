@@ -6,6 +6,4 @@ import { IdentityMapMiddleware } from './middleware/identity-map.middleware';
 
 export const CarnoOrm = new Carno({
   exports: [Orm, OrmService, EntityStorage, IdentityMapMiddleware],
-  providers: [IdentityMapMiddleware],
-  globalMiddlewares: [IdentityMapMiddleware],
 })

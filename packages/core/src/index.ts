@@ -29,6 +29,9 @@ export { Param, Query, Body, Header, Req, Ctx } from './decorators/params';
 // Decorators - Middleware
 export { Use } from './decorators/Middleware';
 
+// Middleware Interface
+export type { CarnoMiddleware, CarnoClosure } from './middleware/CarnoMiddleware';
+
 // Decorators - DI
 export { Service } from './decorators/Service';
 export { Inject } from './decorators/Inject';
@@ -84,3 +87,6 @@ export type { CacheDriver, CacheConfig } from './cache/CacheDriver';
 // Testing
 export { createTestHarness, withTestApp } from './testing/TestHarness';
 export type { TestHarness, TestOptions } from './testing/TestHarness';
+
+// Utils
+export { Metadata, isObject, isString } from './utils/Metadata';

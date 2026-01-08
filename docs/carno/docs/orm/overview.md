@@ -55,12 +55,53 @@ export default config;
 
 ## Debugging SQL
 
-Carno ORM does not have a specific `debug` flag in the connection settings. Instead, it utilizes the standard application logger. To see the executed SQL queries, set your application's logger level to `debug`.
+To see executed SQL queries, enable the `debug` flag in your `carno.config.ts`:
 
 ```ts
-const app = new Carno({
-  logger: {
-    level: 'debug'
-  }
-});
+import { BunPgDriver } from '@carno.js/orm';
+
+export default {
+  driver: BunPgDriver,
+  host: 'localhost',
+  port: 5432,
+  username: 'postgres',
+  password: 'password',
+  database: 'my_db',
+
+  // Enable SQL logging
+  debug: true,
+};
+```
+
+When `debug: true` is set, the ORM will log all SQL queries with execution time:
+
+```
+[DEBUG] SQL: SELECT u1."id" as "u1_id", u1."name" as "u1_name" FROM "public"."users" u1 WHERE (u1.id = 1) [2ms]
+```
+
+### Logger Integration
+
+The ORM automatically detects if `@carno.js/logger` is installed:
+
+- **With `@carno.js/logger`**: Uses the full-featured LoggerService with colors and formatting
+- **Without `@carno.js/logger`**: Falls back to `console.log`
+
+To use the enhanced logger:
+
+```bash
+bun install @carno.js/logger
+```
+
+### Programmatic Control
+
+You can also enable/disable debug mode programmatically:
+
+```ts
+import { setDebugEnabled } from '@carno.js/orm';
+
+// Enable debug logging
+setDebugEnabled(true);
+
+// Disable debug logging
+setDebugEnabled(false);
 ```

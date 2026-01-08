@@ -1,9 +1,9 @@
-import { CarnoMiddleware, Context, Injectable } from '@carno.js/core';
+import { CarnoMiddleware, CarnoClosure, Context, Service } from '@carno.js/core';
 import { identityMapContext } from '../identity-map';
 
-@Injectable()
+@Service()
 export class IdentityMapMiddleware implements CarnoMiddleware {
-  async handle(ctx: Context, next: () => void): Promise<void> {
+  async handle(ctx: Context, next: CarnoClosure): Promise<void> {
     await identityMapContext.run(async () => {
       await next();
     });

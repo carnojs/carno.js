@@ -11,7 +11,6 @@ import {
 } from '../../src';
 import { Metadata } from '@carno.js/core';
 import { PROPERTIES_METADATA } from '../../src/constants';
-import { LoggerService } from '@carno.js/core';
 import * as path from 'path';
 
 describe('Enum Auto-Detection Integration', () => {
@@ -48,8 +47,7 @@ describe('Enum Auto-Detection Integration', () => {
         const { TestUser } = await import(testFilePath);
 
         // Create ORM service
-        const logger = new LoggerService({ applicationConfig: { logger: { level: 'info' } } } as any);
-        const orm = new Orm(logger);
+        const orm = new Orm();
         const storage = new EntityStorage();
         const service = new OrmService(orm, storage, testFilePath);
 

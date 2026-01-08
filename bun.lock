@@ -16,7 +16,7 @@
       "name": "@carno.js/core",
       "version": "0.1.0",
       "dependencies": {
-        "zod": "^3.22.4",
+        "zod": "^4.3.5",
       },
       "peerDependencies": {
         "bun": ">=1.0.0",
@@ -1263,7 +1263,7 @@
 
     "yargs-parser": ["yargs-parser@20.2.4", "", {}, "sha512-WOkpgNhPTlE73h4VFAFsOnomJVaovO8VqLDzy5saChRBFQFBoMYirowyW+Q9HB4HFF4Z7VZTiG3iSzJJA29yRA=="],
 
-    "zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
+    "zod": ["zod@4.3.5", "", {}, "sha512-k7Nwx6vuWx1IJ9Bjuf4Zt1PEllcwe7cls3VNzm4CQ1/hgtFUK2bRNG3rvnpPUhFjmqJKAKtjV576KnUkHocg/g=="],
 
     "@carno.js/swagger/@carno.js/core": ["@carno.js/core@file:packages/core", { "dependencies": { "bentocache": "^1.0.0-beta.5", "globby": "^10.0.2", "parseurl-fast": "^1.2.0", "pino": "^8.16.1", "pino-pretty": "^10.2.3", "reflect-metadata": "^0.1.13", "zod": "^4.3.4" }, "devDependencies": { "@types/globby": "^9.1.0", "bun-types": "latest", "class-transformer": "^0.5.1", "class-validator": "^0.14.3" }, "peerDependencies": { "class-transformer": "^0.5.1", "class-validator": "^0.14.0", "typescript": "^5.0.0" }, "optionalPeers": ["class-transformer", "class-validator"] }],
 

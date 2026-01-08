@@ -44,7 +44,7 @@ export class MemoryDriver implements CacheDriver {
     }
 
     async set<T>(key: string, value: T, ttl?: number): Promise<boolean> {
-        const expiresAt = ttl ? Date.now() + (ttl * 1000) : null;
+        const expiresAt = ttl ? Date.now() + ttl : null;
 
         this.cache.set(key, { value, expiresAt });
 
