@@ -1,82 +1,69 @@
 /**
- * Base interface for validation adapters
- * Adapters provide validation capabilities for different libraries (Zod, class-validator, etc.)
+ * Validation result type.
  */
-export interface ValidatorAdapter<TOptions = any> {
-  /**
-   * Checks if a class/function has validation metadata
-   * Used by ValidationCache for detection and optimization
-   * 
-   * @param target - The class/function to check
-   * @returns true if validation metadata exists
-   */
-  hasValidation(target: Function): boolean;
+export interface ValidationResult<T = any> {
+    success: boolean;
+    data?: T;
+    errors?: ValidationError[];
+}
 
-  /**
-   * Validates and transforms a value to the target type
-   * 
-   * @param target - The DTO class to validate against
-   * @param value - The raw value to validate (usually from request body/query/params)
-   * @returns Transformed and validated instance
-   * @throws HttpException with formatted errors on validation failure
-   */
-  validateAndTransform(target: Function, value: any): any;
-
-  /**
-   * Get the name of the validator (for debugging/logging)
-   * 
-   * @returns The validator name (e.g., "ZodAdapter", "ClassValidatorAdapter")
-   */
-  getName(): string;
-
-  /**
-   * Get the adapter options (for internal use)
-   */
-  getOptions(): TOptions;
+export interface ValidationError {
+    path: string;
+    message: string;
 }
 
 /**
- * Constructor type for validator adapters
+ * Base interface for validation adapters.
+ * Adapters provide validation capabilities for different libraries.
  */
-export type ValidatorAdapterConstructor<TOptions = any> = new (
-  options?: TOptions
-) => ValidatorAdapter<TOptions>;
+export interface ValidatorAdapter {
+    /**
+     * Validator name for debugging.
+     */
+    readonly name: string;
 
-/**
- * Type to extract options type from a ValidatorAdapter constructor
- */
-export type ValidatorAdapterOptions<TAdapter> = TAdapter extends new (
-  options?: infer TOptions
-) => any
-  ? TOptions
-  : never;
+    /**
+     * Check if a target has validation schema.
+     */
+    hasValidation(target: any): boolean;
 
-/**
- * Validation configuration with adapter and options
- */
-export interface ValidationConfig<
-  TAdapter extends ValidatorAdapterConstructor = ValidatorAdapterConstructor
-> {
-  adapter?: TAdapter;
-  options?: ValidatorAdapterOptions<TAdapter>;
+    /**
+     * Validate and transform a value.
+     * Returns result object instead of throwing for better performance.
+     */
+    validate<T>(target: any, value: unknown): ValidationResult<T>;
+
+    /**
+     * Validate and transform, throwing on error.
+     * Used when you want to short-circuit on failure.
+     */
+    validateOrThrow<T>(target: any, value: unknown): T;
 }
 
 /**
- * Helper function to create a strongly-typed validation config.
- * Use this to get proper autocomplete for adapter options.
- *
- * @example
- * ```typescript
- * const app = new Carno({
- *   validation: defineValidation({
- *     adapter: ClassValidatorAdapter,
- *     options: { whitelist: true } // ✓ Autocomplete works!
- *   })
- * });
- * ```
+ * Validation configuration for Turbo.
  */
-export function defineValidation<TAdapter extends ValidatorAdapterConstructor>(
-  config: { adapter: TAdapter; options?: ValidatorAdapterOptions<TAdapter> }
-): ValidationConfig<TAdapter> {
-  return config;
+export interface ValidationConfig {
+    adapter: ValidatorAdapter;
+}
+
+/**
+ * Symbol for storing validation schema on DTOs.
+ */
+export const VALIDATION_SCHEMA = Symbol('turbo:validation');
+
+/**
+ * Decorator to attach a validation schema to a DTO class.
+ */
+export function Schema(schema: any): ClassDecorator {
+    return (target) => {
+        Reflect.defineMetadata(VALIDATION_SCHEMA, schema, target);
+    };
+}
+
+/**
+ * Get the validation schema from a DTO class.
+ */
+export function getSchema(target: any): any | undefined {
+    return Reflect.getMetadata(VALIDATION_SCHEMA, target);
 }

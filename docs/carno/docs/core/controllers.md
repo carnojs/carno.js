@@ -4,7 +4,7 @@ sidebar_position: 2
 
 # Controllers & Routing
 
-Controllers responsible for handling incoming HTTP requests and returning responses. They are defined using classes and decorators.
+Controllers are responsible for handling incoming HTTP requests and returning responses. They are defined using classes and decorators.
 
 ## Defining a Controller
 
@@ -27,38 +27,14 @@ export class UserController {
 }
 ```
 
-### Object Options Syntax
+### Registration
 
-For advanced configurations (scope, nested controllers), use the object syntax:
-
-```ts
-import { Controller, Get, ProviderScope } from '@carno.js/core';
-
-@Controller({
-  path: '/users',
-  scope: ProviderScope.REQUEST
-})
-export class UserController {
-  
-  @Get()
-  findAll() {
-    return 'This action returns all users';
-  }
-}
-```
-
-Both syntaxes are equivalent when you only need to specify a path. Use the object syntax when you need additional options like `scope` or `children`.
-
-### Lifecycle
-
-Controllers are singleton by default and are pre-instantiated at startup for faster first request handling. If a controller is marked as `ProviderScope.REQUEST` or depends on any request-scoped provider, it becomes request-scoped and is instantiated per request.
-
-To register the controller, add it to the `providers` list in your application configuration.
+To register the controller, use the `.controllers()` method on your Carno app instance or module.
 
 ```ts
-new Carno({
-  providers: [UserController]
-}).listen();
+const app = new Carno();
+app.controllers([UserController]);
+app.listen(3000);
 ```
 
 ## Route Methods
@@ -70,6 +46,8 @@ Carno.js supports standard HTTP methods via decorators:
 - `@Put(path?)`
 - `@Delete(path?)`
 - `@Patch(path?)`
+- `@Head(path?)`
+- `@Options(path?)`
 
 The `path` argument is optional. If omitted, the route corresponds to the controller's base path.
 
@@ -81,7 +59,7 @@ export class CatsController {
     return 'This action adds a new cat';
   }
 
-  @Get(':id')
+  @Get('/:id')
   findOne(@Param('id') id: string) {
     return `This action returns a #${id} cat`;
   }
@@ -94,29 +72,35 @@ Use decorators to access request data.
 
 | Decorator | Description | Example |
 | :--- | :--- | :--- |
-| `@Body(key?)` | Request body (JSON/Form) | `@Body() body` or `@Body('name') name` |
+| `@Body(key?)` | Request body (JSON) | `@Body() body` or `@Body('name') name` |
 | `@Query(key?)` | Query string parameters | `@Query() q` or `@Query('limit') limit` |
 | `@Param(key?)` | Route parameters | `@Param() params` or `@Param('id') id` |
-| `@Headers(key?)` | Request headers | `@Headers() headers` or `@Headers('authorization') token` |
+| `@Header(key?)` | Request headers | `@Header() headers` or `@Header('authorization') token` |
 | `@Req()` | The raw `Request` object | `@Req() req` |
-| `@Locals()` | Request-scoped locals | `@Locals() locals` |
+| `@Ctx()` | The full `Context` object | `@Ctx() ctx` |
 
 ### Example
 
 ```ts
-@Post(':id')
-update(
-  @Param('id') id: string,
-  @Body() updateUserDto: UpdateUserDto,
-  @Query('verbose') verbose: string
-) {
-  return { id, ...updateUserDto, verbose };
+import { Controller, Post, Param, Body, Query, Header } from '@carno.js/core';
+
+@Controller('/users')
+class UserController {
+  @Post('/:id')
+  update(
+    @Param('id') id: string,
+    @Body() updateUserDto: UpdateUserDto,
+    @Query('verbose') verbose: string,
+    @Header('user-agent') userAgent: string
+  ) {
+    return { id, ...updateUserDto, verbose, userAgent };
+  }
 }
 ```
 
 ## Nested Controllers (Routing Tree)
 
-You can structure your application using nested controllers. This allows you to build a route tree where children inherit the path prefix of their parent.
+You can structure your application using nested controllers. This allows you to build a route tree where children inherit the path prefix of their parent. Middleware applied to a parent controller is also inherited by its children.
 
 ```ts
 @Controller({
@@ -132,8 +116,6 @@ export class UsersController {
 }
 ```
 
-**Note:** Middleware applied to a parent controller is inherited by its children.
-
 ## Responses
 
 ### JSON Response
@@ -147,7 +129,7 @@ findAll() {
 ```
 
 ### Text Response
-Returning a string sends a text/html response.
+Returning a string sends a text/plain response.
 
 ### Response Object
 You can return a native `Response` object for full control.
@@ -158,20 +140,3 @@ custom() {
   return new Response('Custom', { status: 201 });
 }
 ```
-
-
-## Listing Registered Routes
-
-As your application grows, it can be helpful to see a complete list of all registered routes, including their methods and full paths (resolving nesting).
-
-You can use the Carno CLI to inspect your project (see [CLI Installation](../cli.md) if you haven't installed it yet):
-
-```bash
-# Analyze carno.config.ts and list routes
-carno routes
-
-# Or point to your entry file if config is not enough
-carno routes src/index.ts
-```
-
-This command outputs a table showing the HTTP Method, Full URI, and the Controller Action, making it easy to debug routing issues or verify your API structure.

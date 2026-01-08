@@ -6,111 +6,70 @@ sidebar_position: 1
 
 The `@carno.js/core` package provides the fundamental building blocks of your application: the HTTP server, Dependency Injection container, and lifecycle management.
 
-## The Carno Class
+## The Carno Application
 
-The `Carno` class is the entry point of your application. It bootstraps the server, initializes modules, and manages the dependency injection container.
+The `Carno` class is the entry point. It manages configuration, plugins, and the server lifecycle.
 
 ```ts
 import { Carno } from '@carno.js/core';
 
-const app = new Carno({
-  // Configuration options
-});
-
+const app = new Carno();
 await app.listen(3000);
 ```
 
-## Configuration
+### Configuration
 
-You can pass an `ApplicationConfig` object to the constructor to configure the application behavior.
-
-```ts
-interface ApplicationConfig {
-  /**
-   * Validation configuration.
-   * By default, Carno uses Zod via ZodAdapter.
-   * To use class-validator, set adapter to ClassValidatorAdapter
-   * and install its `bun add class-validator`.
-   */
-  validation?: {
-    adapter?: new (options?: any) => ValidatorAdapter;
-    options?: any;
-  };
-
-  /**
-   * Options for the built-in Pino logger
-   */
-  logger?: pino.LoggerOptions;
-
-  /**
-   * Global providers to be registered in the root container
-   */
-  providers?: any[];
-
-  /**
-   * Providers exported by this module (used when creating plugins)
-   */
-  exports?: any[];
-
-  /**
-   * CORS configuration
-   */
-  cors?: CorsConfig;
-
-  /**
-   * Global middlewares applied to all routes
-   */
-  globalMiddlewares?: any[];
-}
-```
-
-### CORS Configuration
-
-Enable Cross-Origin Resource Sharing (CORS) by providing the `cors` object.
+You can pass a configuration object to the constructor:
 
 ```ts
 const app = new Carno({
-  cors: {
-    origins: ['https://example.com', 'http://localhost:3000'], // or '*' or RegExp or function
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true,
-    maxAge: 3600
-  }
+  // Global middlewares
+  globalMiddlewares: [],
+  
+  // Validation (Zod by default)
+  validation: true, 
+  
+  // CORS Settings
+  cors: { origins: '*' }
 });
 ```
 
+## Lifecycle & Controllers
+
+Controllers in Carno.js are **Singletons by default**. They are instantiated once during application startup. This design choice enables aggressive optimizations, such as ahead-of-time (AOT) handler compilation and route flattening.
+
+When a controller is instantiated, all its dependencies are resolved from the DI container.
+
+### Lifecycle Hooks
+Components can hook into the application lifecycle:
+- `@OnApplicationInit()`: Called after the DI container is fully built.
+- `@OnApplicationBoot()`: Called when the server starts listening (port binding).
+- `@OnApplicationShutdown()`: Called on graceful shutdown (SIGTERM/SIGINT).
+
 ## Plugins & Modules
 
-Carno.js uses a plugin system to extend functionality. Plugins are simply other `Carno` instances that export providers and middleware.
+Carno.js allows you to split your application into independent modules (plugins). Each plugin is a `Carno` instance that can have its own controllers, services, and middlewares.
 
-Use the `.use()` method to register a plugin.
+### Encapsulation Rules
+
+- **Controllers**: Controllers defined in a plugin are automatically registered with the main application's router. **Their routes are publicly accessible.** You do not need to export controllers.
+- **Services**: Are **private** by default. To share a service with another module (e.g. valid for injection in the root app or other plugins), you must strictly add it to the `exports` array.
+- **Middlewares**: Global middlewares defined in a plugin are merged into the main pipeline.
 
 ```ts
-import { CarnoOrm } from '@carno.js/orm';
-
-app.use(CarnoOrm);
+// auth.module.ts
+export const AuthModule = new Carno({
+  exports: [AuthService] // AuthService can now be injected elsewhere
+});
+AuthModule.services([AuthService, PrivateStrategy]); // PrivateStrategy is internal
+AuthModule.controllers([AuthController]);
 ```
 
-## Custom Logger
-
-You can replace the default logger with your own implementation by using `.useLogger()`. The provider must implement `LoggerService`.
-
 ```ts
-import { LoggerService } from '@carno.js/core';
+// index.ts
+import { Carno } from '@carno.js/core';
+import { AuthModule } from './auth.module';
 
-class MyLogger extends LoggerService {
-  // implementation
-}
-
-app.useLogger(MyLogger);
-```
-
-## Graceful Shutdown
-
-The framework handles `SIGTERM` and `SIGINT` signals automatically to shut down the server and trigger the `OnApplicationShutdown` lifecycle hook.
-
-```ts
-// Manually close the server
-app.close();
+const app = new Carno();
+app.use(AuthModule); // Imports routes and exported services
 ```

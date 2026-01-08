@@ -4,39 +4,59 @@ sidebar_position: 6
 
 # Logging
 
-Carno.js comes with a built-in logger powered by [Pino](https://github.com/pinojs/pino), offering high-performance JSON logging.
+Logging is handled by the dedicated `@carno.js/logger` package, which provides a high-performance, structured logging system.
 
-## Usage
+## Installation
 
-Inject the `LoggerService` into your controllers or services.
+```bash
+bun add @carno.js/logger
+```
+
+## Basic Usage
+
+Register the logger in your application.
 
 ```ts
-import { Controller, Get, LoggerService } from '@carno.js/core';
+import { Carno } from '@carno.js/core';
+import { CarnoLogger } from '@carno.js/logger';
 
-@Controller()
-export class AppController {
+const app = new Carno();
+app.use(CarnoLogger); // Registers LoggerService
+```
+
+Now you can inject `LoggerService` into your components.
+
+```ts
+import { Service } from '@carno.js/core';
+import { LoggerService } from '@carno.js/logger';
+
+@Service()
+class UserService {
   constructor(private logger: LoggerService) {}
 
-  @Get()
-  index() {
-    this.logger.info('Request received!');
-    this.logger.error('Something went wrong', { error: 'details' });
-    return 'Hello';
+  createUser() {
+    this.logger.info('Creating user...');
+    try {
+      // ... logic
+      this.logger.debug('User created successfully');
+    } catch (err) {
+      this.logger.error('Failed to create user', err);
+    }
   }
 }
 ```
 
 ## Configuration
 
-You can configure Pino options via the `Carno` constructor.
+You can configure the logger levels and transport.
 
 ```ts
-new Carno({
-  logger: {
-    level: 'debug',
-    // other pino options
-  }
-}).listen();
-```
+import { CarnoLogger } from '@carno.js/logger';
 
-By default, the logger uses `pino-pretty` for readable console output in development.
+const LoggerModule = CarnoLogger.configure({
+  level: 'debug',
+  prettyPrint: process.env.NODE_ENV === 'development'
+});
+
+app.use(LoggerModule);
+```

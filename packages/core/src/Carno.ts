@@ -1,610 +1,570 @@
-import { Server } from "bun";
-import process from "node:process";
-import * as pino from "pino";
-import type {
-  ValidatorAdapter,
-  ValidationConfig,
-  ValidatorAdapterConstructor,
-} from "./validation/ValidatorAdapter";
-import { ZodAdapter } from "./validation/adapters/ZodAdapter";
-import { setValidatorAdapter } from "./utils/ValidationCache";
-import { registerController, registerProvider } from "./commons/index";
-import { CONTROLLER, PROVIDER } from "./constants";
-import { TokenRouteWithProvider } from "./container/ContainerConfiguration";
-import { createContainer } from "./container/createContainer";
-import { createInjector } from "./container/createInjector";
-import { Metadata } from "./domain";
-import { Context } from "./domain/Context";
-import { LocalsContainer } from "./domain/LocalsContainer";
-import { Provider } from "./domain/provider";
-import { CorsConfig } from "./domain/cors-config";
-import { CorsHeadersCache } from "./domain/cors-headers-cache";
-import { EventType } from "./events/on-event";
-import { HttpException } from "./exceptions/HttpException";
-import { RouteExecutor } from "./route/RouteExecutor";
-import Memoirist from "./route/memoirist";
-import { RouteType, type CompiledRoute } from "./route/CompiledRoute";
+import 'reflect-metadata';
 
-import { LoggerService } from "./services/logger.service";
+import { CONTROLLER_META, ROUTES_META, PARAMS_META, MIDDLEWARE_META } from './metadata';
+import type { RouteInfo, MiddlewareInfo, ControllerMeta } from './metadata';
+import type { ParamMetadata } from './decorators/params';
+// RadixRouter removed - using Bun's native SIMD-accelerated router
+import { compileHandler } from './compiler/JITCompiler';
+import { Context } from './context/Context';
+import { Container, Scope } from './container/Container';
+import type { Token, ProviderConfig } from './container/Container';
+import { CorsHandler, type CorsConfig } from './cors/CorsHandler';
+import type { ValidatorAdapter } from './validation/ValidatorAdapter';
+import { HttpException } from './exceptions/HttpException';
+import { ValidationException } from './validation/ZodAdapter';
+import { EventType, hasEventHandlers, getEventHandlers } from './events/Lifecycle';
+import { CacheService } from './cache/CacheService';
+import type { CacheConfig } from './cache/CacheDriver';
+import { DEFAULT_STATIC_ROUTES } from './DefaultRoutes';
+import { ZodAdapter } from './validation/ZodAdapter';
 
-export interface ApplicationConfig<
-  TAdapter extends ValidatorAdapterConstructor = ValidatorAdapterConstructor
-> {
-  validation?: ValidationConfig<TAdapter>;
-  logger?: pino.LoggerOptions;
-  exports?: any[];
-  providers?: any[];
-  cors?: CorsConfig;
-  globalMiddlewares?: any[];
-  disableStartupLog?: boolean;
-}
+export type MiddlewareHandler = (ctx: Context) => Response | void | Promise<Response | void>;
 
 /**
- * Ultra-optimized method lookup table.
- * Uses char code of first letter for O(1) lookup.
- * G=71, P=80, D=68, H=72, O=79
+ * Carno plugin configuration.
  */
-const METHOD_LOOKUP: string[] = new Array(85);
-METHOD_LOOKUP[71] = 'get';     // G
-METHOD_LOOKUP[80] = 'post';    // P - also covers PUT, PATCH
-METHOD_LOOKUP[68] = 'delete';  // D
-METHOD_LOOKUP[72] = 'head';    // H
-METHOD_LOOKUP[79] = 'options'; // O
-
-// Pre-allocated error responses for common cases
-const NOT_FOUND_BODY = '{"message":"Method not allowed","statusCode":404}';
-const JSON_CONTENT_TYPE = { 'Content-Type': 'application/json' };
-
-export class Carno<
-  TAdapter extends ValidatorAdapterConstructor = ValidatorAdapterConstructor
-> {
-  router: Memoirist<CompiledRoute | TokenRouteWithProvider> = new Memoirist();
-  private injector = createInjector();
-  private corsCache?: CorsHeadersCache;
-  private readonly emptyLocals = new LocalsContainer();
-  private validatorAdapter: ValidatorAdapter;
-  private corsEnabled = false;
-  private hasOnRequestHook = false;
-
-  /**
-   * Ultra-optimized fetch handler.
-   * 
-   * Optimizations applied:
-   * - Inline method resolution via char code lookup (no Map/object lookup)
-   * - Early exit for OPTIONS preflight
-   * - Aggressive inlining of fast path checks
-   * - Minimal allocations in hot path
-   * - Pre-computed route classification
-   */
-  private fetch = (request: Request, server: Server<any>): Response | Promise<Response> => {
-    const method = request.method;
-    const methodChar = method.charCodeAt(0);
-
-    // Ultra-fast CORS preflight check
-    if (this.corsEnabled && methodChar === 79) { // 'O' for OPTIONS
-      const origin = request.headers.get('origin');
-      if (origin) return this.handlePreflightRequest(request);
-    }
-
-    const url = request.url;
-
-    // Optimized URL parsing - find path start after protocol://host
-    // Most URLs are http:// (7) or https:// (8), host is usually short
-    let i = 12; // Skip past "http://x" minimum
-    const len = url.length;
-
-    // Find first '/' after host
-    while (i < len && url.charCodeAt(i) !== 47) i++; // 47 = '/'
-
-    if (i >= len) {
-      // No path found, use root
-      return this.handleRoute(request, server, method, methodChar, '/', -1, url);
-    }
-
-    // Find query string start
-    let queryIndex = -1;
-    let j = i + 1;
-    while (j < len) {
-      if (url.charCodeAt(j) === 63) { // 63 = '?'
-        queryIndex = j;
-        break;
-      }
-      j++;
-    }
-
-    const pathname = queryIndex === -1 ? url.slice(i) : url.slice(i, queryIndex);
-
-    return this.handleRoute(request, server, method, methodChar, pathname, queryIndex, url);
-  };
-
-  /**
-   * Inlined route handling for maximum performance.
-   */
-  private handleRoute(
-    request: Request,
-    server: Server<any>,
-    method: string,
-    methodChar: number,
-    pathname: string,
-    queryIndex: number,
-    url: string
-  ): Response | Promise<Response> {
-    // O(1) method lookup via char code
-    let methodLower = METHOD_LOOKUP[methodChar];
-
-    // Handle PUT vs POST vs PATCH (all start with P=80)
-    if (methodChar === 80 && method.length !== 4) {
-      methodLower = method.length === 3 ? 'put' : 'patch';
-    }
-
-    if (!methodLower) {
-      methodLower = method.toLowerCase();
-    }
-
-    const route = this.router.find(methodLower, pathname);
-
-    if (!route) {
-      return this.fastErrorResponse(request, 404);
-    }
-
-    const compiled = route.store as CompiledRoute;
-
-    // Ultra-fast path: directHandler (no Context, no params)
-    if (compiled.directHandler && !this.corsEnabled) {
-      return compiled.directHandler();
-    }
-
-    // Fast path: fastHandler (with params, no Context)
-    if (compiled.fastHandler && !this.corsEnabled && queryIndex === -1) {
-      return compiled.fastHandler(request, route.params);
-    }
-
-    // Standard fast path: SIMPLE route + GET/HEAD + no CORS + no query + sync
-    if (compiled.routeType === RouteType.SIMPLE) {
-      if ((methodChar === 71 || methodChar === 72) &&
-        !this.corsEnabled &&
-        queryIndex === -1 &&
-        !compiled.isAsync) {
-        return compiled.boundHandler!(Context.createFastContext(request, route.params));
-      }
-    }
-
-    return this.fetcherAsync(
-      request, server, route, compiled,
-      compiled.routeType === RouteType.SIMPLE,
-      queryIndex !== -1, queryIndex, url
-    );
-  }
-
-  /**
-   * Pre-allocated 404 response for maximum performance.
-   */
-  private fastErrorResponse(request: Request, statusCode: number): Response {
-    const response = new Response(NOT_FOUND_BODY, {
-      status: statusCode,
-      headers: JSON_CONTENT_TYPE,
-    });
-
-    if (this.corsEnabled) {
-      const origin = request.headers.get('origin');
-      if (origin && this.corsCache!.isOriginAllowed(origin)) {
-        return this.applyCorsHeaders(response, origin);
-      }
-    }
-
-    return response;
-  }
-  private server: Server<any>;
-
-  constructor(public config: ApplicationConfig<TAdapter> = {}) {
-    this.validatorAdapter = this.resolveValidatorAdapter();
-
-    if (config.cors) {
-      this.corsCache = new CorsHeadersCache(config.cors);
-    }
-
-    void this.bootstrapApplication();
-  }
-
-  private resolveValidatorAdapter(): ValidatorAdapter {
-    const config = this.config.validation;
-
-    if (!config?.adapter) {
-      return new ZodAdapter();
-    }
-
-    const AdapterClass = config.adapter;
-    const options = config.options || {};
-
-    return new AdapterClass(options);
-  }
-
-  /**
-   * Use the Carno plugin.
-   *
-   * @param plugin
-   */
-  use(plugin: Carno) {
-    if (!this.config.providers) {
-      this.config.providers = [];
-    }
-
-    if (!this.config.globalMiddlewares) {
-      this.config.globalMiddlewares = [];
-    }
-
-    for (const exportProvider of plugin.config.exports || []) {
-      const existingProvider = this.findProviderInConfig(
-        plugin,
-        exportProvider
-      );
-
-      const providerToAdd = this.shouldCloneProvider(existingProvider)
-        ? this.cloneProvider(existingProvider)
-        : exportProvider;
-
-      this.config.providers.push(providerToAdd);
-    }
-
-    if (plugin.config.globalMiddlewares) {
-      this.config.globalMiddlewares.push(...plugin.config.globalMiddlewares);
-    }
-
-    return this;
-  }
-
-  private findProviderInConfig(
-    plugin: Carno,
-    exportProvider: any
-  ): any | undefined {
-    return plugin.config.providers?.find(
-      (p) => this.getProviderToken(p) === this.getProviderToken(exportProvider)
-    );
-  }
-
-  private getProviderToken(provider: any): any {
-    return provider?.provide || provider;
-  }
-
-  private shouldCloneProvider(provider: any): boolean {
-    return !!(provider?.useValue !== undefined || provider?.useClass);
-  }
-
-  private cloneProvider(provider: any): any {
-    return { ...provider };
-  }
-
-  /**
-   * Set the custom logger provider.
-   * The provider must be a class with the @Service() decorator.
-   * The provider must extend the LoggerService class.
-   *
-   * @param provider
-   */
-  useLogger(provider: any) {
-    registerProvider({ provide: LoggerService, useClass: provider });
-    return this;
-  }
-
-  private loadProvidersAndControllers() {
-    const providers = Metadata.get(PROVIDER, Reflect) || [];
-    const controllers = Metadata.get(CONTROLLER, Reflect) || [];
-
-    this.registerControllers(controllers);
-    this.registerMetadataProviders(providers);
-    this.registerConfigProviders();
-  }
-
-  private registerControllers(controllers: any[]): void {
-    for (const controller of controllers) {
-      registerController(controller);
-
-      controller.options?.children &&
-        controller.options.children.forEach((child: any[]) => {
-          registerController({ provide: child, parent: controller.provide });
-        });
-    }
-  }
-
-  private registerMetadataProviders(providers: any[]): void {
-    for (const provider of providers) {
-      registerProvider(provider);
-    }
-  }
-
-  private registerConfigProviders(): void {
-    if (!this.config.providers) {
-      return;
-    }
-
-    for (const provider of this.config.providers) {
-      const normalized = this.normalizeProvider(provider);
-      registerProvider(normalized);
-    }
-  }
-
-  private normalizeProvider(provider: any): Partial<Provider> {
-    if (provider?.provide) {
-      return provider;
-    }
-
-    return {
-      provide: provider,
-      useClass: provider,
-    };
-  }
-
-  public async init(): Promise<void> {
-    setValidatorAdapter(this.validatorAdapter);
-    this.loadProvidersAndControllers();
-
-    await this.injector.loadModule(
-      createContainer(),
-      this.config,
-      this.router,
-      this.validatorAdapter
-    );
-
-    this.corsEnabled = !!this.config.cors;
-    this.hasOnRequestHook = this.injector.hasOnRequestHook();
-  }
-
-  async listen(port: number = 3000) {
-    this.registerShutdownHandlers();
-    await this.init();
-    this.createHttpServer(port);
-  }
-
-  private registerShutdownHandlers(): void {
-    const shutdown = async (signal: string) => {
-      this.resolveLogger().info(
-        `Received ${signal}, starting graceful shutdown...`
-      );
-      await this.handleShutdownHook();
-    };
-
-    process.on("SIGTERM", () => shutdown("SIGTERM"));
-    process.on("SIGINT", () => shutdown("SIGINT"));
-  }
-
-  public getHttpServer() {
-    return this.server;
-  }
-
-  getInjector() {
-    return this.injector;
-  }
-
-  private createHttpServer(port: number) {
-    const nativeRoutes = this.buildNativeRoutes();
-
-    this.server = Bun.serve({
-      port,
-      routes: nativeRoutes as any,
-      fetch: this.fetch,
-      error: this.catcher
-    });
-
-    if (!this.config.disableStartupLog) {
-      this.resolveLogger().info(`Server running on port ${port}`);
-    }
-  }
-
-  /**
-   * Build native routes map for Bun.serve({ routes: ... }).
-   * Static paths with directHandler bypass JavaScript router entirely.
-   */
-  private buildNativeRoutes(): Record<string, Function> {
-    const routes: Record<string, Function> = {};
-
-    // Use router's history which stores [method, path, store][]
-    const history = this.router.history;
-
-    if (!history || history.length === 0) return routes;
-
-    for (const [method, path, store] of history) {
-      // Only GET routes without params are eligible for Bun native routing
-      if (method !== 'get') continue;
-
-      // Skip routes with parameters (contains :)
-      if (path.includes(':')) continue;
-
-      // Skip routes with wildcards
-      if (path.includes('*')) continue;
-
-      // Only routes with directHandler can use native routing
-      const compiled = store as CompiledRoute;
-      if (compiled?.directHandler && !this.corsEnabled) {
-        routes[path] = compiled.directHandler;
-      }
-    }
-
-    return routes;
-  }
-  private async fetcherAsync(
-    request: Request,
-    server: Server<any>,
-    route: any,
-    compiled: CompiledRoute,
-    isSimpleRoute: boolean,
-    hasQuery: boolean,
-    queryIndex: number,
-    url: string
-  ): Promise<Response | any> {
-    try {
-      let response: any;
-      const query = hasQuery ? url.slice(queryIndex + 1) : undefined;
-      const context = Context.createFromRequestSync({ query }, request, server);
-      context.param = route.params;
-
-      if (isSimpleRoute) {
-        response = compiled.isAsync
-          ? await compiled.boundHandler!(context)
-          : compiled.boundHandler!(context);
-      } else {
-        const needsLocalsContainer = compiled.routeType !== undefined
-          ? compiled.needsLocalsContainer
-          : true;
-
-        const locals = this.resolveLocalsContainer(needsLocalsContainer, context);
-
-        if (this.hasOnRequestHook) {
-          await this.injector.callHook(EventType.OnRequest, { context });
+export interface CarnoConfig {
+    exports?: (Token | ProviderConfig)[];
+    globalMiddlewares?: MiddlewareHandler[];
+    disableStartupLog?: boolean;
+    cors?: CorsConfig;
+    validation?: ValidatorAdapter | boolean | (new () => ValidatorAdapter);
+    cache?: CacheConfig | boolean;
+}
+
+// CompiledRoute removed - handlers are registered directly in Bun's routes
+
+const NOT_FOUND_RESPONSE = new Response('Not Found', { status: 404 });
+
+/**
+ * Pre-computed response - frozen and reused.
+ */
+const TEXT_OPTS = Object.freeze({
+    status: 200,
+    headers: { 'Content-Type': 'text/plain' }
+});
+
+const JSON_OPTS = Object.freeze({
+    status: 200,
+    headers: { 'Content-Type': 'application/json' }
+});
+
+const INTERNAL_ERROR_RESPONSE = new Response(
+    '{"statusCode":500,"message":"Internal Server Error"}',
+    { status: 500, headers: { 'Content-Type': 'application/json' } }
+);
+
+// METHOD_MAP removed - Bun handles method routing natively
+
+/**
+ * Carno Application - Ultra-aggressive performance.
+ * 
+ * ZERO runtime work in hot path:
+ * - All responses pre-created at startup
+ * - Direct Bun native routes - no fetch fallback needed
+ * - No function calls in hot path
+ */
+export class Carno {
+    private _controllers: (new (...args: any[]) => any)[] = [];
+    private _services: (Token | ProviderConfig)[] = [];
+    private _middlewares: MiddlewareHandler[] = [];
+    private routes: Record<string, Record<string, Response | Function> | Response | Function> = {};
+    private container = new Container();
+    private corsHandler: CorsHandler | null = null;
+    private hasCors = false;
+    private validator: ValidatorAdapter | null = null;
+    private server: any;
+
+    // Cached lifecycle event flags - checked once at startup
+    private hasInitHooks = false;
+    private hasBootHooks = false;
+    private hasShutdownHooks = false;
+
+    constructor(public config: CarnoConfig = {}) {
+        this.config.exports = this.config.exports || [];
+        this.config.globalMiddlewares = this.config.globalMiddlewares || [];
+
+        // Initialize CORS handler if configured
+        if (this.config.cors) {
+            this.corsHandler = new CorsHandler(this.config.cors);
+            this.hasCors = true;
         }
 
-        response = await RouteExecutor.executeRoute(
-          compiled,
-          this.injector,
-          context,
-          locals
+        // Initialize validator
+        // Default: ZodAdapter if undefined or true
+        if (this.config.validation === undefined || this.config.validation === true) {
+            this.validator = new ZodAdapter();
+        }
+        // Constructor class passed directly
+        else if (typeof this.config.validation === 'function') {
+            const AdapterClass = this.config.validation as (new () => ValidatorAdapter);
+            this.validator = new AdapterClass();
+        }
+        // Instance passed directly
+        else if (this.config.validation) {
+            this.validator = this.config.validation as ValidatorAdapter;
+        }
+    }
+
+    /**
+     * Use a Carno plugin.
+     * Imports controllers, services and global middlewares from another Carno instance.
+     */
+    use(plugin: Carno): this {
+        // Import controllers from plugin
+        if (plugin._controllers.length > 0) {
+            this._controllers.push(...plugin._controllers);
+        }
+
+        // Import services from plugin exports
+        for (const exported of plugin.config.exports || []) {
+            const existingService = this.findServiceInPlugin(plugin, exported);
+            const serviceToAdd = this.shouldCloneService(existingService)
+                ? { ...existingService }
+                : exported;
+
+            this._services.push(serviceToAdd);
+        }
+
+        // Import services registered via .services() on the plugin
+        if (plugin._services.length > 0) {
+            this._services.push(...plugin._services);
+        }
+
+        // Import global middlewares
+        if (plugin.config.globalMiddlewares) {
+            this._middlewares.push(...plugin.config.globalMiddlewares);
+        }
+
+        // Import middlewares registered via .middlewares() on the plugin
+        if (plugin._middlewares.length > 0) {
+            this._middlewares.push(...plugin._middlewares);
+        }
+
+        return this;
+    }
+
+    private findServiceInPlugin(plugin: Carno, exported: any): any | undefined {
+        return plugin._services.find(
+            s => this.getServiceToken(s) === this.getServiceToken(exported)
         );
-      }
+    }
 
-      if (this.corsEnabled) {
-        const origin = request.headers.get("origin");
+    private getServiceToken(service: any): any {
+        return service?.token || service;
+    }
 
-        if (origin && this.corsCache!.isOriginAllowed(origin)) {
-          if (!(response instanceof Response)) {
-            response = RouteExecutor.mountResponse(response, context);
-          }
-          return this.applyCorsHeaders(response, origin);
+    private shouldCloneService(service: any): boolean {
+        return !!(service?.useValue !== undefined || service?.useClass);
+    }
+
+    /**
+     * Register one or more services/providers.
+     */
+    services(serviceClass: Token | ProviderConfig | (Token | ProviderConfig)[]): this {
+        const items = Array.isArray(serviceClass) ? serviceClass : [serviceClass];
+        this._services.push(...items);
+        return this;
+    }
+
+    /**
+     * Register one or more global middlewares.
+     */
+    middlewares(handler: MiddlewareHandler | MiddlewareHandler[]): this {
+        const items = Array.isArray(handler) ? handler : [handler];
+        this._middlewares.push(...items);
+        return this;
+    }
+
+    /**
+     * Register one or more controllers.
+     */
+    controllers(controllerClass: (new () => any) | (new () => any)[]): this {
+        const items = Array.isArray(controllerClass) ? controllerClass : [controllerClass];
+        this._controllers.push(...items);
+        return this;
+    }
+
+    /**
+     * Get a service instance from the container.
+     */
+    get<T>(token: Token<T>): T {
+        return this.container.get(token);
+    }
+
+    listen(port: number = 3000): void {
+        this.bootstrap();
+        this.compileRoutes();
+
+        // All routes go through Bun's native SIMD-accelerated router
+        const config: any = {
+            port,
+            fetch: this.handleNotFound.bind(this),
+            error: this.handleError.bind(this),
+            routes: {
+                ...DEFAULT_STATIC_ROUTES,
+                ...this.routes
+            }
+        };
+
+        this.server = Bun.serve(config);
+
+        // Execute BOOT hooks after server is ready
+        if (this.hasBootHooks) {
+            this.executeLifecycleHooks(EventType.BOOT);
         }
-      }
 
-      return response;
-    } catch (error) {
-      if (error instanceof HttpException) {
-        return this.errorResponse(request, error.getResponse() as string, error.getStatus());
-      }
+        // Register shutdown handlers
+        if (this.hasShutdownHooks) {
+            this.registerShutdownHandlers();
+        }
 
-      throw error;
-    }
-  }
-
-  private catcher = (error: Error) => {
-    this.resolveLogger().error("Unhandled error", error);
-    return new Response("Internal Server Error", { status: 500 });
-  };
-
-  private async bootstrapApplication(): Promise<void> {
-    try {
-      await this.injector.callHook(EventType.OnApplicationBoot, {});
-    } catch (error) {
-      this.reportHookFailure(EventType.OnApplicationBoot, error);
-    }
-  }
-
-  private async handleShutdownHook(): Promise<void> {
-    try {
-      await this.injector.callHook(EventType.OnApplicationShutdown);
-
-      this.closeHttpServer();
-
-      this.exitProcess();
-    } catch (error) {
-      this.reportHookFailure(EventType.OnApplicationShutdown, error);
-      this.exitProcess(1);
-    }
-  }
-
-  private closeHttpServer(): void {
-    if (this.server) {
-      this.resolveLogger().info("Closing HTTP server...");
-      this.server.stop(true);
-    }
-  }
-
-  private exitProcess(code: number = 0): void {
-    this.resolveLogger().info("Shutdown complete.");
-    process.exit(code);
-  }
-
-  private reportHookFailure(event: EventType, error: unknown): void {
-    this.resolveLogger().error(`Lifecycle hook ${event} failed`, error);
-  }
-
-  private resolveLogger(): LoggerService {
-    const provider = this.injector.get(LoggerService);
-    const instance = provider?.instance as LoggerService | undefined;
-
-    return instance ?? new LoggerService(this.injector);
-  }
-
-  private isCorsEnabled(): boolean {
-    return !!this.config.cors;
-  }
-
-
-  private errorResponse(request: Request, message: string, statusCode: number): Response {
-    let response = new Response(
-      JSON.stringify({
-        message,
-        statusCode,
-      }),
-      {
-        status: statusCode,
-        headers: { "Content-Type": "application/json" },
-      },
-    );
-
-    if (this.corsEnabled) {
-      const origin = request.headers.get("origin");
-
-      if (origin && this.corsCache!.isOriginAllowed(origin)) {
-        response = this.applyCorsHeaders(response, origin);
-      }
+        if (!this.config.disableStartupLog) {
+            console.log(`Carno running on port ${port}`);
+        }
     }
 
-    return response;
-  }
+    private bootstrap(): void {
+        // Cache lifecycle event flags
+        this.hasInitHooks = hasEventHandlers(EventType.INIT);
+        this.hasBootHooks = hasEventHandlers(EventType.BOOT);
+        this.hasShutdownHooks = hasEventHandlers(EventType.SHUTDOWN);
 
-  private handlePreflightRequest(request: Request): Response {
-    const origin = request.headers.get("origin");
+        // Always register CacheService (Memory by default)
+        const cacheConfig = typeof this.config.cache === 'object' ? this.config.cache : {};
+        this.container.register({
+            token: CacheService,
+            useValue: new CacheService(cacheConfig)
+        });
 
-    if (!origin || !this.corsCache!.isOriginAllowed(origin)) {
-      return new Response(null, { status: 403 });
+        for (const service of this._services) {
+            this.container.register(service);
+        }
+
+        for (const ControllerClass of this._controllers) {
+            this.container.register(ControllerClass);
+        }
+
+        for (const service of this._services) {
+            const token = typeof service === 'function' ? service : service.token;
+            const serviceConfig = typeof service === 'function' ? null : service;
+
+            if (!serviceConfig || serviceConfig.scope !== Scope.REQUEST) {
+                this.container.get(token);
+            }
+        }
+
+        // Execute INIT hooks after DI is ready, before server starts
+        if (this.hasInitHooks) {
+            this.executeLifecycleHooks(EventType.INIT);
+        }
     }
 
-    const corsHeaders = this.corsCache!.get(origin!);
-
-    return new Response(null, {
-      status: 204,
-      headers: corsHeaders,
-    });
-  }
-
-  private applyCorsHeaders(response: Response, origin: string): Response {
-    return this.corsCache!.applyToResponse(response, origin);
-  }
-
-  close(closeActiveConnections: boolean = false) {
-    this.server?.stop(closeActiveConnections);
-  }
-
-  private resolveLocalsContainer(
-    needsLocalsContainer: boolean,
-    context: Context
-  ): LocalsContainer {
-    if (!needsLocalsContainer) {
-      return this.emptyLocals;
+    private compileRoutes(): void {
+        for (const ControllerClass of this._controllers) {
+            this.compileController(ControllerClass);
+        }
     }
 
-    return this.buildLocalsContainer(context);
-  }
+    private compileController(
+        ControllerClass: new () => any,
+        parentPath: string = '',
+        inheritedMiddlewares: MiddlewareHandler[] = []
+    ): void {
+        const meta: ControllerMeta = Reflect.getMetadata(CONTROLLER_META, ControllerClass) || { path: '' };
+        const basePath = parentPath + (meta.path || '');
+        const routes: RouteInfo[] = Reflect.getMetadata(ROUTES_META, ControllerClass) || [];
+        const middlewares: MiddlewareInfo[] = Reflect.getMetadata(MIDDLEWARE_META, ControllerClass) || [];
+        const instance = this.container.get(ControllerClass);
 
-  private buildLocalsContainer(context: Context): LocalsContainer {
-    const locals = new LocalsContainer();
+        // Extract controller-level middlewares (applied to all routes of this controller)
+        const controllerMiddlewares = middlewares
+            .filter(m => !m.target)
+            .map(m => m.handler as MiddlewareHandler);
 
-    locals.set(Context, context);
+        // Combine inherited middlewares with this controller's middlewares
+        // This combined list is passed down to children and applied to current routes
+        const scopedMiddlewares = [...inheritedMiddlewares, ...controllerMiddlewares];
 
-    return locals;
-  }
+        for (const route of routes) {
+            const fullPath = this.normalizePath(basePath + route.path);
+            const params: ParamMetadata[] = Reflect.getMetadata(PARAMS_META, ControllerClass, route.handlerName) || [];
 
-  private discoverRoutePath(url: string | { pathname?: string; path?: string }): string {
-    if (typeof url === 'string') {
-      return url;
+            // Middlewares specific to this route handler
+            const routeMiddlewares = middlewares
+                .filter(m => m.target === route.handlerName)
+                .map(m => m.handler as MiddlewareHandler);
+
+            // Get parameter types for validation
+            const paramTypes: any[] = Reflect.getMetadata('design:paramtypes', ControllerClass.prototype, route.handlerName) || [];
+
+            // Find Body param with DTO that has @Schema for validation
+            let bodyDtoType: any = null;
+            for (const param of params) {
+                if (param.type === 'body' && !param.key) {
+                    const dtoType = paramTypes[param.index];
+                    if (dtoType && this.validator?.hasValidation(dtoType)) {
+                        bodyDtoType = dtoType;
+                    }
+                }
+            }
+
+            const compiled = compileHandler(instance, route.handlerName, params);
+
+            const allMiddlewares = [
+                ...(this.config.globalMiddlewares || []),
+                ...this._middlewares,
+                ...scopedMiddlewares,
+                ...routeMiddlewares
+            ];
+
+            const hasMiddlewares = allMiddlewares.length > 0;
+
+            const method = route.method.toUpperCase();
+
+            // Static response - no function needed
+            if (compiled.isStatic && !hasMiddlewares) {
+                this.registerRoute(fullPath, method, this.createStaticResponse(compiled.staticValue));
+            } else {
+                // Dynamic handler - compile to Bun-compatible function
+                this.registerRoute(fullPath, method, this.createHandler(compiled, params, allMiddlewares, bodyDtoType));
+            }
+        }
+
+        // Compile child controllers with parent path and inherited middlewares
+        if (meta.children) {
+            for (const ChildController of meta.children) {
+                if (!this.container.has(ChildController)) {
+                    this.container.register(ChildController);
+                }
+
+                this.compileController(ChildController, basePath, scopedMiddlewares);
+            }
+        }
     }
 
-    return url?.pathname || url?.path || '/';
-  }
+    /**
+     * Register a route with Bun's native router format.
+     * Path: "/users/:id", Method: "GET", Handler: Function or Response
+     */
+    private registerRoute(path: string, method: string, handler: Response | Function): void {
+        if (!this.routes[path]) {
+            this.routes[path] = {};
+        }
+
+        (this.routes[path] as Record<string, Response | Function>)[method] = handler;
+    }
+
+    private createStaticResponse(value: any): Response {
+        const isString = typeof value === 'string';
+        const body = isString ? value : JSON.stringify(value);
+        const opts = isString ? TEXT_OPTS : JSON_OPTS;
+
+        return new Response(body, opts);
+    }
+
+    private createHandler(
+        compiled: { fn: Function; isAsync: boolean },
+        params: ParamMetadata[],
+        middlewares: MiddlewareHandler[],
+        bodyDtoType?: any
+    ): Function {
+        const handler = compiled.fn;
+        const hasMiddlewares = middlewares.length > 0;
+        const hasParams = params.length > 0;
+        const applyCors = this.hasCors ? this.applyCors.bind(this) : null;
+        const validator = bodyDtoType ? this.validator : null;
+        const needsValidation = !!validator;
+
+        // Force middleware path when validation is needed
+        const hasMiddlewaresOrValidation = hasMiddlewares || needsValidation;
+
+        // No middlewares, no params - fastest path
+        if (!hasMiddlewaresOrValidation && !hasParams) {
+            if (compiled.isAsync) {
+                return async (req: Request) => {
+                    const ctx = new Context(req);
+                    const result = await handler(ctx);
+                    const response = this.buildResponse(result);
+
+                    return applyCors ? applyCors(response, req) : response;
+                };
+            }
+
+            return (req: Request) => {
+                const ctx = new Context(req);
+                const result = handler(ctx);
+                const response = this.buildResponse(result);
+
+                return applyCors ? applyCors(response, req) : response;
+            };
+        }
+
+        // With params - use Bun's native req.params
+        if (!hasMiddlewaresOrValidation && hasParams) {
+            if (compiled.isAsync) {
+                return async (req: Request) => {
+                    const ctx = new Context(req, (req as any).params);
+                    const result = await handler(ctx);
+                    const response = this.buildResponse(result);
+
+                    return applyCors ? applyCors(response, req) : response;
+                };
+            }
+
+            return (req: Request) => {
+                const ctx = new Context(req, (req as any).params);
+                const result = handler(ctx);
+                const response = this.buildResponse(result);
+
+                return applyCors ? applyCors(response, req) : response;
+            };
+        }
+
+        // With middlewares - full pipeline
+        return async (req: Request) => {
+            const ctx = new Context(req, (req as any).params || {});
+
+            for (const middleware of middlewares) {
+                const result = await middleware(ctx);
+
+                if (result instanceof Response) {
+                    return applyCors ? applyCors(result, req) : result;
+                }
+            }
+
+            // Validate body if validator is configured
+            if (validator && bodyDtoType) {
+                await ctx.parseBody();
+                validator.validateOrThrow(bodyDtoType, ctx.body);
+            }
+
+            const result = compiled.isAsync
+                ? await handler(ctx)
+                : handler(ctx);
+
+            const response = this.buildResponse(result);
+
+            return applyCors ? applyCors(response, req) : response;
+        };
+    }
+
+    /**
+     * Apply CORS headers to a response.
+     */
+    private applyCors(response: Response, req: Request): Response {
+        const origin = req.headers.get('origin');
+
+        if (origin && this.corsHandler) {
+            return this.corsHandler.apply(response, origin);
+        }
+
+        return response;
+    }
+
+    /**
+     * Fallback handler - only called for unmatched routes.
+     * All matched routes go through Bun's native router.
+     */
+    private handleNotFound(req: Request): Response {
+        // CORS preflight for unmatched routes
+        if (this.hasCors && req.method === 'OPTIONS') {
+            const origin = req.headers.get('origin');
+
+            if (origin) {
+                return this.corsHandler!.preflight(origin);
+            }
+        }
+
+        return NOT_FOUND_RESPONSE;
+    }
+
+    private buildResponse(result: any): Response {
+        if (result instanceof Response) {
+            return result;
+        }
+
+        if (typeof result === 'string') {
+            return new Response(result, TEXT_OPTS);
+        }
+
+        return Response.json(result);
+    }
+
+    private normalizePath(path: string): string {
+        if (!path.startsWith('/')) path = '/' + path;
+        if (path !== '/' && path.endsWith('/')) path = path.slice(0, -1);
+
+        return path.replace(/\/+/g, '/');
+    }
+
+    private hasParams(path: string): boolean {
+        return path.includes(':') || path.includes('*');
+    }
+
+    stop(): void {
+        this.server?.stop?.();
+    }
+
+    /**
+     * Error handler for Bun.serve.
+     * Converts exceptions to proper HTTP responses.
+     */
+    private handleError(error: Error): Response {
+        // HttpException - return custom response
+        if (error instanceof HttpException) {
+            return error.toResponse();
+        }
+
+        // ValidationException - return 400 with errors
+        if (error instanceof ValidationException) {
+            return error.toResponse();
+        }
+
+        // Unknown error - return 500
+        console.error('Unhandled error:', error);
+        return INTERNAL_ERROR_RESPONSE;
+    }
+
+    /**
+     * Execute lifecycle hooks for a specific event type.
+     */
+    private executeLifecycleHooks(type: EventType): void {
+        const handlers = getEventHandlers(type);
+
+        for (const handler of handlers) {
+            try {
+                const instance = this.container.has(handler.target)
+                    ? this.container.get(handler.target)
+                    : null;
+
+                if (instance && typeof (instance as any)[handler.methodName] === 'function') {
+                    const result = (instance as any)[handler.methodName]();
+
+                    // Handle async hooks
+                    if (result instanceof Promise) {
+                        result.catch((err: Error) =>
+                            console.error(`Error in ${type} hook ${handler.methodName}:`, err)
+                        );
+                    }
+                }
+            } catch (err) {
+                console.error(`Error in ${type} hook ${handler.methodName}:`, err);
+            }
+        }
+    }
+
+    /**
+     * Register SIGTERM/SIGINT handlers for graceful shutdown.
+     */
+    private registerShutdownHandlers(): void {
+        const shutdown = () => {
+            this.executeLifecycleHooks(EventType.SHUTDOWN);
+            this.stop();
+            process.exit(0);
+        };
+
+        process.on('SIGTERM', shutdown);
+        process.on('SIGINT', shutdown);
+    }
 }
