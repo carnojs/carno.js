@@ -1,9 +1,9 @@
 import 'reflect-metadata';
 
 import { CONTROLLER_META, ROUTES_META, PARAMS_META, MIDDLEWARE_META } from './metadata';
-import type { RouteInfo, MiddlewareInfo } from './metadata';
+import type { RouteInfo, MiddlewareInfo, ControllerMeta } from './metadata';
 import type { ParamMetadata } from './decorators/params';
-import { RadixRouter } from './router/RadixRouter';
+// RadixRouter removed - using Bun's native SIMD-accelerated router
 import { compileHandler } from './compiler/JITCompiler';
 import { Context } from './context/Context';
 import { Container, Scope } from './container/Container';
@@ -31,14 +31,7 @@ export interface TurboConfig {
     cache?: CacheConfig | boolean;
 }
 
-interface CompiledRoute {
-    handler: Function;
-    isAsync: boolean;
-    isStatic: boolean;
-    staticValue?: any;
-    middlewares: MiddlewareHandler[];
-    hasMiddlewares: boolean;
-}
+// CompiledRoute removed - handlers are registered directly in Bun's routes
 
 const NOT_FOUND_RESPONSE = new Response('Not Found', { status: 404 });
 
@@ -60,6 +53,8 @@ const INTERNAL_ERROR_RESPONSE = new Response(
     { status: 500, headers: { 'Content-Type': 'application/json' } }
 );
 
+// METHOD_MAP removed - Bun handles method routing natively
+
 /**
  * Turbo Application - Ultra-aggressive performance.
  * 
@@ -72,11 +67,10 @@ export class Turbo {
     private controllers: any[] = [];
     private services: (Token | ProviderConfig)[] = [];
     private middlewares: MiddlewareHandler[] = [];
-    private staticRoutes: Record<string, Response> = {};
-    private dynamicRoutes: Record<string, Function> = {};
-    private router = new RadixRouter<CompiledRoute>();
+    private routes: Record<string, Record<string, Response | Function> | Response | Function> = {};
     private container = new Container();
     private corsHandler: CorsHandler | null = null;
+    private hasCors = false;
     private server: any;
 
     // Cached lifecycle event flags - checked once at startup
@@ -91,6 +85,7 @@ export class Turbo {
         // Initialize CORS handler if configured
         if (this.config.cors) {
             this.corsHandler = new CorsHandler(this.config.cors);
+            this.hasCors = true;
         }
     }
 
@@ -164,29 +159,16 @@ export class Turbo {
         this.bootstrap();
         this.compileRoutes();
 
-        const hasStatic = Object.keys(this.staticRoutes).length > 0;
-        const hasDynamic = Object.keys(this.dynamicRoutes).length > 0;
-
+        // All routes go through Bun's native SIMD-accelerated router
         const config: any = {
             port,
-            fetch: this.handleRequest.bind(this)
+            fetch: this.handleNotFound.bind(this),
+            error: this.handleError.bind(this),
+            routes: {
+                ...DEFAULT_STATIC_ROUTES,
+                ...this.routes
+            }
         };
-
-        config.static = DEFAULT_STATIC_ROUTES;
-
-        if (hasStatic) {
-            config.static = {
-                ...config.static,
-                ...this.staticRoutes
-            };
-        }
-
-        if (hasDynamic) {
-            config.routes = this.dynamicRoutes;
-        }
-
-        // Error handler for uncaught exceptions
-        config.error = this.handleError.bind(this);
 
         this.server = Bun.serve(config);
 
@@ -247,8 +229,9 @@ export class Turbo {
         }
     }
 
-    private compileController(ControllerClass: new () => any): void {
-        const basePath: string = Reflect.getMetadata(CONTROLLER_META, ControllerClass) || '';
+    private compileController(ControllerClass: new () => any, parentPath: string = ''): void {
+        const meta: ControllerMeta = Reflect.getMetadata(CONTROLLER_META, ControllerClass) || { path: '' };
+        const basePath = parentPath + (meta.path || '');
         const routes: RouteInfo[] = Reflect.getMetadata(ROUTES_META, ControllerClass) || [];
         const middlewares: MiddlewareInfo[] = Reflect.getMetadata(MIDDLEWARE_META, ControllerClass) || [];
         const instance = this.container.get(ControllerClass);
@@ -260,139 +243,139 @@ export class Turbo {
 
             const compiled = compileHandler(instance, route.handlerName, params);
 
-            const allGlobalMiddlewares = [
+            const allMiddlewares = [
                 ...(this.config.globalMiddlewares || []),
-                ...this.middlewares
+                ...this.middlewares,
+                ...routeMiddlewares.map(m => m.handler as MiddlewareHandler)
             ];
 
-            const compiledRoute: CompiledRoute = {
-                handler: compiled.fn,
-                isAsync: compiled.isAsync,
-                isStatic: compiled.isStatic,
-                staticValue: compiled.staticValue,
-                middlewares: routeMiddlewares.map(m => m.handler as MiddlewareHandler),
-                hasMiddlewares: routeMiddlewares.length > 0 || allGlobalMiddlewares.length > 0
-            };
+            const hasMiddlewares = allMiddlewares.length > 0;
 
-            if (compiled.isStatic && !compiledRoute.hasMiddlewares && route.method === 'get') {
-                this.registerStaticRoute(fullPath, compiled.staticValue);
-            } else if (!this.hasParams(fullPath) && route.method === 'get' && !compiledRoute.hasMiddlewares) {
-                this.registerFastRoute(fullPath, compiledRoute);
+            const method = route.method.toUpperCase();
+
+            // Static response - no function needed
+            if (compiled.isStatic && !hasMiddlewares) {
+                this.registerRoute(fullPath, method, this.createStaticResponse(compiled.staticValue));
             } else {
-                this.router.add(route.method, fullPath, compiledRoute);
+                // Dynamic handler - compile to Bun-compatible function
+                this.registerRoute(fullPath, method, this.createHandler(compiled, params, allMiddlewares));
+            }
+        }
+
+        // Compile child controllers with parent path
+        if (meta.children) {
+            for (const ChildController of meta.children) {
+                if (!this.container.has(ChildController)) {
+                    this.container.register(ChildController);
+                }
+
+                this.compileController(ChildController, basePath);
             }
         }
     }
 
-    private registerStaticRoute(path: string, value: any): void {
+    /**
+     * Register a route with Bun's native router format.
+     * Path: "/users/:id", Method: "GET", Handler: Function or Response
+     */
+    private registerRoute(path: string, method: string, handler: Response | Function): void {
+        if (!this.routes[path]) {
+            this.routes[path] = {};
+        }
+
+        (this.routes[path] as Record<string, Response | Function>)[method] = handler;
+    }
+
+    private createStaticResponse(value: any): Response {
         const isString = typeof value === 'string';
         const body = isString ? value : JSON.stringify(value);
         const opts = isString ? TEXT_OPTS : JSON_OPTS;
 
-        this.staticRoutes[path] = new Response(body, opts);
+        return new Response(body, opts);
     }
 
-    private registerFastRoute(path: string, route: CompiledRoute): void {
-        if (route.isAsync) {
-            this.dynamicRoutes[path] = async (req: Request) => {
-                const ctx = new Context(req);
-                const result = await route.handler(ctx);
+    private createHandler(
+        compiled: { fn: Function; isAsync: boolean },
+        params: ParamMetadata[],
+        middlewares: MiddlewareHandler[]
+    ): Function {
+        const handler = compiled.fn;
+        const hasMiddlewares = middlewares.length > 0;
+        const hasParams = params.length > 0;
 
-                return this.buildResponse(result);
-            };
-        } else {
-            this.dynamicRoutes[path] = (req: Request) => {
-                const ctx = new Context(req);
-                const result = route.handler(ctx);
+        // No middlewares, no params - fastest path
+        if (!hasMiddlewares && !hasParams) {
+            if (compiled.isAsync) {
+                return async (req: Request) => {
+                    const ctx = new Context(req);
+                    const result = await handler(ctx);
 
-                return this.buildResponse(result);
-            };
-        }
-    }
-
-    private handleRequest(req: Request): Response | Promise<Response> {
-        const url = req.url;
-        const method = req.method.toLowerCase();
-
-        // CORS preflight handling
-        if (this.corsHandler && method === 'options') {
-            const origin = req.headers.get('origin');
-            if (origin) {
-                return this.corsHandler.preflight(origin);
+                    return this.buildResponse(result);
+                };
             }
+
+            return (req: Request) => {
+                const ctx = new Context(req);
+                const result = handler(ctx);
+
+                return this.buildResponse(result);
+            };
         }
 
-        let pathEnd = url.indexOf('?');
+        // With params - use Bun's native req.params
+        if (!hasMiddlewares && hasParams) {
+            if (compiled.isAsync) {
+                return async (req: Request) => {
+                    const ctx = new Context(req, (req as any).params);
+                    const result = await handler(ctx);
 
-        if (pathEnd === -1) pathEnd = url.length;
+                    return this.buildResponse(result);
+                };
+            }
 
-        let pathStart = url.indexOf('/', 8);
+            return (req: Request) => {
+                const ctx = new Context(req, (req as any).params);
+                const result = handler(ctx);
 
-        if (pathStart === -1) pathStart = pathEnd;
-
-        const path = url.slice(pathStart, pathEnd);
-        const match = this.router.find(method, path);
-
-        if (!match) {
-            return NOT_FOUND_RESPONSE;
+                return this.buildResponse(result);
+            };
         }
 
-        const route = match.store;
-        const ctx = new Context(req, match.params);
+        // With middlewares - full pipeline
+        return async (req: Request) => {
+            const ctx = new Context(req, (req as any).params || {});
 
-        if (route.hasMiddlewares) {
-            return this.executeWithMiddleware(ctx, route);
-        }
+            for (const middleware of middlewares) {
+                const result = await middleware(ctx);
 
-        if (route.isAsync) {
-            return this.executeAsync(ctx, route);
-        }
+                if (result instanceof Response) {
+                    return result;
+                }
+            }
 
-        return this.applyCorsBuild(req, route.handler(ctx));
+            const result = compiled.isAsync
+                ? await handler(ctx)
+                : handler(ctx);
+
+            return this.buildResponse(result);
+        };
     }
 
     /**
-     * Apply CORS headers and build response.
+     * Fallback handler - only called for unmatched routes.
+     * All matched routes go through Bun's native router.
      */
-    private applyCorsBuild(req: Request, result: any): Response {
-        const response = this.buildResponse(result);
-
-        if (this.corsHandler) {
+    private handleNotFound(req: Request): Response {
+        // CORS preflight for unmatched routes
+        if (this.hasCors && req.method === 'OPTIONS') {
             const origin = req.headers.get('origin');
+
             if (origin) {
-                return this.corsHandler.apply(response, origin);
+                return this.corsHandler!.preflight(origin);
             }
         }
 
-        return response;
-    }
-
-    private async executeWithMiddleware(ctx: Context, route: CompiledRoute): Promise<Response> {
-        const allMiddlewares = [
-            ...(this.config.globalMiddlewares || []),
-            ...this.middlewares,
-            ...route.middlewares
-        ];
-
-        for (const middleware of allMiddlewares) {
-            const result = await middleware(ctx);
-
-            if (result instanceof Response) {
-                return result;
-            }
-        }
-
-        const result = route.isAsync
-            ? await route.handler(ctx)
-            : route.handler(ctx);
-
-        return this.buildResponse(result);
-    }
-
-    private async executeAsync(ctx: Context, route: CompiledRoute): Promise<Response> {
-        const result = await route.handler(ctx);
-
-        return this.buildResponse(result);
+        return NOT_FOUND_RESPONSE;
     }
 
     private buildResponse(result: any): Response {

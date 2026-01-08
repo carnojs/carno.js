@@ -1,3 +1,23 @@
+import { Scope } from './container/Container';
+
+/**
+ * Controller options for the @Controller decorator.
+ */
+export interface ControllerOptions {
+    path?: string;
+    scope?: Scope;
+    children?: any[];
+}
+
+/**
+ * Controller metadata stored on controller classes.
+ */
+export interface ControllerMeta {
+    path: string;
+    scope?: Scope;
+    children?: any[];
+}
+
 /**
  * Route metadata stored on controllers.
  */

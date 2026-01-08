@@ -18,6 +18,7 @@ export { Context } from './context/Context';
 
 // Decorators - Controller
 export { Controller } from './decorators/Controller';
+export type { ControllerOptions } from './metadata';
 
 // Decorators - HTTP Methods
 export { Get, Post, Put, Delete, Patch, Head, Options } from './decorators/methods';

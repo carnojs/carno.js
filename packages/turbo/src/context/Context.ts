@@ -12,16 +12,25 @@ const EMPTY_PARAMS: Record<string, string> = Object.freeze({}) as Record<string,
 export class Context {
     readonly req: Request;
     params: Record<string, string>;
+
+    // Lazy fields - only allocated when accessed
     private _query: Record<string, string> | null = null;
-    private _body: any = undefined;
+    private _body: any;
     private _bodyParsed = false;
     private _url: URL | null = null;
-
-    status = 200;
+    private _status = 0;
 
     constructor(req: Request, params: Record<string, string> = EMPTY_PARAMS) {
         this.req = req;
         this.params = params;
+    }
+
+    get status(): number {
+        return this._status || 200;
+    }
+
+    set status(value: number) {
+        this._status = value;
     }
 
     get url(): URL {
