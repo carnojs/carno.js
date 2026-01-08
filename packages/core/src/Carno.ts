@@ -149,14 +149,22 @@ export class Carno<
 
     const compiled = route.store as CompiledRoute;
 
-    // Fast path: SIMPLE route + GET/HEAD + no CORS + no query + sync
-    // This is the most common case and needs to be blazing fast
+    // Ultra-fast path: directHandler (no Context, no params)
+    if (compiled.directHandler && !this.corsEnabled) {
+      return compiled.directHandler();
+    }
+
+    // Fast path: fastHandler (with params, no Context)
+    if (compiled.fastHandler && !this.corsEnabled && queryIndex === -1) {
+      return compiled.fastHandler(request, route.params);
+    }
+
+    // Standard fast path: SIMPLE route + GET/HEAD + no CORS + no query + sync
     if (compiled.routeType === RouteType.SIMPLE) {
-      if ((methodChar === 71 || methodChar === 72) && // G or H
+      if ((methodChar === 71 || methodChar === 72) &&
         !this.corsEnabled &&
         queryIndex === -1 &&
         !compiled.isAsync) {
-        // Ultra-fast path - minimal allocations
         return compiled.boundHandler!(Context.createFastContext(request, route.params));
       }
     }
@@ -368,10 +376,50 @@ export class Carno<
   }
 
   private createHttpServer(port: number) {
-    this.server = Bun.serve({ port, fetch: this.fetch, error: this.catcher });
+    const nativeRoutes = this.buildNativeRoutes();
+
+    this.server = Bun.serve({
+      port,
+      routes: nativeRoutes as any,
+      fetch: this.fetch,
+      error: this.catcher
+    });
+
     if (!this.config.disableStartupLog) {
       this.resolveLogger().info(`Server running on port ${port}`);
     }
+  }
+
+  /**
+   * Build native routes map for Bun.serve({ routes: ... }).
+   * Static paths with directHandler bypass JavaScript router entirely.
+   */
+  private buildNativeRoutes(): Record<string, Function> {
+    const routes: Record<string, Function> = {};
+
+    // Use router's history which stores [method, path, store][]
+    const history = this.router.history;
+
+    if (!history || history.length === 0) return routes;
+
+    for (const [method, path, store] of history) {
+      // Only GET routes without params are eligible for Bun native routing
+      if (method !== 'get') continue;
+
+      // Skip routes with parameters (contains :)
+      if (path.includes(':')) continue;
+
+      // Skip routes with wildcards
+      if (path.includes('*')) continue;
+
+      // Only routes with directHandler can use native routing
+      const compiled = store as CompiledRoute;
+      if (compiled?.directHandler && !this.corsEnabled) {
+        routes[path] = compiled.directHandler;
+      }
+    }
+
+    return routes;
   }
   private async fetcherAsync(
     request: Request,

@@ -15,6 +15,15 @@ import {
   type ParamInfo,
 } from './ParamResolverFactory';
 import { compileRouteHandler, compileValidatedHandler } from './JITCompiler';
+import { analyzeHandler, canUseFastPath, isStaticReturn } from './StaticAnalyzer';
+import {
+  createZeroParamHandler,
+  createOneParamHandler,
+  createMultiParamHandler,
+  type DirectHandler,
+  type FastSyncHandler,
+} from './FastHandler';
+import { createStaticTextHandler, createStaticJsonHandler } from './FastResponse';
 
 export interface RouteCompilerOptions {
   container: Container;
@@ -128,6 +137,8 @@ export class RouteCompiler {
       .filter((i) => i >= 0);
 
     const hasBodyParam = paramInfos.some((p) => p.type === 'body');
+    const hasQueryParam = paramInfos.some((p) => p.type === 'query');
+    const paramOnlyInfos = paramInfos.filter((p) => p.type === 'param');
 
     let boundHandler;
 
@@ -142,10 +153,24 @@ export class RouteCompiler {
       boundHandler = compileRouteHandler(instance, route.methodName, paramInfos);
     }
 
+    const handlers = this.createFastHandlers(
+      instance,
+      route.methodName,
+      paramInfos,
+      paramOnlyInfos,
+      hasValidation,
+      hasBodyParam,
+      hasQueryParam
+    );
+
     return {
       routeType: RouteType.SIMPLE,
       controllerInstance: instance,
       boundHandler,
+      directHandler: handlers.directHandler,
+      fastHandler: handlers.fastHandler,
+      staticResponse: handlers.staticResponse,
+      staticValue: handlers.staticValue,
       paramResolvers: [],
       needsLocalsContainer: false,
       hasMiddlewares: false,
@@ -153,6 +178,96 @@ export class RouteCompiler {
       validationIndices,
       isAsync: hasBodyParam,
       original: route,
+    };
+  }
+
+  private createFastHandlers(
+    instance: any,
+    methodName: string,
+    paramInfos: ParamInfo[],
+    paramOnlyInfos: ParamInfo[],
+    hasValidation: boolean,
+    hasBodyParam: boolean,
+    hasQueryParam: boolean
+  ): { directHandler: DirectHandler | null; fastHandler: FastSyncHandler | null; staticResponse: Response | null; staticValue: string | object | null } {
+    const hasHeadersParam = paramInfos.some((p) => p.type === 'headers');
+    const hasLocalsParam = paramInfos.some((p) => p.type === 'locals');
+    const hasReqParam = paramInfos.some((p) => p.type === 'req');
+    const hasDIParam = paramInfos.some((p) => p.type === 'di');
+
+    if (hasValidation || hasBodyParam || hasQueryParam ||
+      hasHeadersParam || hasLocalsParam || hasReqParam || hasDIParam) {
+      return { directHandler: null, fastHandler: null, staticResponse: null, staticValue: null };
+    }
+
+    const method = instance[methodName];
+    const analysis = analyzeHandler(method);
+
+    if (!canUseFastPath(analysis)) {
+      return { directHandler: null, fastHandler: null, staticResponse: null, staticValue: null };
+    }
+
+    const boundMethod = method.bind(instance);
+
+    if (paramOnlyInfos.length === 0) {
+      return this.createDirectHandler(analysis, boundMethod);
+    }
+
+    return this.createParamHandler(boundMethod, paramOnlyInfos);
+  }
+
+  private createDirectHandler(
+    analysis: ReturnType<typeof analyzeHandler>,
+    boundMethod: Function
+  ): { directHandler: DirectHandler | null; fastHandler: null; staticResponse: Response | null; staticValue: string | object | null } {
+    if (isStaticReturn(analysis) && typeof analysis.staticValue === 'string') {
+      const text = analysis.staticValue;
+      return {
+        directHandler: createStaticTextHandler(text),
+        fastHandler: null,
+        staticResponse: new Response(text, { status: 200, headers: { 'Content-Type': 'text/html' } }),
+        staticValue: text
+      };
+    }
+
+    if (isStaticReturn(analysis) && typeof analysis.staticValue === 'object') {
+      const obj = analysis.staticValue;
+      return {
+        directHandler: createStaticJsonHandler(obj),
+        fastHandler: null,
+        staticResponse: Response.json(obj, { status: 200 }),
+        staticValue: obj
+      };
+    }
+
+    return {
+      directHandler: createZeroParamHandler(boundMethod as () => unknown),
+      fastHandler: null,
+      staticResponse: null,
+      staticValue: null
+    };
+  }
+
+  private createParamHandler(
+    boundMethod: Function,
+    paramOnlyInfos: ParamInfo[]
+  ): { directHandler: null; fastHandler: FastSyncHandler | null; staticResponse: null; staticValue: null } {
+    const paramNames = paramOnlyInfos.map((p) => p.key!);
+
+    if (paramNames.length === 1) {
+      return {
+        directHandler: null,
+        fastHandler: createOneParamHandler(boundMethod as any, paramNames[0]),
+        staticResponse: null,
+        staticValue: null
+      };
+    }
+
+    return {
+      directHandler: null,
+      fastHandler: createMultiParamHandler(boundMethod as any, paramNames),
+      staticResponse: null,
+      staticValue: null
     };
   }
 
@@ -175,6 +290,10 @@ export class RouteCompiler {
       routeType: RouteType.STANDARD,
       controllerInstance: instance,
       boundHandler: null,
+      directHandler: null,
+      fastHandler: null,
+      staticResponse: null,
+      staticValue: null,
       paramResolvers: [],
       needsLocalsContainer,
       hasMiddlewares,
@@ -193,6 +312,10 @@ export class RouteCompiler {
       routeType: RouteType.STANDARD,
       controllerInstance: null,
       boundHandler: null,
+      directHandler: null,
+      fastHandler: null,
+      staticResponse: null,
+      staticValue: null,
       paramResolvers: [],
       needsLocalsContainer: true,
       hasMiddlewares: route.middlewares.length > 0,
@@ -216,6 +339,10 @@ export class RouteCompiler {
       routeType: RouteType.COMPLEX,
       controllerInstance: null,
       boundHandler: null,
+      directHandler: null,
+      fastHandler: null,
+      staticResponse: null,
+      staticValue: null,
       paramResolvers: [],
       needsLocalsContainer: true,
       hasMiddlewares: route.middlewares.length > 0,
@@ -231,6 +358,10 @@ export class RouteCompiler {
       routeType: RouteType.COMPLEX,
       controllerInstance: null,
       boundHandler: null,
+      directHandler: null,
+      fastHandler: null,
+      staticResponse: null,
+      staticValue: null,
       paramResolvers: [],
       needsLocalsContainer: true,
       hasMiddlewares: route.middlewares.length > 0,
@@ -240,6 +371,4 @@ export class RouteCompiler {
       original: route,
     };
   }
-
-  
 }
