@@ -37,7 +37,7 @@
     "uuid": "^9.0.1"
   },
   "peerDependencies": {
-    "@carno.js/core": "^0.2.0"
+    "@carno.js/core": "^1.0.0"
   },
   "author": "",
   "license": "MIT",

@@ -10,7 +10,7 @@
         "prepublishOnly": "bun run build"
     },
     "peerDependencies": {
-        "@carno.js/core": "workspace:*"
+        "@carno.js/core": "^1.0.0"
     },
     "keywords": [
         "logger",
