@@ -2,6 +2,21 @@
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
+const posthogApiKey = process.env.POSTHOG_API_KEY;
+const posthogAppUrl = process.env.POSTHOG_APP_URL ?? 'https://us.i.posthog.com';
+const plugins: Config['plugins'] = [];
+
+if (posthogApiKey) {
+  plugins.push([
+    'posthog-docusaurus',
+    {
+      apiKey: posthogApiKey,
+      appUrl: posthogAppUrl,
+      enableInDevelopment: false,
+    },
+  ]);
+}
+
 const config: Config = {
   title: 'Carno.js',
   tagline: 'Performance-first framework and ORM for Bun + TypeScript.',
@@ -23,6 +38,8 @@ const config: Config = {
     defaultLocale: 'en',
     locales: ['en'],
   },
+
+  plugins,
 
   themes: [
     [

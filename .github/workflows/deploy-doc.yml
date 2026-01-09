@@ -39,6 +39,9 @@ jobs:
 
       - name: Build Docusaurus
         working-directory: docs/carno
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_APP_URL: ${{ secrets.POSTHOG_APP_URL }}
         run: npm run build
 
       - name: Upload Pages artifact
