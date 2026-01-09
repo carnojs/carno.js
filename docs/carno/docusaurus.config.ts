@@ -2,8 +2,9 @@
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 
-const posthogApiKey = process.env.POSTHOG_API_KEY;
-const posthogAppUrl = process.env.POSTHOG_APP_URL ?? 'https://us.i.posthog.com';
+const posthogApiKey = process.env.POSTHOG_API_KEY?.trim();
+const posthogAppUrl =
+  process.env.POSTHOG_APP_URL?.trim() || 'https://us.i.posthog.com';
 const plugins: Config['plugins'] = [];
 
 if (posthogApiKey) {
