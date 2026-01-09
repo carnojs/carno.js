@@ -18,5 +18,6 @@
     "devDependencies": {
         "esbuild-fix-imports-plugin": "^1.0.23",
         "tsup": "^8.5.1"
-    }
+    },
+    "gitHead": "d2b000eeb352a03569b90d8eb2bf3557c00b741b"
 }

@@ -18,5 +18,9 @@
         "async",
         "structured"
     ],
-    "license": "MIT"
+    "license": "MIT",
+    "publishConfig": {
+        "access": "public"
+    },
+    "gitHead": "d2b000eeb352a03569b90d8eb2bf3557c00b741b"
 }
