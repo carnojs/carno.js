@@ -6,3 +6,11 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 # [1.0.0](https://github.com/carnojs/carno.js/compare/v0.2.11...v1.0.0) (2026-01-09)
 
 **Note:** Version bump only for package @carno.js/core
+
+
+
+
+
+# [1.0.0](https://github.com/carnojs/carno.js/compare/v0.2.11...v1.0.0) (2026-01-09)
+
+**Note:** Version bump only for package @carno.js/core
