@@ -28,7 +28,7 @@ export interface CarnoConfig {
     globalMiddlewares?: MiddlewareHandler[];
     disableStartupLog?: boolean;
     cors?: CorsConfig;
-    validation?: ValidatorAdapter | boolean | (new () => ValidatorAdapter);
+    validation?: ValidatorAdapter | boolean | (new (...args: any[]) => ValidatorAdapter);
     cache?: CacheConfig | boolean;
 }
 
@@ -97,7 +97,7 @@ export class Carno {
         }
         // Constructor class passed directly
         else if (typeof this.config.validation === 'function') {
-            const AdapterClass = this.config.validation as (new () => ValidatorAdapter);
+            const AdapterClass = this.config.validation as (new (...args: any[]) => ValidatorAdapter);
             this.validator = new AdapterClass();
         }
         // Instance passed directly
@@ -179,7 +179,7 @@ export class Carno {
     /**
      * Register one or more controllers.
      */
-    controllers(controllerClass: (new () => any) | (new () => any)[]): this {
+    controllers(controllerClass: (new (...args: any[]) => any) | (new (...args: any[]) => any)[]): this {
         const items = Array.isArray(controllerClass) ? controllerClass : [controllerClass];
         this._controllers.push(...items);
         return this;
@@ -267,7 +267,7 @@ export class Carno {
     }
 
     private compileController(
-        ControllerClass: new () => any,
+        ControllerClass: new (...args: any[]) => any,
         parentPath: string = '',
         inheritedMiddlewares: MiddlewareHandler[] = []
     ): void {
