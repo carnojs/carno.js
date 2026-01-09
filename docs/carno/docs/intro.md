@@ -11,7 +11,7 @@ The framework relies heavily on TypeScript decorators to provide a declarative a
 
 ## Design Goals
 
-- **Blazing Fast**: 22% faster than Elysia. [See benchmarks](/docs/benchmark).
+- **Blazing Fast**: 40% faster than Elysia. [See benchmarks](/docs/benchmark).
 - **Bun Native**: Built specifically to leverage Bun's HTTP server and runtime capabilities.
 - **TypeScript First**: Decorators and strong typing are first-class citizens.
 - **Modular**: The core is lightweight. You only install what you need (`@carno.js/orm`, `@carno.js/queue`, etc.).
@@ -26,6 +26,7 @@ The framework relies heavily on TypeScript decorators to provide a declarative a
 | **`@carno.js/queue`** | Background job processing powered by BullMQ. | `bun install @carno.js/queue` |
 | **`@carno.js/schedule`** | Task scheduling (Cron, Interval, Timeout). | `bun install @carno.js/schedule` |
 | **`@carno.js/cli`** | Command Line Interface for migrations and tools. | `bun install -d @carno.js/cli` |
+| **`@carno.js/logger`**| Fast and flexible logging solution. | `bun install @carno.js/logger` |
 
 ## Modularity & Clean Code
 

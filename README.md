@@ -15,6 +15,23 @@
   <a href="#examples">Examples</a>
 </p>
 
+<p align="center">
+  <img src="https://img.shields.io/badge/234k%20req%2Fs-⚡%20Fastest%20Bun%20Framework-f59e0b?style=for-the-badge&labelColor=1a1a1a" alt="234k requests per second" />
+</p>
+
+---
+
+## ⚡ Performance
+
+Carno.js is the **fastest framework for Bun** — benchmarked and proven.
+
+| Framework | Requests/sec | Avg Latency | Result |
+|:----------|:------------:|:-----------:|:------:|
+| **Carno.js** | **234,562** | **0.21 ms** | 🥇 |
+| Elysia | 167,206 | 0.29 ms | 🥈 |
+
+> 📊 **40% faster** than the competition. [See full benchmark →](https://carnojs.github.io/carno.js/docs/benchmark)
+
 ---
 
 ## Why Carno.js?

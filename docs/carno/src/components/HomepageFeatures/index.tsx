@@ -1,49 +1,84 @@
-﻿import type {ReactNode} from 'react';
+﻿import type { ReactNode } from 'react';
 import clsx from 'clsx';
 import Heading from '@theme/Heading';
 import styles from './styles.module.css';
 
 type FeatureItem = {
   title: string;
+  emoji: string;
   description: ReactNode;
 };
 
 const FeatureList: FeatureItem[] = [
   {
-    title: 'Performance-first by default',
+    title: 'Bun Native Performance',
+    emoji: '⚡',
     description: (
       <>
-        Carno.js is built for Bun and focuses on fast request handling, minimal
-        overhead, and efficient data access.
+        Built from the ground up for Bun runtime. Zero abstraction overhead,
+        JIT-compiled handlers, and radix tree routing for maximum speed.
       </>
     ),
   },
   {
-    title: 'Developer-friendly APIs',
+    title: 'Developer Experience',
+    emoji: '✨',
     description: (
       <>
-        Decorators, DI, validation, and modules are designed to be simple to read
-        and easy to extend as your project grows.
+        TypeScript decorators, powerful dependency injection, Zod validation,
+        and clean APIs that scale with your project.
       </>
     ),
   },
   {
-    title: 'Batteries included',
+    title: 'Complete Ecosystem',
+    emoji: '🔧',
     description: (
       <>
-        Use the ORM, queues, and scheduling plugins to cover the most common
-        backend needs without introducing extra frameworks.
+        Full-featured ORM, background jobs with BullMQ, cron scheduling,
+        and CLI tools — everything you need in one place.
+      </>
+    ),
+  },
+  {
+    title: 'Type-Safe ORM',
+    emoji: '🔒',
+    description: (
+      <>
+        PostgreSQL & MySQL support with smart identity map, lazy loading,
+        transactions, and migrations out of the box.
+      </>
+    ),
+  },
+  {
+    title: 'Plugin Architecture',
+    emoji: '🧩',
+    description: (
+      <>
+        Modular design with independent packages. Use only what you need,
+        extend easily, and keep your bundle lean.
+      </>
+    ),
+  },
+  {
+    title: 'Production Ready',
+    emoji: '🚀',
+    description: (
+      <>
+        CORS, middleware, lifecycle hooks, testing utilities, and
+        comprehensive documentation for real-world apps.
       </>
     ),
   },
 ];
 
-function Feature({title, description}: FeatureItem) {
+function Feature({ title, emoji, description }: FeatureItem) {
   return (
     <div className={clsx('col col--4')}>
-      <div className="text--center padding-horiz--md">
-        <Heading as="h3">{title}</Heading>
-        <p>{description}</p>
+      <div className={styles.featureCard}>
+        <div className={styles.featureEmoji}>{emoji}</div>
+        <Heading as="h3" className={styles.featureTitle}>{title}</Heading>
+        <p className={styles.featureDescription}>{description}</p>
       </div>
     </div>
   );
@@ -53,6 +88,7 @@ export default function HomepageFeatures(): ReactNode {
   return (
     <section className={styles.features}>
       <div className="container">
+        <Heading as="h2" className={styles.sectionTitle}>Why Choose Carno.js?</Heading>
         <div className="row">
           {FeatureList.map((props, idx) => (
             <Feature key={idx} {...props} />

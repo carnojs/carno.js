@@ -1,4 +1,7 @@
-﻿:root {
+﻿/* Import Nunito font */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap');
+
+:root {
   --ifm-color-primary: #d97706;
   --ifm-color-primary-dark: #c56d06;
   --ifm-color-primary-darker: #b96505;
@@ -8,6 +11,19 @@
   --ifm-color-primary-lightest: #efad63;
   --ifm-code-font-size: 95%;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.08);
+
+  /* Typography */
+  --ifm-font-family-base: 'Nunito', system-ui, -apple-system, sans-serif;
+  --ifm-heading-font-family: 'Nunito', system-ui, -apple-system, sans-serif;
+  --ifm-font-weight-normal: 500;
+  --ifm-font-weight-semibold: 700;
+  --ifm-font-weight-bold: 800;
+  --ifm-heading-font-weight: 800;
+
+  /* Spacing & Layout */
+  --ifm-global-radius: 8px;
+  --ifm-code-border-radius: 6px;
+  --ifm-button-border-radius: 8px;
 }
 
 [data-theme='dark'] {
@@ -19,4 +35,186 @@
   --ifm-color-primary-lighter: #f8b73b;
   --ifm-color-primary-lightest: #fbd07f;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+}
+
+/* Headings with extra weight */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: 'Nunito', system-ui, -apple-system, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+h1 {
+  font-weight: 900;
+  font-size: 2.5rem;
+}
+
+h2 {
+  font-weight: 800;
+  font-size: 1.875rem;
+}
+
+h3 {
+  font-weight: 700;
+  font-size: 1.5rem;
+}
+
+/* Navbar styling */
+.navbar__title {
+  font-weight: 800;
+  font-size: 1.25rem;
+}
+
+.navbar__link {
+  font-weight: 600;
+}
+
+/* Hero section improvements */
+.hero__title {
+  font-weight: 900;
+  font-size: 3.5rem;
+  letter-spacing: -0.03em;
+}
+
+.hero__subtitle {
+  font-weight: 500;
+  font-size: 1.25rem;
+  opacity: 0.9;
+}
+
+/* Sidebar styling */
+.menu__link {
+  font-weight: 500;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.menu__link--active {
+  font-weight: 700;
+}
+
+.menu__link:hover {
+  background-color: var(--ifm-color-primary-lightest);
+  color: var(--ifm-color-primary-darkest);
+}
+
+[data-theme='dark'] .menu__link:hover {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: var(--ifm-color-primary-light);
+}
+
+/* Code blocks */
+pre {
+  border-radius: 10px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme='dark'] pre {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+}
+
+/* Tables */
+table {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+table th {
+  font-weight: 700;
+  background-color: var(--ifm-color-primary);
+  color: white;
+}
+
+[data-theme='dark'] table th {
+  background-color: var(--ifm-color-primary-dark);
+}
+
+table td {
+  font-weight: 500;
+}
+
+/* Buttons */
+.button {
+  font-weight: 700;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  text-transform: none;
+}
+
+.button--primary {
+  box-shadow: 0 4px 14px 0 rgba(217, 119, 6, 0.39);
+}
+
+.button--primary:hover {
+  box-shadow: 0 6px 20px rgba(217, 119, 6, 0.5);
+  transform: translateY(-1px);
+}
+
+/* Admonitions / Callouts */
+.admonition {
+  border-radius: 10px;
+  border-left-width: 4px;
+}
+
+.admonition-heading h5 {
+  font-weight: 700;
+}
+
+/* Footer */
+.footer__title {
+  font-weight: 800;
+}
+
+.footer__link-item {
+  font-weight: 500;
+}
+
+/* Benchmark results styling */
+.benchmark-results table {
+  font-size: 1.05rem;
+}
+
+.benchmark-results table td:first-child {
+  font-weight: 700;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Selection color */
+::selection {
+  background-color: var(--ifm-color-primary-lightest);
+  color: var(--ifm-color-primary-darkest);
+}
+
+[data-theme='dark'] ::selection {
+  background-color: var(--ifm-color-primary-dark);
+  color: white;
+}
+
+/* TOC styling */
+.table-of-contents__link {
+  font-weight: 500;
+}
+
+.table-of-contents__link--active {
+  font-weight: 700;
+  color: var(--ifm-color-primary);
+}
+
+/* Pagination */
+.pagination-nav__label {
+  font-weight: 700;
+}
+
+.pagination-nav__sublabel {
+  font-weight: 500;
 }
