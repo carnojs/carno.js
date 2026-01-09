@@ -138,7 +138,11 @@ export class Container {
 
     private getDependencies(target: Token): Token[] {
         const types = Reflect.getMetadata('design:paramtypes', target) || [];
-        return types.filter((t: any) => t && typeof t === 'function');
+        return types.filter((t: any) => t && typeof t === 'function' && !this.isPrimitive(t));
+    }
+
+    private isPrimitive(type: any): boolean {
+        return type === String || type === Number || type === Boolean || type === Object || type === Array || type === Symbol;
     }
 
     private normalizeConfig<T>(config: ProviderConfig<T> | Token<T>): ProviderConfig<T> {

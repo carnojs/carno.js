@@ -1,6 +1,6 @@
 import { PARAMS_META } from '../metadata';
 
-export type ParamType = 'param' | 'query' | 'body' | 'header' | 'req' | 'ctx';
+export type ParamType = 'param' | 'query' | 'body' | 'header' | 'req' | 'ctx' | 'locals';
 
 export interface ParamMetadata {
     type: ParamType;
@@ -40,4 +40,8 @@ export function Req(): ParameterDecorator {
 
 export function Ctx(): ParameterDecorator {
     return createParamDecorator('ctx') as ParameterDecorator;
+}
+
+export function Locals(key?: string): ParameterDecorator {
+    return createParamDecorator('locals', key) as ParameterDecorator;
 }

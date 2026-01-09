@@ -158,6 +158,9 @@ function buildArgExpression(param: ParamInfo): string {
         case 'ctx':
             return 'c';
 
+        case 'locals':
+            return key ? `c.locals['${key}']` : 'c.locals';
+
         default:
             return 'undefined';
     }

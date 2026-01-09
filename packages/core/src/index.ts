@@ -24,10 +24,10 @@ export type { ControllerOptions } from './metadata';
 export { Get, Post, Put, Delete, Patch, Head, Options } from './decorators/methods';
 
 // Decorators - Parameters
-export { Param, Query, Body, Header, Req, Ctx } from './decorators/params';
+export { Param, Query, Body, Header, Req, Ctx, Locals } from './decorators/params';
 
 // Decorators - Middleware
-export { Use } from './decorators/Middleware';
+export { Use, Use as Middleware } from './decorators/Middleware';
 
 // Middleware Interface
 export type { CarnoMiddleware, CarnoClosure } from './middleware/CarnoMiddleware';

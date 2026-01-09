@@ -17,6 +17,7 @@ import { CacheService } from './cache/CacheService';
 import type { CacheConfig } from './cache/CacheDriver';
 import { DEFAULT_STATIC_ROUTES } from './DefaultRoutes';
 import { ZodAdapter } from './validation/ZodAdapter';
+import type { CarnoMiddleware } from './middleware/CarnoMiddleware';
 
 export type MiddlewareHandler = (ctx: Context) => Response | void | Promise<Response | void>;
 
@@ -230,6 +231,12 @@ export class Carno {
         this.hasBootHooks = hasEventHandlers(EventType.BOOT);
         this.hasShutdownHooks = hasEventHandlers(EventType.SHUTDOWN);
 
+        // Register Container itself so it can be injected
+        this.container.register({
+            token: Container,
+            useValue: this.container
+        });
+
         // Always register CacheService (Memory by default)
         const cacheConfig = typeof this.config.cache === 'object' ? this.config.cache : {};
         this.container.register({
@@ -245,6 +252,10 @@ export class Carno {
             this.container.register(ControllerClass);
         }
 
+        if (this.hasInitHooks) {
+            this.executeLifecycleHooks(EventType.INIT);
+        }
+
         for (const service of this._services) {
             const token = typeof service === 'function' ? service : service.token;
             const serviceConfig = typeof service === 'function' ? null : service;
@@ -252,11 +263,6 @@ export class Carno {
             if (!serviceConfig || serviceConfig.scope !== Scope.REQUEST) {
                 this.container.get(token);
             }
-        }
-
-        // Execute INIT hooks after DI is ready, before server starts
-        if (this.hasInitHooks) {
-            this.executeLifecycleHooks(EventType.INIT);
         }
     }
 
@@ -318,7 +324,10 @@ export class Carno {
                 ...routeMiddlewares
             ];
 
-            const hasMiddlewares = allMiddlewares.length > 0;
+            // Pre-resolve class-based middlewares at compile time for maximum performance
+            const resolvedMiddlewares = allMiddlewares.map(m => this.resolveMiddleware(m));
+
+            const hasMiddlewares = resolvedMiddlewares.length > 0;
 
             const method = route.method.toUpperCase();
 
@@ -327,7 +336,7 @@ export class Carno {
                 this.registerRoute(fullPath, method, this.createStaticResponse(compiled.staticValue));
             } else {
                 // Dynamic handler - compile to Bun-compatible function
-                this.registerRoute(fullPath, method, this.createHandler(compiled, params, allMiddlewares, bodyDtoType));
+                this.registerRoute(fullPath, method, this.createHandler(compiled, params, resolvedMiddlewares, bodyDtoType));
             }
         }
 
@@ -449,6 +458,18 @@ export class Carno {
         };
     }
 
+    private resolveMiddleware(middleware: any): MiddlewareHandler {
+        // Check if it's a class with a handle method
+        if (typeof middleware === 'function' && middleware.prototype?.handle) {
+            // Instantiate via Container and bind the handle method
+            const instance = this.container.get(middleware) as CarnoMiddleware;
+            return (ctx: Context) => instance.handle(ctx, () => { });
+        }
+
+        // Already a function
+        return middleware;
+    }
+
     /**
      * Apply CORS headers to a response.
      */
@@ -511,19 +532,28 @@ export class Carno {
      * Converts exceptions to proper HTTP responses.
      */
     private handleError(error: Error): Response {
+        let response: Response;
+
         // HttpException - return custom response
         if (error instanceof HttpException) {
-            return error.toResponse();
+            response = error.toResponse();
         }
-
         // ValidationException - return 400 with errors
-        if (error instanceof ValidationException) {
-            return error.toResponse();
+        else if (error instanceof ValidationException) {
+            response = error.toResponse();
+        }
+        // Unknown error - return 500
+        else {
+            console.error('Unhandled error:', error);
+            response = INTERNAL_ERROR_RESPONSE;
         }
 
-        // Unknown error - return 500
-        console.error('Unhandled error:', error);
-        return INTERNAL_ERROR_RESPONSE;
+        // Apply CORS headers if configured
+        if (this.hasCors && this.corsHandler) {
+            return this.corsHandler.apply(response, '*');
+        }
+
+        return response;
     }
 
     /**

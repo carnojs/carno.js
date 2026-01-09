@@ -1,3 +1,4 @@
+import { Carno } from '@carno.js/core/Carno';
 import { LoggerService, LoggerConfig, LogLevel } from './LoggerService';
 
 /**
@@ -29,18 +30,18 @@ export interface LoggerPluginConfig extends LoggerConfig {
  * }
  * ```
  */
-export function createLoggerPlugin(config: LoggerPluginConfig = {}) {
+export function createCarnoLogger(config: LoggerPluginConfig = {}) {
     const logger = new LoggerService(config);
-
-    return {
-        exports: [
+    return new Carno()
+        .services([
             {
                 token: LoggerService,
                 useValue: logger
             }
-        ]
-    };
+        ])
 }
+
+export const CarnoLogger = createCarnoLogger();
 
 /**
  * Create a standalone logger (without Turbo).
@@ -50,5 +51,6 @@ export function createLogger(config: LoggerConfig = {}): LoggerService {
 }
 
 // Re-export everything
-export { LoggerService, LoggerConfig, LogLevel } from './LoggerService';
+export { LoggerService, LogLevel } from './LoggerService';
+export type { LoggerConfig } from './LoggerService';
 export type { LogData } from './LoggerService';

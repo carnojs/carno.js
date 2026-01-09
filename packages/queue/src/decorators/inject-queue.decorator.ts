@@ -12,7 +12,7 @@ export function InjectQueue(queueName: string): ParameterDecorator {
 export function getQueueToken(queueName: string): new () => any {
   if (!queueTokens.has(queueName)) {
     // Create a named class dynamically to serve as token
-    const TokenClass = class QueueToken {};
+    const TokenClass = class QueueToken { };
     Object.defineProperty(TokenClass, 'name', { value: `Queue_${queueName}` });
     queueTokens.set(queueName, TokenClass);
   }
