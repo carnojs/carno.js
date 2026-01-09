@@ -1,9 +1,8 @@
-import { Injectable } from "@carno.js/core";
-import { ProviderScope } from "@carno.js/core";
+import { Service, Scope } from "@carno.js/core";
 import { Queue, JobsOptions } from "bullmq";
 import { QueueRegistry } from "../queue.registry";
 
-@Injectable({ scope: ProviderScope.SINGLETON })
+@Service({ scope: Scope.SINGLETON })
 export class QueueClient {
   constructor(private queueRegistry: QueueRegistry) {}
 

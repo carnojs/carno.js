@@ -1,15 +1,5 @@
 import { afterAll, beforeEach, describe, expect, it } from "bun:test";
-
-import {
-  GlobalProvider,
-  InjectorService,
-  Metadata,
-  createContainer,
-  createInjector,
-  registerProvider,
-} from "@carno.js/core";
-import Memoirist from "@carno.js/core/route/memoirist";
-
+import { Container, Metadata } from "@carno.js/core";
 import { SchedulerOrchestration } from "../src/scheduler-orchestration.service";
 import { SchedulerRegistry } from "../src/scheduler.registry";
 import { Schedule } from "../src/decorator/schedule.decorator";
@@ -19,15 +9,12 @@ import {
   SCHEDULE_TIMEOUT_OPTIONS,
 } from "../src/utils/constants";
 
-type ProviderEntry = [unknown, any];
-
 const cronJobName = "scheduler-orchestration-test-cron";
 const invocationFlag = "invoked";
 
 const baselineCronMetadata = snapshotMetadata(SCHEDULE_CRON_OPTIONS);
 const baselineIntervalMetadata = snapshotMetadata(SCHEDULE_INTERVAL_OPTIONS);
 const baselineTimeoutMetadata = snapshotMetadata(SCHEDULE_TIMEOUT_OPTIONS);
-const baselineProviders = snapshotProviders();
 
 class SampleScheduledService {
   public readonly events: string[] = [];
@@ -38,47 +25,34 @@ class SampleScheduledService {
   }
 }
 
-registerProvider({
-  provide: SampleScheduledService,
-  useClass: SampleScheduledService,
-});
-
 const sampleCronEntries = selectServiceEntries();
 
 describe("SchedulerOrchestration", () => {
   beforeEach(() => {
     isolateScheduleMetadata();
-
-    resetServiceInstance();
   });
 
-  /**it('binds cron job execution to the service instance', async () => {
-        const orchestrationContext = await givenSchedulerOrchestration();
+  it("should create orchestration instance", () => {
+    const context = givenSchedulerOrchestration();
 
-        await whenCronJobRuns(orchestrationContext);
+    expect(context.orchestration).toBeInstanceOf(SchedulerOrchestration);
+    expect(context.registry).toBeInstanceOf(SchedulerRegistry);
+  });
 
-        thenServiceRecordedInvocation();
-    });
+  it("should mount cron jobs on init", () => {
+    const context = givenSchedulerOrchestration();
 
-    it('reuses existing service instance when scheduled task runs', async () => {
-        const orchestrationContext = await givenSchedulerOrchestration();
+    context.orchestration.onApplicationInit();
 
-        const presetInstance = new SampleScheduledService();
-        presetInstance.events.push('preset');
-        assignServiceInstance(presetInstance);
-
-        await whenCronJobRuns(orchestrationContext);
-
-        thenServiceInstanceWasReused(presetInstance);
-    });*/
+    const cronJob = context.registry.getCronJob(cronJobName);
+    expect(cronJob).toBeDefined();
+  });
 });
 
 afterAll(() => {
   restoreMetadata(SCHEDULE_CRON_OPTIONS, baselineCronMetadata);
   restoreMetadata(SCHEDULE_INTERVAL_OPTIONS, baselineIntervalMetadata);
   restoreMetadata(SCHEDULE_TIMEOUT_OPTIONS, baselineTimeoutMetadata);
-
-  restoreProviders(baselineProviders);
 });
 
 function snapshotMetadata(key: string) {
@@ -93,18 +67,6 @@ function snapshotMetadata(key: string) {
 
 function restoreMetadata(key: string, entries: any[]) {
   Metadata.set(key, [...entries], Reflect);
-}
-
-function snapshotProviders(): ProviderEntry[] {
-  return Array.from(GlobalProvider.entries());
-}
-
-function restoreProviders(entries: ProviderEntry[]) {
-  GlobalProvider.clear();
-
-  for (const [token, provider] of entries) {
-    GlobalProvider.set(token, provider);
-  }
 }
 
 function selectServiceEntries() {
@@ -135,75 +97,19 @@ function cloneEntries(entries: any[]) {
   }));
 }
 
-function resetServiceInstance() {
-  const provider = GlobalProvider.get(SampleScheduledService);
-
-  if (!provider) {
-    return;
-  }
-
-  provider.instance = undefined;
-}
-
-async function givenSchedulerOrchestration() {
-  const injector = await buildInjector();
+function givenSchedulerOrchestration() {
+  const container = new Container();
   const registry = new SchedulerRegistry();
 
+  container.register(SampleScheduledService);
+  container.register({ token: SchedulerRegistry, useValue: registry });
+  container.register({ token: Container, useValue: container });
+
+  const orchestration = new SchedulerOrchestration(registry, container);
+
   return {
-    injector,
+    container,
     registry,
-    orchestration: new SchedulerOrchestration(registry, injector),
+    orchestration,
   };
-}
-
-async function buildInjector(): Promise<InjectorService> {
-  const injector = createInjector();
-
-  await injector.loadModule(
-    createContainer(),
-    {
-      providers: [
-        SampleScheduledService,
-        SchedulerOrchestration,
-        SchedulerRegistry,
-      ],
-    },
-    new Memoirist()
-  );
-
-  return injector;
-}
-
-async function whenCronJobRuns(context: {
-  orchestration: SchedulerOrchestration;
-  registry: SchedulerRegistry;
-}) {
-  context.orchestration.onApplicationInit();
-
-  const cronJob = context.registry.getCronJob(cronJobName);
-
-  await cronJob.fireOnTick();
-}
-
-function thenServiceRecordedInvocation() {
-  const provider = GlobalProvider.get(SampleScheduledService);
-
-  expect(provider?.instance.events).toEqual([invocationFlag]);
-}
-
-function assignServiceInstance(instance: SampleScheduledService) {
-  const provider = GlobalProvider.get(SampleScheduledService);
-
-  if (!provider) {
-    throw new Error("SampleScheduledService provider not registered");
-  }
-
-  provider.instance = instance;
-}
-
-function thenServiceInstanceWasReused(instance: SampleScheduledService) {
-  const provider = GlobalProvider.get(SampleScheduledService);
-
-  expect(provider?.instance).toBe(instance);
-  expect(instance.events).toEqual(["preset", invocationFlag]);
 }

@@ -1,5 +1,4 @@
 import {describe, expect, test} from 'bun:test';
-import {LoggerService} from '@carno.js/core';
 import {withDatabase} from '../../src/testing';
 import {BaseEntity} from '../../src/domain/base-entity';
 import {EntityStorage} from '../../src/domain/entities';
@@ -38,17 +37,8 @@ class SessionRepository extends Repository<SessionProbe> {
   }
 }
 
-function buildLogger(): LoggerService {
-  const config = {applicationConfig: {logger: {level: 'info'}}};
-
-  return new LoggerService(config as any);
-}
-
 function overwriteGlobals(): void {
-  const logger = buildLogger();
-
-  new Orm(logger);
-
+  new Orm();
   new EntityStorage();
 }
 

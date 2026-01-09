@@ -4,17 +4,18 @@ sidebar_position: 1
 
 # Introduction
 
-Carno.js is a **performance-first framework and ORM** built for the Bun runtime.
+Carno.js is the **fastest framework for Bun**.
 
 It combines a small, expressive core with opt-in modules for data access, background jobs, and scheduling.
 The framework relies heavily on TypeScript decorators to provide a declarative and clean API.
 
 ## Design Goals
 
+- **Blazing Fast**: 22% faster than Elysia. [See benchmarks](/docs/benchmark).
 - **Bun Native**: Built specifically to leverage Bun's HTTP server and runtime capabilities.
 - **TypeScript First**: Decorators and strong typing are first-class citizens.
 - **Modular**: The core is lightweight. You only install what you need (`@carno.js/orm`, `@carno.js/queue`, etc.).
-- **Dependency Injection**: A robust DI container manages your application's components and scopes.
+- **Dependency Injection**: A robust DI container manages your application's components and scopes (Singleton, Request, Instance).
 
 ## Ecosystem
 
@@ -24,6 +25,7 @@ The framework relies heavily on TypeScript decorators to provide a declarative a
 | **`@carno.js/orm`** | Lightweight Object-Relational Mapper for Postgres and MySQL. | `bun install @carno.js/orm` |
 | **`@carno.js/queue`** | Background job processing powered by BullMQ. | `bun install @carno.js/queue` |
 | **`@carno.js/schedule`** | Task scheduling (Cron, Interval, Timeout). | `bun install @carno.js/schedule` |
+| **`@carno.js/cli`** | Command Line Interface for migrations and tools. | `bun install -d @carno.js/cli` |
 
 ## Modularity & Clean Code
 
@@ -31,16 +33,21 @@ Carno.js is built with modularity in mind. Instead of a large monolithic configu
 
 ```ts
 // feature.module.ts
+import { Carno } from '@carno.js/core';
+
 export const FeatureModule = new Carno({
-  providers: [FeatureService, FeatureController]
+  exports: [FeatureService] // Make FeatureService available to the parent app
 });
+FeatureModule.controllers([FeatureController]);
+FeatureModule.services([FeatureService]);
 
 // index.ts
+import { Carno } from '@carno.js/core';
 import { FeatureModule } from './feature.module';
 
-new Carno()
-  .use(FeatureModule)
-  .listen();
+const app = new Carno();
+app.use(FeatureModule);
+app.listen(3000);
 ```
 
 ## Documentation Structure

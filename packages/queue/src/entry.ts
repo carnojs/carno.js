@@ -10,20 +10,9 @@ import { QUEUE_MODULE_OPTIONS } from './constants';
 
 export function CarnoQueue(options: QueueModuleOptions = {}) {
   const connectionManager = new ConnectionManagerService();
-
   connectionManager.setDefaultConnection(options.connection);
 
-  return new Carno({
-    providers: [
-      {
-        provide: QUEUE_MODULE_OPTIONS,
-        useValue: options,
-      },
-      {
-        provide: ConnectionManagerService,
-        useValue: () => connectionManager,
-      },
-    ],
+  const plugin = new Carno({
     exports: [
       QueueOrchestration,
       QueueRegistry,
@@ -33,4 +22,15 @@ export function CarnoQueue(options: QueueModuleOptions = {}) {
       ConnectionManagerService,
     ],
   });
+
+  plugin.services([
+    { token: ConnectionManagerService, useValue: connectionManager },
+    QueueOrchestration,
+    QueueRegistry,
+    QueueDiscoveryService,
+    QueueBuilderService,
+    EventBinderService,
+  ]);
+
+  return plugin;
 }

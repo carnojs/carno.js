@@ -1,7 +1,7 @@
 import globby from 'globby';
 import {promises as fs} from 'fs';
 import path from 'path';
-import {LoggerService, Metadata} from '@carno.js/core';
+import {Metadata} from '@carno.js/core';
 import {EntityStorage} from '../domain/entities';
 import {Orm} from '../orm';
 import {OrmService} from '../orm.service';
@@ -9,6 +9,7 @@ import {BunPgDriver} from '../driver/bun-pg.driver';
 import {ConnectionSettings} from '../driver/driver.interface';
 import {ormSessionContext} from '../orm-session-context';
 import {ENTITIES} from '../constants';
+import type {Logger} from '../logger';
 
 export type DatabaseTestContext = {
   orm: Orm<BunPgDriver>;
@@ -18,7 +19,7 @@ export type DatabaseTestContext = {
 export type DatabaseTestOptions = {
   schema?: string;
   entityFile?: string;
-  logger?: LoggerService;
+  logger?: Logger;
   connection?: Partial<ConnectionSettings<BunPgDriver>>;
 };
 
@@ -129,23 +130,12 @@ export async function withDatabase(
 }
 
 async function createSession(options: DatabaseTestOptions): Promise<DatabaseSession> {
-  const logger = selectLogger(options);
-  const orm: Orm<BunPgDriver> = new Orm<BunPgDriver>(logger);
+  const orm: Orm<BunPgDriver> = new Orm<BunPgDriver>();
   const storage = new EntityStorage();
 
   await initializeOrm(orm, storage, options);
 
   return {orm, schema: options.schema ?? DEFAULT_SCHEMA, storage};
-}
-
-function selectLogger(options: DatabaseTestOptions): LoggerService {
-  if (options.logger) {
-    return options.logger;
-  }
-
-  const config = {applicationConfig: {logger: {level: 'info'}}};
-
-  return new LoggerService(config as any);
 }
 
 async function initializeOrm(

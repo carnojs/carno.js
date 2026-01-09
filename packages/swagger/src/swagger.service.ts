@@ -1,4 +1,4 @@
-import { Controller, Get, InjectorService, OnApplicationInit, TokenRouteWithProvider } from "@carno.js/core";
+import { Controller, Get, OnApplicationInit } from "@carno.js/core";
 import { OpenAPIV3 } from "openapi-types";
 import { SwaggerUIOptions } from "swagger-ui";
 
@@ -165,7 +165,7 @@ export function useConfig(newConfig: CarnoSwaggerConfig) {
 @Controller()
 export class SwaggerService {
   private routes: OpenAPIV3.PathsObject<{}, {}> = {};
-  constructor(private injector: InjectorService) {
+  constructor() {
     const version = config.version || "5.9.0";
 
     config = {

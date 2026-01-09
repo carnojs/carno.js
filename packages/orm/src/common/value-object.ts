@@ -61,7 +61,7 @@ export abstract class ValueObject<T, Vo> {
 
   constructor(value: T, skipValidation = false) {
     if (!skipValidation && (!this.validate(value) || !this.validateDatabase(value))) {
-      throw new HttpException(`Invalid value for ${this.constructor.name}`, 400);
+      throw new HttpException(400, `Invalid value for ${this.constructor.name}`);
     }
 
     this.setValue(value);
@@ -130,32 +130,32 @@ export abstract class ValueObject<T, Vo> {
   private validateDatabase<T>(value: T): boolean {
     if (typeof value === "string") {
       if (this.max !== undefined && value.length > this.max) {
-        throw new HttpException(`Value exceeds maximum length of ${this.max}`, 400);
+        throw new HttpException(400, `Value exceeds maximum length of ${this.max}`);
       }
 
       if (this.min !== undefined && value.length < this.min) {
-        throw new HttpException(`Value is less than minimum length of ${this.min}`, 400);
+        throw new HttpException(400, `Value is less than minimum length of ${this.min}`);
       }
     } else if (typeof value === "number") {
       if (this.max !== undefined && value > this.max) {
-        throw new HttpException(`Value exceeds maximum value of ${this.max}`, 400);
+        throw new HttpException(400, `Value exceeds maximum value of ${this.max}`);
       }
 
       if (this.min !== undefined && value < this.min) {
-        throw new HttpException(`Value is less than minimum value of ${this.min}`, 400);
+        throw new HttpException(400, `Value is less than minimum value of ${this.min}`);
       }
 
       if (this.precision !== undefined) {
         const totalDigits = value.toString().replace(".", "").length;
         if (totalDigits > this.precision) {
-          throw new HttpException(`Value exceeds precision of ${this.precision}`, 400);
+          throw new HttpException(400, `Value exceeds precision of ${this.precision}`);
         }
       }
 
       if (this.scale !== undefined) {
         const decimalDigits = (value.toString().split(".")[1] || "").length;
         if (decimalDigits > this.scale) {
-          throw new HttpException(`Value exceeds scale of ${this.scale}`, 400);
+          throw new HttpException(400, `Value exceeds scale of ${this.scale}`);
         }
       }
     }

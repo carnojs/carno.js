@@ -47,10 +47,18 @@ Carno.js relies on experimental decorators. Ensure your `tsconfig.json` has the 
 Create a file named `src/index.ts`:
 
 ```ts
-import { Carno } from '@carno.js/core';
+import { Carno, Controller, Get } from '@carno.js/core';
+
+@Controller()
+class AppController {
+  @Get()
+  hello() {
+    return 'Hello World';
+  }
+}
 
 const app = new Carno();
-
+app.controllers([AppController]);
 await app.listen(3000);
 ```
 
@@ -71,25 +79,20 @@ bun install @carno.js/orm @carno.js/queue @carno.js/schedule
 bun install -d @carno.js/cli
 ```
 
-Update your `src/index.ts` to use them:
+Update your `src/index.ts` to use them. For example, adding an ORM module:
 
 ```ts
 import { Carno } from '@carno.js/core';
 import { CarnoOrm } from '@carno.js/orm';
-import { CarnoQueue } from '@carno.js/queue';
-import { CarnoScheduler } from '@carno.js/schedule';
 
-const app = new Carno()
-  // Add ORM support
-  .use(CarnoOrm)
-  // Add Queue support with Redis connection
-  .use(CarnoQueue({
-    connection: { host: 'localhost', port: 6379 }
-  }))
-  // Add Scheduler support
-  .use(CarnoScheduler);
+// Configure ORM Module (example)
+// Usually you'd import a pre-configured module from another file
+const ormModule = new Carno(); 
+// ... configure ormModule ...
 
-await app.listen(3000);
+const app = new Carno();
+app.use(CarnoOrm); // Use provided modules
+app.listen(3000);
 ```
 
 ## Project Structure
@@ -98,7 +101,14 @@ A typical Carno.js project structure looks like this:
 
 ```
 my-app/
-├── carno.config.ts     # Configuration (optional)
+├── src/
+│   ├── modules/
+│   │   └── user/
+│   │       ├── user.controller.ts
+│   │       ├── user.service.ts
+│   │       ├── user.entity.ts
+│   │       └── index.ts        # Exports UserModule
+│   ├── index.ts                # Entry point
 ├── package.json
 ├── tsconfig.json
 └── ...

@@ -1,4 +1,4 @@
-import { Injectable, Metadata } from '@carno.js/core';
+import { Service, Metadata } from '@carno.js/core';
 import {
   QUEUE_METADATA,
   PROCESS_METADATA,
@@ -6,7 +6,7 @@ import {
   QUEUE_EVENT_METADATA,
 } from '../constants';
 
-@Injectable()
+@Service()
 export class QueueDiscoveryService {
   discoverQueues(): any[] {
     return this.getMetadata(QUEUE_METADATA);

@@ -1,7 +1,7 @@
-import { Injectable } from '@carno.js/core';
+import { Service } from '@carno.js/core';
 import { Queue, Worker } from 'bullmq';
 
-@Injectable()
+@Service()
 export class EventBinderService {
   bindJobEvents(
     worker: Worker,

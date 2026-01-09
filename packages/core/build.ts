@@ -1,14 +1,46 @@
-import { copyFileSync } from 'fs'
+import { $ } from 'bun'
+import { build, type Options } from 'tsup'
+import { fixImportsPlugin } from 'esbuild-fix-imports-plugin'
 
-await Bun.build({
-  entrypoints: ['./src/index.ts'],
-  outdir: './dist',
-  minify: true,
-  target: "node",
-  format: 'cjs',
-  sourcemap: 'external',
+import pack from './package.json'
+
+const external = [
+    ...Object.keys(pack.dependencies ?? {}),
+    ...Object.keys(pack.peerDependencies ?? {})
+]
+
+await $`rm -rf dist`
+
+await build({
+    entry: ['src/**/*.ts'],
+    outDir: 'dist',
+    format: ['esm', 'cjs'],
+    target: 'node20',
+    minifySyntax: true,
+    minifyWhitespace: false,
+    minifyIdentifiers: false,
+    splitting: false,
+    sourcemap: false,
+    cjsInterop: false,
+    clean: true,
+    bundle: false,
+    external,
+    esbuildPlugins: [fixImportsPlugin()]
 })
 
-//copyFileSync('dist/index.d.ts', 'dist/bun/index.d.ts')
+await $`tsc --project tsconfig.json`
 
-export {}
+await Bun.build({
+    entrypoints: ['./src/index.ts'],
+    outdir: './dist/bun',
+    minify: {
+        whitespace: true,
+        syntax: true,
+        identifiers: false
+    },
+    target: 'bun',
+    sourcemap: 'linked',
+    external
+})
+
+process.exit()

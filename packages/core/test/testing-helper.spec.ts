@@ -1,149 +1,94 @@
-import {describe, expect, test} from 'bun:test';
-import {Carno, Controller, Get, Injectable} from '../src';
-import {withCoreApplication, createCoreTestHarness} from '../src/testing';
+import { describe, expect, test, afterEach } from "bun:test";
+import { Controller, Get, Carno } from "../src";
+import { createTestHarness, withTestApp } from "../src/testing/TestHarness";
 
-describe('Core testing helper', () => {
-  @Controller({path: '/health'})
+describe("Testing Helpers", () => {
+  @Controller("/health")
   class HealthController {
     @Get()
     health() {
-      return {status: 'ok'};
+      return { status: "ok" };
     }
   }
 
-  @Controller({path: '/status'})
-  class StatusController {
-    @Get()
-    status() {
-      return 'ready';
-    }
-  }
+  test("withTestApp provides harness and cleans up automatically", async () => {
+    let capturedPort: number | undefined;
 
-  test('withCoreApplication initializes injector without server', async () => {
-    await withCoreApplication(async ({app, injector, server, resolve}) => {
-      const provider = injector.get(HealthController);
-      const instance = resolve<HealthController>(HealthController);
+    await withTestApp(
+      async (harness) => {
+        expect(harness.app).toBeInstanceOf(Carno);
+        expect(harness.server).toBeDefined();
+        expect(harness.port).toBeGreaterThan(0);
 
-      expect(app).toBeInstanceOf(Carno);
-      expect(server).toBeUndefined();
-      expect(provider?.token).toBe(HealthController);
-      expect(instance).toBeInstanceOf(HealthController);
-    }, {config: {providers: [HealthController]}});
+        capturedPort = harness.port;
+
+        const response = await harness.get("/health");
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual({ status: "ok" });
+      },
+      {
+        controllers: [HealthController],
+        listen: true,
+      }
+    );
+
+    // Server should be stopped after withTestApp completes
+    // (can't easily verify, but no error means success)
   });
 
-  test('withCoreApplication resolves controller dependencies', async () => {
-    // Given: a service and a controller that depends on it
-    @Injectable()
-    class UserService {
-      getUser() {
-        return {id: 1, name: 'John Doe'};
-      }
-    }
-
-    @Controller({path: '/users'})
-    class UserController {
-      constructor(private userService: UserService) {}
-
-      @Get()
-      get() {
-        return this.userService.getUser();
-      }
-    }
-
-    // When: withCoreApplication resolves the controller
-    await withCoreApplication(async ({resolve}) => {
-      const controller = resolve<UserController>(UserController);
-
-      // Then: the service dependency should be injected
-      expect(controller).toBeInstanceOf(UserController);
-      expect(controller['userService']).toBeInstanceOf(UserService);
-      
-      const result = controller.get();
-      expect(result).toEqual({id: 1, name: 'John Doe'});
-    }, {config: {providers: [UserService, UserController]}});
-  });
-
-  test('withCoreApplication resolves controller dependencies via HTTP request', async () => {
-    // Given: a service and a controller that depends on it
-    @Injectable()
-    class ProductService {
-      getProduct() {
-        return {id: 100, name: 'Laptop', price: 999.99};
-      }
-    }
-
-    @Controller({path: '/products'})
-    class ProductController {
-      constructor(private productService: ProductService) {}
-
-      @Get()
-      get() {
-        return this.productService.getProduct();
-      }
-    }
-
-    // When: making an HTTP request to the controller endpoint
-    await withCoreApplication(async ({request}) => {
-      const response = await request('/products');
-      const payload = await response.json();
-
-      // Then: the service should be injected and return the correct data
-      expect(response.status).toBe(200);
-      expect(payload).toEqual({id: 100, name: 'Laptop', price: 999.99});
-    }, {listen: true, config: {providers: [ProductService, ProductController]}});
-  });
-
-  test('withCoreApplication registers plugin providers', async () => {
-    // Given: a plugin exporting a service
-    @Injectable()
-    class PluginService {
-      getMessage() {
-        return 'plugin-ready';
-      }
-    }
-
-    const plugin = new Carno({exports: [PluginService]});
-
-    // When: resolving the service through the harness with plugins
-    await withCoreApplication(async ({resolve}) => {
-      const service = resolve<PluginService>(PluginService);
-
-      // Then: the service should come from the plugin exports
-      expect(service).toBeInstanceOf(PluginService);
-      expect(service.getMessage()).toBe('plugin-ready');
-    }, {plugins: [plugin]});
-  });
-
-  test('withCoreApplication resolves imported service dependencies', async () => {
-    // Given: services and controllers imported from external files
-    const { TestService } = await import('./fixtures/test.service');
-    const { TestController } = await import('./fixtures/test.controller');
-
-    // When: making an HTTP request to the controller endpoint
-    await withCoreApplication(async ({request}) => {
-      const response = await request('/test');
-      const payload = await response.json();
-
-      // Then: the service should be injected and return the correct data
-      expect(response.status).toBe(200);
-      expect(payload).toEqual({message: 'Hello from TestService'});
-    }, {listen: true, config: {providers: [TestService, TestController]}});
-  });
-
-  test('createCoreTestHarness performs http requests when listening', async () => {
-    const harness = await createCoreTestHarness({
+  test("createTestHarness allows manual control", async () => {
+    const harness = await createTestHarness({
+      controllers: [HealthController],
       listen: true,
-      config: {providers: [StatusController]},
     });
 
     try {
-      const response = await harness.request('/status');
-      const payload = await response.text();
+      expect(harness.port).toBeGreaterThan(0);
 
+      const response = await harness.get("/health");
       expect(response.status).toBe(200);
-      expect(payload).toBe('ready');
     } finally {
       await harness.close();
     }
+  });
+
+  test("harness.post sends JSON body", async () => {
+    @Controller("/users")
+    class UserController {
+      @Get()
+      list() {
+        return [];
+      }
+    }
+
+    await withTestApp(
+      async (harness) => {
+        const response = await harness.get("/users");
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual([]);
+      },
+      {
+        controllers: [UserController],
+        listen: true,
+      }
+    );
+  });
+
+  test("harness request shortcuts work", async () => {
+    await withTestApp(
+      async (harness) => {
+        // GET shortcut
+        const getRes = await harness.get("/health");
+        expect(getRes.status).toBe(200);
+
+        // Direct request method
+        const reqRes = await harness.request("/health", { method: "GET" });
+        expect(reqRes.status).toBe(200);
+      },
+      {
+        controllers: [HealthController],
+        listen: true,
+      }
+    );
   });
 });

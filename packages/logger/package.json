@@ -1,0 +1,22 @@
+{
+    "name": "@carno.js/logger",
+    "version": "1.0.0",
+    "description": "High-performance async logger for carno.js",
+    "main": "src/index.ts",
+    "types": "src/index.ts",
+    "scripts": {
+        "compile": "rm -rf ./dist tsconfig.tsbuildinfo && tsc --build --force",
+        "build": "tsc --build --force",
+        "prepublishOnly": "bun run build"
+    },
+    "peerDependencies": {
+        "@carno.js/core": "workspace:*"
+    },
+    "keywords": [
+        "logger",
+        "carno",
+        "async",
+        "structured"
+    ],
+    "license": "MIT"
+}

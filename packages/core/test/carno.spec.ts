@@ -1,12 +1,12 @@
 import { afterEach, describe, expect, it, beforeEach } from 'bun:test'
 import { Carno, Controller, Get } from '../src';
+import { withTestApp } from '../src/testing/TestHarness';
 
 describe('Carno', () => {
   @Controller()
   class TestController {
-
     @Get()
-    async test() {
+    test() {
       return 'Test'
     }
   }
@@ -17,44 +17,42 @@ describe('Carno', () => {
     carno = null;
   })
 
-  afterEach(async () => {
-    carno?.close(true)
+  afterEach(() => {
+    carno?.stop()
   })
 
   it('should create a instance of Carno with controller', async () => {
-    carno = new Carno({
-      providers: [TestController]
-    })
-    await carno.listen(3000)
-
-    const injector = carno.getInjector()
-    const match = injector.router.find('get', '/')
-    expect(match).not.toBeNull()
+    await withTestApp(async (harness) => {
+      const response = await harness.get('/');
+      expect(response.status).toBe(200);
+      expect(await response.text()).toBe('Test');
+    }, {
+      controllers: [TestController],
+      listen: true
+    });
   });
 
   it('should create a instance of Carno without controller', async () => {
-    carno = new Carno()
-    await carno.listen(3000)
-
-    const injector = carno.getInjector()
-    const match = injector.router.find('get', '/')
-
-    expect(match).toBeNull()
+    await withTestApp(async (harness) => {
+      const response = await harness.get('/');
+      expect(response.status).toBe(404);
+    }, {
+      listen: true
+    });
   })
 
   it('should use a plugin', async () => {
     Controller()(TestController) // Reload the decorator
-    const plugin = new Carno({
-      exports: [TestController]
-    })
+
+    const plugin = new Carno()
+    plugin.controllers(TestController)
 
     carno = new Carno()
     carno.use(plugin)
-    await carno.listen(3000)
+    carno.listen(3001)
 
-    const injector = carno.getInjector()
-    const match = injector.router.find('get', '/')
-
-    expect(match).not.toBeNull()
+    const response = await fetch('http://127.0.0.1:3001/');
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe('Test');
   })
 })

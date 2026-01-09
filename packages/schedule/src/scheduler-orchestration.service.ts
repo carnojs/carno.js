@@ -1,6 +1,5 @@
 import {
-    GlobalProvider,
-    InjectorService,
+    Container,
     Metadata,
     OnApplicationInit,
     OnApplicationShutdown,
@@ -25,7 +24,7 @@ export class SchedulerOrchestration {
 
     constructor(
         private readonly schedulerRegistry: SchedulerRegistry,
-        private readonly injectorService: InjectorService,
+        private readonly container: Container,
     ) {}
 
     @OnApplicationInit()
@@ -151,12 +150,6 @@ export class SchedulerOrchestration {
 
     private resolveInstance(target: any) {
         const token = target.constructor;
-        const provider = GlobalProvider.get(token);
-
-        if (provider?.instance) {
-            return provider.instance;
-        }
-
-        return this.injectorService.invoke(token);
+        return this.container.get(token);
     }
 }

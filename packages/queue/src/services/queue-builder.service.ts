@@ -1,9 +1,9 @@
-import { Injectable } from '@carno.js/core';
+import { Service } from '@carno.js/core';
 import { Queue, Worker, Job } from 'bullmq';
 import { ConnectionManagerService } from './connection-manager.service';
 import { QueueRegistry } from '../queue.registry';
 
-@Injectable()
+@Service()
 export class QueueBuilderService {
   constructor(
     private connectionManager: ConnectionManagerService,

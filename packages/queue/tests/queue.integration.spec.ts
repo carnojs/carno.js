@@ -1,34 +1,20 @@
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { Carno, InjectorService } from '@carno.js/core';
-import { CarnoQueue, QueueRegistry } from '../src';
+import { Container } from '@carno.js/core';
+import { QueueRegistry } from '../src';
 import { Queue as BullQueue, Worker, Job } from 'bullmq';
 
 describe('Queue Module Integration', () => {
-  let app: Carno;
-  let injector: InjectorService;
+  let container: Container;
   let registry: QueueRegistry;
   let testQueue: BullQueue;
   let testWorker: Worker;
 
   beforeAll(async () => {
-    // Given: queue module configuration
-    app = new Carno();
+    container = new Container();
+    registry = new QueueRegistry();
 
-    app.use(
-      CarnoQueue({
-        connection: {
-          host: 'localhost',
-          port: 6379,
-        },
-      })
-    );
+    container.register({ token: QueueRegistry, useValue: registry });
 
-    await app.init();
-
-    injector = app.getInjector();
-    registry = injector.invoke(QueueRegistry);
-
-    // When: criar queue e worker manualmente
     testQueue = new BullQueue('integration-test', {
       connection: {
         host: 'localhost',
@@ -56,7 +42,6 @@ describe('Queue Module Integration', () => {
     registry.addQueue('integration-test', testQueue);
     registry.addWorker('integration-test', testWorker);
 
-    // Aguardar worker estar pronto
     await new Promise(resolve => setTimeout(resolve, 500));
   });
 
@@ -67,13 +52,11 @@ describe('Queue Module Integration', () => {
   });
 
   test('should initialize QueueRegistry', () => {
-    // Then: registry deve estar inicializado
     expect(registry).toBeDefined();
     expect(registry).toBeInstanceOf(QueueRegistry);
   });
 
   test('should register queue successfully', () => {
-    // Then: queue deve estar registrado
     expect(registry.hasQueue('integration-test')).toBe(true);
 
     const queue = registry.getQueue('integration-test');
@@ -83,7 +66,6 @@ describe('Queue Module Integration', () => {
   });
 
   test('should register worker successfully', () => {
-    // Then: worker deve estar registrado
     expect(registry.hasWorker('integration-test')).toBe(true);
 
     const worker = registry.getWorker('integration-test');
@@ -92,29 +74,23 @@ describe('Queue Module Integration', () => {
   });
 
   test('should add and process job', async () => {
-    // Given: dados do job
     const jobData = {
       userId: 123,
       action: 'send-email',
       email: 'test@example.com',
     };
 
-    // When: adding a job to the queue
     const job = await testQueue.add('email-job', jobData);
 
-    // Then: job deve ser criado
     expect(job).toBeDefined();
     expect(job.name).toBe('email-job');
     expect(job.data).toEqual(jobData);
 
-    // When: aguardar processamento
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Then: job deve estar completo
     const state = await job.getState();
     expect(state).toBe('completed');
 
-    // Try to read the result if available
     try {
       const result = await job.returnvalue;
       if (result) {
@@ -122,26 +98,21 @@ describe('Queue Module Integration', () => {
         expect(result.data).toEqual(jobData);
       }
     } catch (e) {
-      // The job may have been cleaned up, only verify that it completed
       expect(state).toBe('completed');
     }
   });
 
   test('should handle multiple jobs', async () => {
-    // Given: multiple jobs
     const jobs = await Promise.all([
       testQueue.add('job1', { index: 1 }),
       testQueue.add('job2', { index: 2 }),
       testQueue.add('job3', { index: 3 }),
     ]);
 
-    // Then: all jobs must be created
     expect(jobs).toHaveLength(3);
 
-    // When: aguardar processamento
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Then: all jobs must be completed
     const states = await Promise.all(
       jobs.map(job => job.getState())
     );
@@ -152,16 +123,13 @@ describe('Queue Module Integration', () => {
   });
 
   test('should get queue count', async () => {
-    // Given: adicionar alguns jobs
     await testQueue.add('count-test-1', { test: 1 });
     await testQueue.add('count-test-2', { test: 2 });
 
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // When: obter counts
     const counts = await testQueue.getJobCounts();
 
-    // Then: deve ter contadores
     expect(counts).toBeDefined();
     expect(typeof counts.waiting).toBe('number');
     expect(typeof counts.active).toBe('number');
@@ -169,15 +137,12 @@ describe('Queue Module Integration', () => {
   });
 
   test('should clean completed jobs', async () => {
-    // Given: adicionar e processar job
     await testQueue.add('cleanup-test', { cleanup: true });
 
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // When: limpar jobs completos
     const cleaned = await testQueue.clean(0, 100, 'completed');
 
-    // Then: jobs devem ser limpos
     expect(Array.isArray(cleaned)).toBe(true);
   });
 });

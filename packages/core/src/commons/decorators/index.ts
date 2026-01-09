@@ -1,6 +1,0 @@
-export * from './controller.decorator'
-export * from './http.decorators'
-export * from './service.decorator'
-export * from './middleware.decorator'
-export * from './Injectable.decorator'
-export * from './validation.decorator'
