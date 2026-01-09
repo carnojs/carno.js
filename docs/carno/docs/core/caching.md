@@ -52,17 +52,26 @@ async getProduct(id: string) {
 
 ## Custom Cache Driver
 
-The default driver stores data in memory (LRU with 10,000 items). To use Redis or another store, implement your own `CacheService`.
+The default driver stores data in memory (LRU with 10,000 items). To use Redis or another store, implement a `CacheDriver` and register a `CacheService` instance via `app.services()`.
 
 ```ts
-import { Service, CacheService } from '@carno.js/core';
+import { Carno, CacheService, type CacheDriver } from '@carno.js/core';
 
-@Service({ provide: CacheService })
-export class RedisCacheService implements CacheService {
-  // Implement methods: get, set, del, has, clear, getOrSet
+class RedisDriver implements CacheDriver {
+  name = 'redis';
+
+  async get<T>(key: string) { /* ... */ }
+  async set<T>(key: string, value: T, ttl?: number) { /* ... */ }
+  async del(key: string) { /* ... */ }
+  async has(key: string) { /* ... */ }
+  async clear() { /* ... */ }
+  async close() { /* ... */ }
 }
 
-new Carno({
-  providers: [RedisCacheService] // This overrides the default CacheService
-}).listen();
+const app = new Carno()
+  .services([
+    { token: CacheService, useValue: new CacheService({ driver: new RedisDriver() }) }
+  ]);
+
+app.listen(3000);
 ```
