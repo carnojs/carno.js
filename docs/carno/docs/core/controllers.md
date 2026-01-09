@@ -118,6 +118,8 @@ export class UsersController {
 
 ## Responses
 
+Carno.js supports multiple response types out of the box. You can return objects, strings, or full `Response` objects.
+
 ### JSON Response
 By default, if you return an object or array, Carno.js serializes it to JSON and sets `Content-Type: application/json`.
 
@@ -129,7 +131,25 @@ findAll() {
 ```
 
 ### Text Response
-Returning a string sends a text/plain response.
+Returning a string sends a `text/plain` response.
+
+```ts
+@Get('/health')
+health() {
+  return 'OK';
+}
+```
+
+### No Content Response
+Returning `undefined` or `void` sends a `204 No Content` response.
+
+```ts
+@Delete('/:id')
+delete(@Param('id') id: string) {
+  // Delete logic...
+  // Returns 204 No Content
+}
+```
 
 ### Response Object
 You can return a native `Response` object for full control.
@@ -140,3 +160,49 @@ custom() {
   return new Response('Custom', { status: 201 });
 }
 ```
+
+### Context Response Helpers
+
+For more control over responses, use the `Context` object and its helper methods:
+
+```ts
+import { Controller, Get, Ctx, Context } from '@carno.js/core';
+
+@Controller('/api')
+class ApiController {
+  // JSON with custom status
+  @Post('/users')
+  create(@Ctx() ctx: Context, @Body() data: any) {
+    return ctx.json({ id: 1, ...data }, 201);
+  }
+
+  // Plain text
+  @Get('/health')
+  health(@Ctx() ctx: Context) {
+    return ctx.text('OK');
+  }
+
+  // HTML response
+  @Get('/page')
+  page(@Ctx() ctx: Context) {
+    return ctx.html('<h1>Hello World</h1>');
+  }
+
+  // Redirect
+  @Get('/old')
+  redirect(@Ctx() ctx: Context) {
+    return ctx.redirect('/new', 301);
+  }
+}
+```
+
+| Method | Description |
+| :--- | :--- |
+| `ctx.json(data, status?)` | Returns JSON with `application/json` content type |
+| `ctx.text(data, status?)` | Returns plain text with `text/plain` content type |
+| `ctx.html(data, status?)` | Returns HTML with `text/html` content type |
+| `ctx.redirect(url, status?)` | Returns a redirect response (default: 302) |
+
+:::tip
+For detailed documentation on the Context object and all response helpers, see the [Context documentation](./context.md).
+:::

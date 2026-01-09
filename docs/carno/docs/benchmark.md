@@ -76,18 +76,6 @@ Response time distribution:
 
 ---
 
-## 🔬 Why Carno.js is Faster
-
-| Feature | Benefit |
-|---------|---------|
-| **Zero abstraction at runtime** | Everything is compiled at startup |
-| **Direct Bun.serve()** | Native routes with no intermediate layers |
-| **JIT compiled handlers** | AOT async detection for optimal execution |
-| **Radix tree router** | O(log n) routing for dynamic paths |
-| **No middleware overhead** | Compiled middleware chain |
-
----
-
 ## 🧪 Run Your Own Benchmark
 
 Don't just take our word for it! Run the benchmark yourself and see the results on your machine.

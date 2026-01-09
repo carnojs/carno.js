@@ -1,4 +1,4 @@
-﻿import type {SidebarsConfig} from '@docusaurus/plugin-content-docs';
+﻿import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
 
 const sidebars: SidebarsConfig = {
   tutorialSidebar: [
@@ -13,6 +13,7 @@ const sidebars: SidebarsConfig = {
       items: [
         'core/overview',
         'core/controllers',
+        'core/context',
         'core/validation',
         'core/dependency-injection',
         'core/middleware',

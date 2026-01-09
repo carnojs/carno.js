@@ -509,6 +509,11 @@ export class Carno {
             return new Response(result, TEXT_OPTS);
         }
 
+        // Handle undefined/void return values - return empty 204 No Content
+        if (result === undefined) {
+            return new Response(null, { status: 204 });
+        }
+
         return Response.json(result);
     }
 
