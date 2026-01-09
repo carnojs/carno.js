@@ -4,13 +4,14 @@ sidebar_position: 1
 
 # Introduction
 
-Carno.js is a **performance-first framework** built for the Bun runtime.
+Carno.js is the **fastest framework for Bun**.
 
 It combines a small, expressive core with opt-in modules for data access, background jobs, and scheduling.
 The framework relies heavily on TypeScript decorators to provide a declarative and clean API.
 
 ## Design Goals
 
+- **Blazing Fast**: 22% faster than Elysia. [See benchmarks](/docs/benchmark).
 - **Bun Native**: Built specifically to leverage Bun's HTTP server and runtime capabilities.
 - **TypeScript First**: Decorators and strong typing are first-class citizens.
 - **Modular**: The core is lightweight. You only install what you need (`@carno.js/orm`, `@carno.js/queue`, etc.).

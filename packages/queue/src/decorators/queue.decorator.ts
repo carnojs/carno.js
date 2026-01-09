@@ -1,4 +1,4 @@
-import { Injectable, Metadata } from '@carno.js/core';
+import { Service, Metadata } from '@carno.js/core';
 import { QueueOptions } from '../interfaces';
 import { QUEUE_METADATA } from '../constants';
 
@@ -24,6 +24,6 @@ export function Queue(
       Reflect
     );
 
-    return Injectable()(target);
+    return Service()(target);
   };
 }

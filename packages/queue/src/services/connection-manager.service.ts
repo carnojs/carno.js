@@ -1,7 +1,7 @@
-import { Injectable } from '@carno.js/core';
+import { Service } from '@carno.js/core';
 import { ConnectionOptions } from 'bullmq';
 
-@Injectable()
+@Service()
 export class ConnectionManagerService {
   private defaultConnection?: ConnectionOptions;
 

@@ -2,10 +2,9 @@ import {
   Service,
   OnApplicationInit,
   OnApplicationShutdown,
-  InjectorService,
+  Container,
   Context,
-  LocalsContainer,
-  ProviderScope,
+  Scope,
 } from '@carno.js/core';
 import { QueueRegistry } from './queue.registry';
 import { QueueDiscoveryService } from './services/queue-discovery.service';
@@ -21,7 +20,7 @@ export class QueueOrchestration {
     private discoveryService: QueueDiscoveryService,
     private builderService: QueueBuilderService,
     private eventBinder: EventBinderService,
-    private injector: InjectorService
+    private container: Container
   ) {}
 
   @OnApplicationInit(100)
@@ -158,7 +157,7 @@ export class QueueOrchestration {
   }
 
   private getOrCreateInstance(metadata: any): any {
-    return this.injector.invoke(metadata.target);
+    return this.container.get(metadata.target);
   }
 
   private createProcessorFunction(
@@ -221,15 +220,7 @@ export class QueueOrchestration {
     processor: Function,
     job: any
   ): Promise<any> {
-    const context = Context.createFromJob(job);
-
-    const locals = new LocalsContainer();
-    locals.set(Context, context);
-
-    const instance = this.injector.invoke(
-      queueMetadata.target,
-      locals
-    );
+    const instance = this.container.get(queueMetadata.target);
 
     const boundProcessor = instance[this.findProcessorMethodName(
       queueMetadata,
@@ -369,10 +360,10 @@ export class QueueOrchestration {
     const token = getQueueToken(name);
     const ProxyFactory = createQueueProxyFactory(queue);
 
-    this.injector.container.addProvider(token, {
-      provide: token,
+    this.container.register({
+      token,
       useClass: ProxyFactory,
-      scope: ProviderScope.SINGLETON,
+      scope: Scope.SINGLETON,
     });
   }
 }

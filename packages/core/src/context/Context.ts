@@ -115,4 +115,14 @@ export class Context {
     redirect(url: string, status: number = 302): Response {
         return Response.redirect(url, status);
     }
+
+    /**
+     * Creates a Context from a job (for queue processing).
+     */
+    static createFromJob(job: any): Context {
+        const fakeRequest = new Request('http://localhost/job');
+        const ctx = new Context(fakeRequest);
+        ctx.locals.job = job;
+        return ctx;
+    }
 }

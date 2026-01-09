@@ -1,7 +1,7 @@
-import { Injectable } from '@carno.js/core';
+import { Service } from '@carno.js/core';
 import { Queue, Worker } from 'bullmq';
 
-@Injectable()
+@Service()
 export class QueueRegistry {
   private readonly queues = new Map<string, Queue>();
   private readonly workers = new Map<string, Worker>();

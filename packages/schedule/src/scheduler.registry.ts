@@ -1,7 +1,7 @@
-import { Injectable } from '@carno.js/core';
+import { Service } from '@carno.js/core';
 import { CronJob } from 'cron';
 
-@Injectable()
+@Service()
 export class SchedulerRegistry {
   // private readonly logger = new Logger(SchedulerRegistry.name);
 
