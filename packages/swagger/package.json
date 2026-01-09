@@ -1,6 +1,6 @@
 {
   "name": "@carno.js/swagger",
-  "version": "0.2.11",
+  "version": "1.0.0",
   "description": "Generate automatically swagger.json from your carno.js project",
   "type": "commonjs",
   "main": "dist/index.js",

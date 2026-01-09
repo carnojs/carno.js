@@ -8,6 +8,8 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ### Bug Fixes
 
+* build ([943b686](https://github.com/carnojs/carno.js/commit/943b686068e81aca67597b965c073a41dbba4ce1))
+* build ([a788ddd](https://github.com/carnojs/carno.js/commit/a788ddd0b2ac604f0a105a87d16a82bb4d9e9f6f))
 * build ([189ee4b](https://github.com/carnojs/carno.js/commit/189ee4be2105ddcdf63fbb12b59a15951e38ce9b))
 
 
@@ -19,12 +21,6 @@ See [Conventional Commits](https://conventionalcommits.org) for commit guideline
 
 ### Bug Fixes
 
+* build ([943b686](https://github.com/carnojs/carno.js/commit/943b686068e81aca67597b965c073a41dbba4ce1))
+* build ([a788ddd](https://github.com/carnojs/carno.js/commit/a788ddd0b2ac604f0a105a87d16a82bb4d9e9f6f))
 * build ([189ee4b](https://github.com/carnojs/carno.js/commit/189ee4be2105ddcdf63fbb12b59a15951e38ce9b))
-
-
-
-
-
-## [0.2.9](https://github.com/carnojs/carno.js/compare/v0.2.8...v0.2.9) (2026-01-03)
-
-**Note:** Version bump only for package @carno.js/orm

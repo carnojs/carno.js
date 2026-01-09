@@ -1,0 +1,104 @@
+0 silly argv {
+0 silly argv   _: [ 'version' ],
+0 silly argv   'force-publish': '*',
+0 silly argv   forcePublish: '*',
+0 silly argv   'conventional-commits': true,
+0 silly argv   conventionalCommits: true,
+0 silly argv   'create-release': 'github',
+0 silly argv   createRelease: 'github',
+0 silly argv   lernaVersion: '7.4.2',
+0 silly argv   '$0': 'node_modules\\lerna\\dist\\cli.js',
+0 silly argv   bump: '1.0.0'
+0 silly argv }
+1 notice cli v7.4.2
+2 verbose packageConfigs Explicit "packages" configuration found in lerna.json. Resolving packages using the configured glob(s): ["packages/*"]
+3 verbose rootPath E:\Projects\cheetah.js
+4 silly createGitHubClient
+5 info current version 0.2.11
+6 silly isAnythingCommitted
+7 verbose isAnythingCommitted 1
+8 silly getCurrentBranch
+9 verbose currentBranch tubo-carno
+10 silly remoteBranchExists
+11 silly isBehindUpstream
+12 silly isBehindUpstream tubo-carno is behind origin/tubo-carno by 0 commit(s) and ahead by 0
+13 silly hasTags
+14 verbose hasTags true
+15 silly git-describe.sync "v0.2.11-14-g8b8b7a9" => {"lastTagName":"v0.2.11","lastVersion":"v0.2.11","refCount":"14","sha":"8b8b7a9","isDirty":false}
+16 warn force-publish all packages
+17 info Assuming all packages changed
+18 verbose updated @carno.js/core
+19 verbose updated @carno.js/logger
+20 verbose updated @carno.js/orm
+21 verbose updated @carno.js/queue
+22 verbose updated @carno.js/schedule
+23 verbose updated @carno.js/swagger
+24 info version rooted leaf detected, skipping synthetic root lifecycles
+25 info execute Creating releases...
+26 silly lifecycle No script for "preversion" in "@carno.js/core", continuing
+27 silly lifecycle No script for "preversion" in "@carno.js/logger", continuing
+28 silly lifecycle No script for "preversion" in "@carno.js/orm", continuing
+29 silly lifecycle No script for "preversion" in "@carno.js/queue", continuing
+30 silly lifecycle No script for "preversion" in "@carno.js/schedule", continuing
+31 silly lifecycle No script for "preversion" in "@carno.js/swagger", continuing
+32 verbose version @carno.js/orm has no lockfile. Skipping lockfile update.
+33 verbose version @carno.js/logger has no lockfile. Skipping lockfile update.
+34 verbose version @carno.js/core has no lockfile. Skipping lockfile update.
+35 verbose version @carno.js/queue has no lockfile. Skipping lockfile update.
+36 verbose version @carno.js/schedule has no lockfile. Skipping lockfile update.
+37 verbose version @carno.js/swagger has no lockfile. Skipping lockfile update.
+38 silly lifecycle No script for "version" in "@carno.js/swagger", continuing
+39 silly fixed for @carno.js/swagger at E:\Projects\cheetah.js\packages\swagger
+40 verbose getChangelogConfig using preset "conventional-changelog-angular"
+41 silly npa Result {
+41 silly npa   type: 'tag',
+41 silly npa   registry: true,
+41 silly npa   where: undefined,
+41 silly npa   raw: 'conventional-changelog-angular',
+41 silly npa   name: 'conventional-changelog-angular',
+41 silly npa   escapedName: 'conventional-changelog-angular',
+41 silly npa   scope: undefined,
+41 silly npa   rawSpec: '',
+41 silly npa   saveSpec: null,
+41 silly npa   fetchSpec: 'latest',
+41 silly npa   gitRange: undefined,
+41 silly npa   gitCommittish: undefined,
+41 silly npa   hosted: undefined
+41 silly npa }
+42 verbose getChangelogConfig Attempting to resolve preset "conventional-changelog-angular"
+43 info getChangelogConfig Successfully resolved preset "conventional-changelog-angular"
+44 silly lifecycle No script for "version" in "@carno.js/schedule", continuing
+45 silly fixed for @carno.js/schedule at E:\Projects\cheetah.js\packages\schedule
+46 silly lifecycle No script for "version" in "@carno.js/orm", continuing
+47 silly fixed for @carno.js/orm at E:\Projects\cheetah.js\packages\orm
+48 silly lifecycle No script for "version" in "@carno.js/queue", continuing
+49 silly fixed for @carno.js/queue at E:\Projects\cheetah.js\packages\queue
+50 silly lifecycle No script for "version" in "@carno.js/core", continuing
+51 silly fixed for @carno.js/core at E:\Projects\cheetah.js\packages\core
+52 silly lifecycle No script for "version" in "@carno.js/logger", continuing
+53 silly fixed for @carno.js/logger at E:\Projects\cheetah.js\packages\logger
+54 silly fixed writing new entry: "# [1.0.0](https://github.com/carnojs/carno.js/compare/v0.2.11...v1.0.0) (2026-01-09)\n\n\n### Bug Fixes\n\n* build ([189ee4b](https://github.com/carnojs/carno.js/commit/189ee4be2105ddcdf63fbb12b59a15951e38ce9b))\n\n\n\n"
+55 silly fixed writing new entry: "# [1.0.0](https://github.com/carnojs/carno.js/compare/v0.2.11...v1.0.0) (2026-01-09)\n\n\n### Bug Fixes\n\n* build ([189ee4b](https://github.com/carnojs/carno.js/commit/189ee4be2105ddcdf63fbb12b59a15951e38ce9b))\n\n\n\n"
+56 silly fixed writing new entry: "# [1.0.0](https://github.com/carnojs/carno.js/compare/v0.2.11...v1.0.0) (2026-01-09)\n\n\n### Bug Fixes\n\n* build ([943b686](https://github.com/carnojs/carno.js/commit/943b686068e81aca67597b965c073a41dbba4ce1))\n* build ([189ee4b](https://github.com/carnojs/carno.js/commit/189ee4be2105ddcdf63fbb12b59a15951e38ce9b))\n\n\n\n"
+57 silly fixed writing new entry: "# [1.0.0](https://github.com/carnojs/carno.js/compare/v0.2.11...v1.0.0) (2026-01-09)\n\n\n### Bug Fixes\n\n* build ([189ee4b](https://github.com/carnojs/carno.js/commit/189ee4be2105ddcdf63fbb12b59a15951e38ce9b))\n\n\n### Features\n\n* performance features ([8cf50cf](https://github.com/carnojs/carno.js/commit/8cf50cfe67c23394e48bfeee802aea23955e7c13))\n\n\n\n"
+58 silly fixed writing new entry: "# [1.0.0](https://github.com/carnojs/carno.js/compare/v0.2.11...v1.0.0) (2026-01-09)\n\n\n### Bug Fixes\n\n* build ([189ee4b](https://github.com/carnojs/carno.js/commit/189ee4be2105ddcdf63fbb12b59a15951e38ce9b))\n\n\n\n"
+59 silly fixed writing new entry: "# [1.0.0](https://github.com/carnojs/carno.js/compare/v0.2.11...v1.0.0) (2026-01-09)\n\n\n### Bug Fixes\n\n* build ([943b686](https://github.com/carnojs/carno.js/commit/943b686068e81aca67597b965c073a41dbba4ce1))\n* build ([a788ddd](https://github.com/carnojs/carno.js/commit/a788ddd0b2ac604f0a105a87d16a82bb4d9e9f6f))\n* build ([189ee4b](https://github.com/carnojs/carno.js/commit/189ee4be2105ddcdf63fbb12b59a15951e38ce9b))\n\n\n\n"
+60 verbose fixed wrote E:\Projects\cheetah.js\packages\orm\CHANGELOG.md
+61 verbose fixed wrote E:\Projects\cheetah.js\packages\queue\CHANGELOG.md
+62 verbose fixed wrote E:\Projects\cheetah.js\packages\schedule\CHANGELOG.md
+63 verbose fixed wrote E:\Projects\cheetah.js\packages\logger\CHANGELOG.md
+64 verbose fixed wrote E:\Projects\cheetah.js\packages\swagger\CHANGELOG.md
+65 verbose fixed wrote E:\Projects\cheetah.js\packages\core\CHANGELOG.md
+66 silly root for @carno.js/core at E:\Projects\cheetah.js
+67 silly root writing new entry: "# [1.0.0](https://github.com/carnojs/carno.js/compare/v0.2.11...v1.0.0) (2026-01-09)\n\n\n### Bug Fixes\n\n* build ([943b686](https://github.com/carnojs/carno.js/commit/943b686068e81aca67597b965c073a41dbba4ce1))\n* build ([a788ddd](https://github.com/carnojs/carno.js/commit/a788ddd0b2ac604f0a105a87d16a82bb4d9e9f6f))\n* build ([189ee4b](https://github.com/carnojs/carno.js/commit/189ee4be2105ddcdf63fbb12b59a15951e38ce9b))\n\n\n### Features\n\n* performance features ([8cf50cf](https://github.com/carnojs/carno.js/commit/8cf50cfe67c23394e48bfeee802aea23955e7c13))\n\n\n\n"
+68 verbose root wrote E:\Projects\cheetah.js\CHANGELOG.md
+69 verbose version Updating root package-lock.json
+70 error Error: Command failed with exit code 1: npm install --package-lock-only --ignore-scripts
+70 error npm error code EUNSUPPORTEDPROTOCOL
+70 error npm error Unsupported URL Type "workspace:": workspace:*
+70 error npm error A complete log of this run can be found in: C:\Users\lucas\AppData\Local\npm-cache\_logs\2026-01-09T02_44_55_995Z-debug-0.log
+70 error     at makeError (E:\Projects\cheetah.js\node_modules\execa\lib\error.js:59:11)
+70 error     at handlePromise (E:\Projects\cheetah.js\node_modules\execa\index.js:114:26)
+70 error     at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+70 error     at async VersionCommand.updatePackageVersions (E:\Projects\cheetah.js\node_modules\lerna\dist\index.js:8317:13)
+70 error     at async Promise.all (index 0)

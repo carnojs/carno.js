@@ -2,11 +2,11 @@
   "packages": [
     "packages/*"
   ],
-  "version": "0.2.11",
+  "version": "1.0.0",
   "ignoreChanges": [
     "**/tests/**",
     "**/*.md"
   ],
   "useNx": false,
-  "npmClient": "npm"
+  "npmClient": "bun"
 }
