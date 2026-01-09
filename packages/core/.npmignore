@@ -42,7 +42,5 @@ CODE_OF_CONDUCT.md
 
 src
 data
-dist/bun
 build.ts
 carno.config.ts
-build.ts
