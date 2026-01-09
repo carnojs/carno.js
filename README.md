@@ -235,7 +235,7 @@ const app = new Carno({
 ### Middleware
 
 ```typescript
-import { Controller, Get, Use, Context } from '@carno.js/core';
+import { Controller, Get, Middleware, Context } from '@carno.js/core';
 import type { MiddlewareHandler } from '@carno.js/core';
 
 const authMiddleware: MiddlewareHandler = (ctx: Context) => {
@@ -247,7 +247,7 @@ const authMiddleware: MiddlewareHandler = (ctx: Context) => {
 };
 
 @Controller('/admin')
-@Use(authMiddleware)
+@Middleware(authMiddleware)
 class AdminController {
   @Get()
   dashboard(ctx: Context) {

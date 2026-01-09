@@ -99,7 +99,7 @@ await app.stop();           // Stop server
 
 | Decorator | Description |
 | :--- | :--- |
-| `@Use(middleware)` | Apply middleware to controller/route |
+| `@Middleware(middleware)` | Apply middleware to controller/route |
 
 #### Lifecycle
 

@@ -104,11 +104,11 @@ export class RequestIdMiddleware implements CarnoMiddleware {
 Apply to all routes in a controller:
 
 ```ts
-import { Controller, Use } from '@carno.js/core';
+import { Controller, Middleware } from '@carno.js/core';
 import { AuthMiddleware } from './auth.middleware';
 
 @Controller()
-@Use(AuthMiddleware)
+@Middleware(AuthMiddleware)
 export class UsersController {
   // All routes require authentication
 }
@@ -119,11 +119,11 @@ export class UsersController {
 Apply to a specific route:
 
 ```ts
-import { Get, Use } from '@carno.js/core';
+import { Get, Middleware } from '@carno.js/core';
 
 export class UsersController {
   @Get()
-  @Use(AuthMiddleware)
+  @Middleware(AuthMiddleware)
   findAll() {
     return [];
   }
