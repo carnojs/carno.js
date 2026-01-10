@@ -11,6 +11,7 @@ export interface TestOptions {
     port?: number;
     controllers?: (new (...args: any[]) => any)[];
     services?: (Token | any)[];
+    plugins?: Carno[];
 }
 
 /**
@@ -75,6 +76,13 @@ export async function createTestHarness(options: TestOptions = {}): Promise<Test
     };
 
     const app = new Carno(config);
+
+    // Register plugins
+    if (options.plugins) {
+        for (const plugin of options.plugins) {
+            app.use(plugin);
+        }
+    }
 
     // Register controllers
     if (options.controllers) {
