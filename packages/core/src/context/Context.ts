@@ -7,6 +7,8 @@
  * - Minimal allocations in hot path
  */
 
+import { parseQueryFromURL } from '../utils/parseQuery';
+
 const EMPTY_PARAMS: Record<string, string> = Object.freeze({}) as Record<string, string>;
 
 export class Context {
@@ -44,7 +46,7 @@ export class Context {
 
     get query(): Record<string, string> {
         if (!this._query) {
-            this._query = Object.fromEntries(this.url.searchParams);
+            this._query = parseQueryFromURL(this.req.url);
         }
 
         return this._query;
