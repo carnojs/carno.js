@@ -4,10 +4,12 @@ import { fixImportsPlugin } from 'esbuild-fix-imports-plugin'
 
 import pack from './package.json'
 
+const bundledDeps = ['reflect-metadata', 'zod']
+
 const external = [
     ...Object.keys(pack.dependencies ?? {}),
     ...Object.keys(pack.peerDependencies ?? {})
-]
+].filter(dep => !bundledDeps.includes(dep))
 
 await $`rm -rf dist`
 
