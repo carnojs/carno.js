@@ -78,7 +78,7 @@ Response time distribution:
 
 ## 🧪 Run Your Own Benchmark
 
-Don't just take our word for it! Run the benchmark yourself and see the results on your machine.
+Don't just take our word for it! You can run your own benchmarks to verify Carno.js performance.
 
 ### Prerequisites
 
@@ -94,16 +94,27 @@ cargo install oha
 
 ### Run the test
 
+Create a simple Carno.js server and benchmark it:
+
+```typescript
+// server.ts
+import { Carno, Controller, Get } from '@carno.js/core';
+
+@Controller()
+class BenchmarkController {
+  @Get('/')
+  health() {
+    return 'ok';
+  }
+}
+
+const app = new Carno({ providers: [BenchmarkController] });
+app.listen(3000);
+```
+
 ```bash
-# Clone the repository
-git clone https://github.com/carnojs/carno.js.git
-cd carno.js
-
-# Install dependencies
-bun install
-
 # Start the server (in one terminal)
-bun benchmarks/http/carno-server.ts
+bun server.ts
 
 # Run the benchmark (in another terminal)
 oha -z 6s http://localhost:3000/
