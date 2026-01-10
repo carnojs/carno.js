@@ -1,6 +1,6 @@
 {
     "name": "@carno.js/core",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "description": "Ultra-fast HTTP framework with aggressive AOT/JIT compilation",
     "main": "src/index.ts",
     "types": "src/index.ts",
@@ -14,8 +14,8 @@
         "valibot": "^1.2.0"
     },
     "dependencies": {
-        "zod": "^4.3.5",
-        "reflect-metadata": "^0.2.2"
+        "reflect-metadata": "^0.2.2",
+        "zod": "^4.3.5"
     },
     "devDependencies": {
         "esbuild-fix-imports-plugin": "^1.0.23",
