@@ -9,6 +9,9 @@
  * 5. Radix tree router for dynamic routes
  */
 
+// Import reflect-metadata globally for decorator support
+import 'reflect-metadata';
+
 // Application
 export { Carno } from './Carno';
 export type { MiddlewareHandler, CarnoConfig } from './Carno';
