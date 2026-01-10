@@ -1,4 +1,4 @@
-import { Carno } from '@carno.js/core/Carno';
+import { Carno } from '@carno.js/core';
 import { LoggerService, LoggerConfig, LogLevel } from './LoggerService';
 
 /**
