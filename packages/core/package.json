@@ -14,11 +14,12 @@
         "valibot": "^1.2.0"
     },
     "dependencies": {
-        "zod": "^4.3.5"
+        "zod": "^4.3.5",
+        "reflect-metadata": "^0.2.2"
     },
     "devDependencies": {
         "esbuild-fix-imports-plugin": "^1.0.23",
         "tsup": "^8.5.1"
     },
-    "gitHead": "631bd2c740528dba598f31f81c0c1be329f299ed"
+    "gitHead": "d2b000eeb352a03569b90d8eb2bf3557c00b741b"
 }
