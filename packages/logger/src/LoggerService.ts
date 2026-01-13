@@ -33,6 +33,8 @@ export interface LoggerConfig {
     flushInterval?: number;
 }
 
+import { OnApplicationShutdown } from '@carno.js/core';
+
 /**
  * Structured log data.
  */
@@ -104,6 +106,7 @@ export class LoggerService {
     private flushTimer: Timer | null = null;
     private flushInterval: number;
 
+
     constructor(config: LoggerConfig = {}) {
         this.level = this.parseLevel(config.level ?? LogLevel.INFO);
         this.pretty = config.pretty ?? true;
@@ -115,6 +118,14 @@ export class LoggerService {
         if (this.flushInterval > 0) {
             this.flushTimer = setInterval(() => this.flush(), this.flushInterval);
         }
+
+        // Ensure logs are flushed when the process exits
+        process.on('exit', () => this.flush());
+    }
+
+    @OnApplicationShutdown()
+    shutdown(): void {
+        this.flush();
     }
 
     /**
