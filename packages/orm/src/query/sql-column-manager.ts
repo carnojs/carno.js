@@ -1,4 +1,4 @@
-import { JoinStatement, Statement } from '../driver/driver.interface';
+import { DriverInterface, JoinStatement, Statement } from '../driver/driver.interface';
 import { EntityStorage, Options } from '../domain/entities';
 
 export class SqlColumnManager {
@@ -6,7 +6,14 @@ export class SqlColumnManager {
     private entityStorage: EntityStorage,
     private statements: Statement<any>,
     private entity: Options,
+    private driver: DriverInterface,
   ) {}
+
+  private quoteId(identifier: string): string {
+    const q = this.driver.getIdentifierQuote();
+
+    return `${q}${identifier}${q}`;
+  }
 
   generateColumns(model: Function, updatedColumns: string[]): string[] {
     const baseColumns = this.getColumnsForEntity(model, this.statements.alias!);
@@ -55,7 +62,10 @@ export class SqlColumnManager {
   private getPropertyColumns(entityOptions: Options, alias: string): string[] {
     return Object.keys(entityOptions.properties).map(key => {
       const columnName = entityOptions.properties[key].options.columnName;
-      return `${alias}."${columnName}" as "${alias}_${columnName}"`;
+      const col = this.quoteId(columnName);
+      const aliasedCol = this.quoteId(`${alias}_${columnName}`);
+
+      return `${alias}.${col} as ${aliasedCol}`;
     });
   }
 
@@ -66,7 +76,12 @@ export class SqlColumnManager {
 
     return entityOptions.relations
       .filter(relation => relation.relation === 'many-to-one')
-      .map(relation => `${alias}."${relation.columnName}" as "${alias}_${relation.columnName}"`);
+      .map(relation => {
+        const col = this.quoteId(relation.columnName);
+        const aliasedCol = this.quoteId(`${alias}_${relation.columnName}`);
+
+        return `${alias}.${col} as ${aliasedCol}`;
+      });
   }
 
   private extractAliases(columns: string[]): string[] {
@@ -86,12 +101,13 @@ export class SqlColumnManager {
 
   private buildSimpleColumnAlias(column: string, alias: string, onlyAlias: boolean): string {
     const columnName = this.getColumnNameFromProperty(column);
+    const col = this.quoteId(columnName);
 
     if (onlyAlias) {
-      return `${alias}."${columnName}"`;
+      return `${alias}.${col}`;
     }
 
-    return `${alias}."${columnName}" as ${alias}_${columnName}`;
+    return `${alias}.${col} as ${alias}_${columnName}`;
   }
 
   private buildNestedColumnAlias(column: string, onlyAlias: boolean): string | undefined {
@@ -184,12 +200,13 @@ export class SqlColumnManager {
   ): string {
     const entity = this.getEntityFromAlias(alias);
     const columnName = this.getColumnNameFromPropertyForEntity(propertyName, entity);
+    const col = this.quoteId(columnName);
 
     if (onlyAlias) {
-      return `${alias}."${columnName}"`;
+      return `${alias}.${col}`;
     }
 
-    return `${alias}."${columnName}" as ${alias}_${columnName}`;
+    return `${alias}.${col} as ${alias}_${columnName}`;
   }
 
   private getColumnNameFromProperty(propertyName: string): string {

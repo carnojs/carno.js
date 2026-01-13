@@ -37,7 +37,8 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
   }
 
   protected abstract getProtocol(): string;
-  protected abstract getIdentifierQuote(): string;
+
+  public abstract getIdentifierQuote(): string;
 
   async connect(): Promise<void> {
     if (this.sql) {
@@ -119,7 +120,11 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
     }
 
     if (value instanceof Date) {
-      return `'${value.toISOString()}'`;
+      const formatted = this.dbType === "mysql"
+        ? this.formatDateForMysql(value)
+        : value.toISOString();
+
+      return `'${formatted}'`;
     }
 
     switch (typeof value) {
@@ -138,6 +143,14 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
 
   protected escapeIdentifier(identifier: string): string {
     return `"${identifier}"`;
+  }
+
+  protected formatDateForMysql(value: Date): string {
+    return value
+      .toISOString()
+      .replace('T', ' ')
+      .replace('Z', '')
+      .replace(/\.\d{3}/, '');
   }
 
   protected buildWhereClause(where: string | undefined): string {
@@ -218,7 +231,8 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
     statement: Statement<any>,
     result: any,
     sql: string,
-    startTime: number
+    startTime: number,
+    context: any
   ): Promise<{ query: any; startTime: number; sql: string }>;
 
   async executeStatement(
@@ -230,7 +244,7 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
     if (statement.statement === "insert") {
       const sql = this.buildInsertSqlWithReturn(statement);
       const result = await context.unsafe(sql);
-      return this.handleInsertReturn(statement, result, sql, startTime);
+      return this.handleInsertReturn(statement, result, sql, startTime, context);
     }
 
     const sql = this.buildStatementSql(statement);
@@ -270,9 +284,8 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
 
     switch (type) {
       case "select":
-        return `SELECT ${
-          columns ? columns.join(", ") : "*"
-        } FROM ${table} ${alias}`;
+        return `SELECT ${columns ? columns.join(", ") : "*"
+          } FROM ${table} ${alias}`;
       case "insert":
         return this.buildInsertSql(table, values, columns, alias);
       case "update":
@@ -320,7 +333,10 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
 
     return statement.join
       .map((join) => {
-        const table = `${join.joinSchema}.${join.joinTable}`;
+        const q = this.getIdentifierQuote();
+        const table = this.dbType === 'mysql'
+          ? `${q}${join.joinTable}${q}`
+          : `${join.joinSchema}.${join.joinTable}`;
         return ` ${join.type} JOIN ${table} ${join.joinAlias} ON ${join.on}`;
       })
       .join("");

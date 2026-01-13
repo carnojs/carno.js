@@ -22,7 +22,7 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     return 'mysql';
   }
 
-  protected getIdentifierQuote(): string {
+  public getIdentifierQuote(): string {
     return '`';
   }
 
@@ -56,7 +56,8 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     statement: Statement<any>,
     result: any,
     sql: string,
-    startTime: number
+    startTime: number,
+    context: any
   ): Promise<{ query: any; startTime: number; sql: string }> {
     if (!statement.columns) {
       return {
@@ -66,10 +67,30 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
       };
     }
 
-    const insertId = result.lastInsertRowid;
+    let insertId: number | undefined;
+
+    // Check if ID was manually provided in the values
+    if (statement.values && statement.values.id) {
+      insertId = statement.values.id;
+    } else {
+      // For AUTO_INCREMENT, use LAST_INSERT_ID()
+      const lastIdResult = await context.unsafe('SELECT LAST_INSERT_ID() as id');
+      insertId = lastIdResult[0]?.id;
+    }
+
+    if (!insertId) {
+      // If no ID available, return empty result
+      return {
+        query: { rows: [] },
+        startTime,
+        sql,
+      };
+    }
+
     const cols = statement.columns.join(', ').replaceAll(`${statement.alias}.`, '');
-    const selectSql = `SELECT ${cols} FROM ${statement.table} WHERE id = ${insertId}`;
-    const selectResult = await this.sql.unsafe(selectSql);
+    const idValue = this.toDatabaseValue(insertId);
+    const selectSql = `SELECT ${cols} FROM ${statement.table} WHERE id = ${idValue}`;
+    const selectResult = await context.unsafe(selectSql);
 
     return {
       query: { rows: Array.isArray(selectResult) ? selectResult : [] },
@@ -99,7 +120,7 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
   ): string {
     let beforeSql = ``;
 
-    const st = `CREATE TABLE \`${schema}\`.\`${tableName}\` (${creates
+    const st = `CREATE TABLE \`${tableName}\` (${creates
       .map((colDiff) => {
         const isAutoIncrement = colDiff.colChanges?.autoIncrement;
         let sql = ``;
@@ -145,7 +166,7 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     colDiff: ColDiff,
     fk: ForeignKeyInfo
   ): string {
-    return `ALTER TABLE \`${schema}\`.\`${tableName}\` ADD CONSTRAINT \`${tableName}_${colDiff.colName}_fk\` FOREIGN KEY (\`${colDiff.colName}\`) REFERENCES \`${fk.referencedTableName}\` (\`${fk.referencedColumnName}\`);`;
+    return `ALTER TABLE \`${tableName}\` ADD CONSTRAINT \`${tableName}_${colDiff.colName}_fk\` FOREIGN KEY (\`${colDiff.colName}\`) REFERENCES \`${fk.referencedTableName}\` (\`${fk.referencedColumnName}\`);`;
   }
 
   getCreateIndex(
@@ -164,7 +185,7 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
 
     const columns = properties.map((prop) => `\`${prop}\``).join(', ');
 
-    return `CREATE INDEX \`${index.name}\` ON \`${schema}\`.\`${tableName}\` (${columns});`;
+    return `CREATE INDEX \`${index.name}\` ON \`${tableName}\` (${columns});`;
   }
 
   getAddColumn(
@@ -180,9 +201,9 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
       const enumValues = colDiff.colChanges.enumItems
         .map((item) => `'${item}'`)
         .join(', ');
-      sql += `ALTER TABLE \`${schema}\`.\`${tableName}\` ADD COLUMN \`${colDiff.colName}\` ENUM(${enumValues})`;
+      sql += `ALTER TABLE \`${tableName}\` ADD COLUMN \`${colDiff.colName}\` ENUM(${enumValues})`;
     } else {
-      sql += `ALTER TABLE \`${schema}\`.\`${tableName}\` ADD COLUMN \`${colName}\` ${colDiff.colType}${colDiff.colLength ? `(${colDiff.colLength})` : ''}`;
+      sql += `ALTER TABLE \`${tableName}\` ADD COLUMN \`${colName}\` ${colDiff.colType}${colDiff.colLength ? `(${colDiff.colLength})` : ''}`;
     }
 
     if (!colDiff.colChanges?.nullable) {
@@ -206,7 +227,7 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     if (colDiff.colChanges?.foreignKeys) {
       colDiff.colChanges.foreignKeys.forEach((fk) => {
         colDiffInstructions.push(
-          `ALTER TABLE \`${schema}\`.\`${tableName}\` ADD CONSTRAINT \`${tableName}_${colName}_fk\` FOREIGN KEY (\`${colName}\`) REFERENCES \`${fk.referencedTableName}\` (\`${fk.referencedColumnName}\`);`
+          `ALTER TABLE \`${tableName}\` ADD CONSTRAINT \`${tableName}_${colName}_fk\` FOREIGN KEY (\`${colName}\`) REFERENCES \`${fk.referencedTableName}\` (\`${fk.referencedColumnName}\`);`
         );
       });
     }
@@ -219,7 +240,7 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     colName: string
   ): void {
     colDiffInstructions.push(
-      `ALTER TABLE \`${schema}\`.\`${tableName}\` DROP COLUMN IF EXISTS \`${colName}\`;`
+      `ALTER TABLE \`${tableName}\` DROP COLUMN IF EXISTS \`${colName}\`;`
     );
   }
 
@@ -228,7 +249,7 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     schema: string | undefined,
     tableName: string
   ): string {
-    return `ALTER TABLE \`${schema}\`.\`${tableName}\` DROP INDEX \`${index.name}\`;`;
+    return `ALTER TABLE \`${tableName}\` DROP INDEX \`${index.name}\`;`;
   }
 
   getCreateUniqueConstraint(
@@ -244,7 +265,7 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
 
     const columns = properties.map((prop) => `\`${prop}\``).join(', ');
 
-    return `ALTER TABLE \`${schema}\`.\`${tableName}\` ADD CONSTRAINT \`${unique.name}\` UNIQUE (${columns});`;
+    return `ALTER TABLE \`${tableName}\` ADD CONSTRAINT \`${unique.name}\` UNIQUE (${columns});`;
   }
 
   getDropUniqueConstraint(
@@ -252,7 +273,7 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     schema: string | undefined,
     tableName: string
   ): string {
-    return `ALTER TABLE \`${schema}\`.\`${tableName}\` DROP INDEX \`${unique.name}\`;`;
+    return `ALTER TABLE \`${tableName}\` DROP INDEX \`${unique.name}\`;`;
   }
 
   getAlterTableType(
@@ -261,7 +282,7 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     colName: string,
     colDiff: ColDiff
   ): string {
-    return `ALTER TABLE \`${schema}\`.\`${tableName}\` MODIFY COLUMN \`${colName}\` ${colDiff.colType}${colDiff.colLength ? `(${colDiff.colLength})` : ''};`;
+    return `ALTER TABLE \`${tableName}\` MODIFY COLUMN \`${colName}\` ${colDiff.colType}${colDiff.colLength ? `(${colDiff.colLength})` : ''};`;
   }
 
   getAlterTableDefaultInstruction(
@@ -270,7 +291,7 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     colName: string,
     colDiff: ColDiff
   ): string {
-    return `ALTER TABLE \`${schema}\`.\`${tableName}\` ALTER COLUMN \`${colName}\` SET DEFAULT ${colDiff.colChanges!.default};`;
+    return `ALTER TABLE \`${tableName}\` ALTER COLUMN \`${colName}\` SET DEFAULT ${colDiff.colChanges!.default};`;
   }
 
   getAlterTablePrimaryKeyInstruction(
@@ -279,7 +300,7 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     colName: string,
     colDiff: ColDiff
   ): string {
-    return `ALTER TABLE \`${schema}\`.\`${tableName}\` ADD PRIMARY KEY (\`${colName}\`);`;
+    return `ALTER TABLE \`${tableName}\` ADD PRIMARY KEY (\`${colName}\`);`;
   }
 
   getDropConstraint(
@@ -287,7 +308,7 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     schema: string | undefined,
     tableName: string
   ): string {
-    return `ALTER TABLE \`${schema}\`.\`${tableName}\` DROP FOREIGN KEY \`${param.name}\`;`;
+    return `ALTER TABLE \`${tableName}\` DROP FOREIGN KEY \`${param.name}\`;`;
   }
 
   getAddUniqueConstraint(
@@ -295,7 +316,7 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     tableName: string,
     colName: string
   ): string {
-    return `ALTER TABLE \`${schema}\`.\`${tableName}\` ADD UNIQUE (\`${colName}\`);`;
+    return `ALTER TABLE \`${tableName}\` ADD UNIQUE (\`${colName}\`);`;
   }
 
   getAlterTableDropNullInstruction(
@@ -304,7 +325,7 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     colName: string,
     colDiff: ColDiff
   ): string {
-    return `ALTER TABLE \`${schema}\`.\`${tableName}\` MODIFY COLUMN \`${colName}\` ${colDiff.colType} NULL;`;
+    return `ALTER TABLE \`${tableName}\` MODIFY COLUMN \`${colName}\` ${colDiff.colType} NULL;`;
   }
 
   getAlterTableDropNotNullInstruction(
@@ -313,7 +334,7 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     colName: string,
     colDiff: ColDiff
   ): string {
-    return `ALTER TABLE \`${schema}\`.\`${tableName}\` MODIFY COLUMN \`${colName}\` ${colDiff.colType} NOT NULL;`;
+    return `ALTER TABLE \`${tableName}\` MODIFY COLUMN \`${colName}\` ${colDiff.colType} NOT NULL;`;
   }
 
   getAlterTableEnumInstruction(
@@ -326,7 +347,7 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
       .map((item) => `'${item}'`)
       .join(', ');
 
-    return `ALTER TABLE \`${schema}\`.\`${tableName}\` MODIFY COLUMN \`${colName}\` ENUM(${enumValues});`;
+    return `ALTER TABLE \`${tableName}\` MODIFY COLUMN \`${colName}\` ENUM(${enumValues});`;
   }
 
   getDropTypeEnumInstruction(
@@ -399,7 +420,7 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     options: any
   ): Promise<SnapshotIndexInfo[] | undefined> {
     const result = await this.sql.unsafe(
-      `SHOW INDEX FROM \`${tableName}\` FROM \`${options.schema || 'information_schema'}\``
+      `SHOW INDEX FROM \`${tableName}\``
     );
 
     return result

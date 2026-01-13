@@ -10,13 +10,16 @@
     "lint": "tsc --noEmit",
     "compile": "npm run build",
     "pretest": "docker-compose up -d",
-    "test": "bun test",
+    "test": "npm run test:postgres && npm run test:mysql",
+    "test:postgres": "cross-env DB_DRIVER=postgres bun test",
+    "test:mysql": "cross-env DB_DRIVER=mysql bun test",
     "posttest": "docker-compose down"
   },
   "devDependencies": {
     "@types/bun": "^1.3.5",
     "@types/node": "^24.9.1",
     "bun-types": "latest",
+    "cross-env": "^10.1.0",
     "lerna": "^7.4.2",
     "typescript": "^5.9.3"
   },

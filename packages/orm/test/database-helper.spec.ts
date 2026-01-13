@@ -1,5 +1,4 @@
 import path from 'path';
-import path from 'path';
 import {describe, expect, test} from 'bun:test';
 import {withDatabase, DatabaseTestContext} from '../src/testing';
 
@@ -33,14 +32,18 @@ async function insertAccount(context: DatabaseTestContext): Promise<void> {
 
 async function countRows(context: DatabaseTestContext, table: string): Promise<number> {
   const result = await context.executeSql(
-    `SELECT COUNT(*)::int AS total FROM "${table}";`,
+    `SELECT COUNT(*) AS total FROM "${table}";`,
   );
 
-  return result.rows[0]?.total ?? 0;
+  const total = result.rows[0]?.total ?? 0;
+
+  return Number(total);
 }
 
 describe('Database test helper', () => {
-  test('withDatabase prepares schema and resets state between runs', async () => {
+  test(
+    'withDatabase prepares schema and resets state between runs',
+    async () => {
     await withDatabase([USERS_TABLE], async (context) => {
       // Given
       const usersBeforeInsert = await countUsers(context);
@@ -50,7 +53,7 @@ describe('Database test helper', () => {
       // Then
       expect(usersBeforeInsert).toBe(0);
       expect(usersAfterInsert).toBe(1);
-    }, { connection: { port: 5433 } });
+    });
 
     await withDatabase([USERS_TABLE], async (context) => {
       // Given
@@ -60,10 +63,14 @@ describe('Database test helper', () => {
       // Then
       expect(usersOnFreshSchema).toBe(0);
       expect(shouldStayEmpty).toBe(0);
-    }, { connection: { port: 5433 } });
-  });
+    });
+  },
+    {timeout: 10_000},
+  );
 
-  test('withDatabase derives schema from migrations when statements omitted', async () => {
+  test(
+    'withDatabase derives schema from migrations when statements omitted',
+    async () => {
     await withDatabase(
       async (context) => {
         // Given
@@ -76,8 +83,10 @@ describe('Database test helper', () => {
         expect(afterInsert).toBe(1);
       },
       {
-        connection: { migrationPath: MIGRATIONS_GLOB, port: 5433 },
+        connection: { migrationPath: MIGRATIONS_GLOB },
       },
     );
-  });
+  },
+    {timeout: 10_000},
+  );
 });

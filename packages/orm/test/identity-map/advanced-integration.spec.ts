@@ -173,6 +173,7 @@ describe('Identity Map Advanced Integration', () => {
 
   beforeEach(async () => {
     await startDatabase();
+    await purgeDatabase();
     await execute(DDL_COMPANY);
     await execute(DDL_DEPARTMENT);
     await execute(DDL_EMPLOYEE);

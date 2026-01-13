@@ -43,6 +43,20 @@ export class SqlBuilder<T> {
   // Pre-bound callback to avoid closure allocation
   private readonly boundGetAlias: (tableName: string) => string;
 
+  private quoteId(identifier: string): string {
+    const q = this.driver.getIdentifierQuote();
+
+    return `${q}${identifier}${q}`;
+  }
+
+  private qualifyTable(schema: string, tableName: string): string {
+    if (this.driver.dbType === 'mysql') {
+      return this.quoteId(tableName);
+    }
+
+    return `${this.quoteId(schema)}.${this.quoteId(tableName)}`;
+  }
+
   constructor(model: new () => T) {
     const orm = Orm.getInstance();
     this.driver = orm.driverInstance;
@@ -60,6 +74,7 @@ export class SqlBuilder<T> {
       this.entityStorage,
       this.statements,
       this.entity,
+      this.driver,
     );
 
     const applyJoinWrapper = (relationship: Relationship<any>, value: FilterQuery<any>, alias: string) => {
@@ -70,11 +85,13 @@ export class SqlBuilder<T> {
       this.entityStorage,
       applyJoinWrapper,
       this.statements,
+      this.driver,
     );
 
     const subqueryBuilder = new SqlSubqueryBuilder(
       this.entityStorage,
       () => this.conditionBuilder,
+      this.driver,
     );
 
     this.conditionBuilder.setSubqueryBuilder(subqueryBuilder);
@@ -115,7 +132,7 @@ export class SqlBuilder<T> {
     this.statements.columns = columns
     this.originalColumns = columns || [];
     this.statements.alias = this.getAlias(tableName);
-    this.statements.table = `"${schema}"."${tableName}"`;
+    this.statements.table = this.qualifyTable(schema, tableName);
     return this;
   }
 
@@ -135,7 +152,7 @@ export class SqlBuilder<T> {
     this.statements.statement = 'insert';
     this.statements.instance = ValueProcessor.createInstance(processedValues, this.model, 'insert');
     this.statements.alias = this.getAlias(tableName);
-    this.statements.table = `"${schema}"."${tableName}"`;
+    this.statements.table = this.qualifyTable(schema, tableName);
     this.statements.values = this.withUpdatedValues(
       this.withDefaultValues(processedValues, this.entity),
       this.entity,
@@ -149,7 +166,7 @@ export class SqlBuilder<T> {
     const processedValues = ValueProcessor.processForUpdate(values, this.entity);
     this.statements.statement = 'update';
     this.statements.alias = this.getAlias(tableName);
-    this.statements.table = `${schema}.${tableName}`;
+    this.statements.table = this.qualifyTable(schema, tableName);
     this.statements.values = this.withUpdatedValues(processedValues, this.entity);
     this.statements.instance = ValueProcessor.createInstance(processedValues, this.model, 'update');
     return this;
@@ -160,7 +177,7 @@ export class SqlBuilder<T> {
 
     this.statements.statement = 'delete';
     this.statements.alias = this.getAlias(tableName);
-    this.statements.table = `${schema}.${tableName}`;
+    this.statements.table = this.qualifyTable(schema, tableName);
 
     return this;
   }
@@ -227,7 +244,7 @@ export class SqlBuilder<T> {
     const {tableName, schema} = this.getTableName();
     this.statements.statement = 'count';
     this.statements.alias = this.getAlias(tableName);
-    this.statements.table = `"${schema}"."${tableName}"`;
+    this.statements.table = this.qualifyTable(schema, tableName);
     return this;
   }
 
@@ -797,7 +814,9 @@ export class SqlBuilder<T> {
   private applyOnInsert(values: any, key: string, property: any): void {
     const columnName = property.options.columnName;
     values[columnName] = property.options.onInsert!();
-    this.updatedColumns.push(`${this.statements.alias}."${columnName}" as "${this.statements.alias}_${columnName}"`);
+    const col = this.quoteId(columnName);
+    const aliasedCol = this.quoteId(`${this.statements.alias}_${columnName}`);
+    this.updatedColumns.push(`${this.statements.alias}.${col} as ${aliasedCol}`);
   }
 
   private withUpdatedValues(values: any, entityOptions: Options) {
@@ -809,7 +828,9 @@ export class SqlBuilder<T> {
   private applyOnUpdate(values: any, property: any): void {
     const columnName = property.options.columnName;
     values[columnName] = property.options.onUpdate!();
-    this.updatedColumns.push(`${this.statements.alias}."${columnName}" as "${this.statements.alias}_${columnName}"`);
+    const col = this.quoteId(columnName);
+    const aliasedCol = this.quoteId(`${this.statements.alias}_${columnName}`);
+    this.updatedColumns.push(`${this.statements.alias}.${col} as ${aliasedCol}`);
   }
 
   public callHook(type: string, model?: any) {

@@ -5,54 +5,73 @@ import {Metadata} from '@carno.js/core';
 import {EntityStorage} from '../domain/entities';
 import {Orm} from '../orm';
 import {OrmService} from '../orm.service';
-import {BunPgDriver} from '../driver/bun-pg.driver';
-import {ConnectionSettings} from '../driver/driver.interface';
+import {ConnectionSettings, DriverInterface} from '../driver/driver.interface';
 import {ormSessionContext} from '../orm-session-context';
 import {ENTITIES} from '../constants';
 import type {Logger} from '../logger';
+import {BunMysqlDriver} from '../driver/bun-mysql.driver';
+import {
+  DriverType,
+  getDefaultConnectionSettings,
+  getDriverClass,
+  getDriverType,
+} from '../driver/driver-factory';
 
 export type DatabaseTestContext = {
-  orm: Orm<BunPgDriver>;
+  orm: Orm<DriverInterface>;
   executeSql: (sql: string) => Promise<{ rows: unknown[] }>;
+  driverType: DriverType;
+  getDbType: () => 'postgres' | 'mysql';
 };
 
 export type DatabaseTestOptions = {
   schema?: string;
   entityFile?: string;
   logger?: Logger;
-  connection?: Partial<ConnectionSettings<BunPgDriver>>;
+  connection?: Partial<ConnectionSettings>;
 };
 
 type DatabaseSession = {
-  orm: Orm<BunPgDriver>;
+  orm: Orm<DriverInterface>;
   schema: string;
   storage: EntityStorage;
+  driverType: DriverType;
 };
 
 type DatabaseTestRoutine = (context: DatabaseTestContext) => Promise<void>;
 
 const DEFAULT_SCHEMA = 'public';
 
-const DEFAULT_CONNECTION: ConnectionSettings<BunPgDriver> = {
-  host: 'localhost',
-  port: 5432,
-  database: 'postgres',
-  username: 'postgres',
-  password: 'postgres',
-  driver: BunPgDriver,
-};
+function getDefaultConnection(options?: DatabaseTestOptions): ConnectionSettings {
+  const driverType = getDriverType();
+  const driverClass = getDriverClass(driverType);
+  const settings = getDefaultConnectionSettings(driverType);
+  const databaseName = resolveTestDatabaseName(options);
+
+  if (driverType === 'mysql' && databaseName) {
+    settings.database = databaseName;
+  }
+
+  return {
+    ...settings,
+    driver: driverClass,
+  };
+}
 
 type CachedSession = {
-  orm: Orm<BunPgDriver>;
+  orm: Orm<DriverInterface>;
   schema: string;
   storage: EntityStorage;
+  driverType: DriverType;
 };
 
 const sessionCache = new Map<string, CachedSession>();
 
 function getCacheKey(options: DatabaseTestOptions): string {
-  const connection = resolveConnection(options.connection);
+  const connection = resolveConnection(options.connection, options);
   const entitySignature = resolveEntitySignature();
+  const driverType = getDriverType();
+
   return JSON.stringify({
     host: connection.host,
     port: connection.port,
@@ -61,6 +80,7 @@ function getCacheKey(options: DatabaseTestOptions): string {
     entityFile: options.entityFile,
     migrationPath: connection.migrationPath,
     entitySignature,
+    driverType,
   });
 }
 
@@ -115,12 +135,13 @@ export async function withDatabase(
       orm: session.orm,
       schema: session.schema,
       storage: session.storage,
+      driverType: session.driverType,
     };
     sessionCache.set(cacheKey, cachedSession);
   }
 
   await runWithSession(cachedSession, async () => {
-    const context = buildContext(cachedSession.orm);
+    const context = buildContext(cachedSession.orm, cachedSession.driverType);
 
     await dropAndRecreateSchema(context, cachedSession.schema);
     await prepareSchema(context, cachedSession.schema);
@@ -130,16 +151,17 @@ export async function withDatabase(
 }
 
 async function createSession(options: DatabaseTestOptions): Promise<DatabaseSession> {
-  const orm: Orm<BunPgDriver> = new Orm<BunPgDriver>();
+  const orm: Orm<DriverInterface> = new Orm<DriverInterface>();
   const storage = new EntityStorage();
+  const driverType = getDriverType();
 
   await initializeOrm(orm, storage, options);
 
-  return {orm, schema: options.schema ?? DEFAULT_SCHEMA, storage};
+  return {orm, schema: options.schema ?? DEFAULT_SCHEMA, storage, driverType};
 }
 
 async function initializeOrm(
-  orm: Orm<BunPgDriver>,
+  orm: Orm<DriverInterface>,
   storage: EntityStorage,
   options: DatabaseTestOptions,
 ): Promise<void> {
@@ -153,7 +175,11 @@ async function initializeOrm(
   }
 
   const service = new OrmService(orm, storage, options.entityFile);
-  const connection = resolveConnection(options.connection);
+  const connection = resolveConnection(options.connection, options);
+
+  if (getDriverType() === 'mysql') {
+    await ensureMysqlDatabase(connection);
+  }
 
   await service.onInit(connection);
 }
@@ -169,34 +195,79 @@ async function runWithSession(
 }
 
 function resolveConnection(
-  overrides: Partial<ConnectionSettings<BunPgDriver>> | undefined,
-): ConnectionSettings<BunPgDriver> {
+  overrides: Partial<ConnectionSettings> | undefined,
+  options?: DatabaseTestOptions,
+): ConnectionSettings {
+  const defaultConnection = getDefaultConnection(options);
+
   if (!overrides) {
-    return DEFAULT_CONNECTION;
+    return defaultConnection;
   }
 
   return {
-    ...DEFAULT_CONNECTION,
+    ...defaultConnection,
     ...overrides,
-    driver: overrides.driver ?? BunPgDriver,
+    driver: overrides.driver ?? defaultConnection.driver,
   };
 }
 
-function buildContext(orm: Orm<BunPgDriver>): DatabaseTestContext {
+function buildContext(orm: Orm<DriverInterface>, driverType: DriverType): DatabaseTestContext {
   return {
     orm,
     executeSql: (sql: string) => executeSql(orm, sql),
+    driverType,
+    getDbType: () => orm.driverInstance?.dbType || 'postgres',
   };
 }
 
-async function executeSql(orm: Orm<BunPgDriver>, sql: string): Promise<{ rows: unknown[] }> {
+async function executeSql(orm: Orm<DriverInterface>, sql: string): Promise<{ rows: unknown[] }> {
   if (!orm.driverInstance) {
     throw new Error('Database driver not initialized. Call withDatabase() before executing SQL.');
   }
 
-  const result = await orm.driverInstance.executeSql(sql);
+  let adaptedSql = sql;
+
+  if (orm.driverInstance.dbType === 'mysql') {
+    adaptedSql = adaptSqlForMysql(sql);
+  }
+
+  const result = await orm.driverInstance.executeSql(adaptedSql);
 
   return {rows: Array.isArray(result) ? result : []};
+}
+
+function adaptSqlForMysql(sql: string): string {
+  let adapted = sql;
+  const enumTypes: Record<string, string> = {};
+
+  adapted = adapted.replace(
+    /CREATE\s+TYPE\s+"?([A-Za-z0-9_]+)"?\s+AS\s+ENUM\s*\(([^;]+)\);?/gi,
+    (_match, typeName: string, values: string) => {
+      enumTypes[typeName] = `ENUM(${values})`;
+      return '';
+    },
+  );
+
+  adapted = adapted.replace(/SERIAL\s+PRIMARY\s+KEY/gi, 'INT AUTO_INCREMENT PRIMARY KEY');
+  adapted = adapted.replace(/SERIAL/gi, 'INT AUTO_INCREMENT');
+  adapted = adapted.replace(/\buuid\b/gi, 'CHAR(36)');
+  adapted = adapted.replace(/TIMESTAMPTZ/gi, 'TIMESTAMP');
+  adapted = adapted.replace(/NOW\(\)/gi, 'CURRENT_TIMESTAMP');
+  adapted = adapted.replace(/boolean/gi, 'TINYINT(1)');
+  adapted = adapted.replace(/TRUE/gi, '1');
+  adapted = adapted.replace(/FALSE/gi, '0');
+  adapted = adapted.replace(
+    /'(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})\.\d{3}Z'/g,
+    "'$1 $2'",
+  );
+  adapted = adapted.replace(/"([^"]+)"/g, '`$1`');
+
+  for (const [typeName, enumDefinition] of Object.entries(enumTypes)) {
+    const typePattern = new RegExp(`\\b${typeName}\\b`, 'g');
+    adapted = adapted.replace(typePattern, enumDefinition);
+  }
+
+  return adapted;
 }
 
 async function createTables(context: DatabaseTestContext, statements: string[]): Promise<void> {
@@ -216,7 +287,31 @@ async function executeStatements(context: DatabaseTestContext, statements: strin
 }
 
 async function dropAndRecreateSchema(context: DatabaseTestContext, schema: string): Promise<void> {
+  const dbType = context.getDbType();
+
+  if (dbType === 'mysql') {
+    await cleanupMysqlDatabase(context);
+
+    return;
+  }
+
   await context.executeSql(`DROP SCHEMA IF EXISTS ${schema} CASCADE; CREATE SCHEMA ${schema};`);
+}
+
+async function cleanupMysqlDatabase(context: DatabaseTestContext): Promise<void> {
+  await context.executeSql('SET FOREIGN_KEY_CHECKS = 0');
+
+  const result = await context.executeSql(
+    `SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'`
+  );
+
+  for (const row of result.rows as any[]) {
+    const tableName = row.table_name || row.TABLE_NAME;
+
+    await context.executeSql(`DROP TABLE IF EXISTS \`${tableName}\``);
+  }
+
+  await context.executeSql('SET FOREIGN_KEY_CHECKS = 1');
 }
 
 type WithDatabaseArgs = {
@@ -269,7 +364,7 @@ function normalizeGlobPattern(pattern: string): string {
 }
 
 async function loadStatementsFromMigrations(options: DatabaseTestOptions): Promise<string[]> {
-  const connection = resolveConnection(options.connection);
+  const connection = resolveConnection(options.connection, options);
   const patterns = await resolveMigrationPatterns(connection);
 
   if (patterns.length < 1) {
@@ -289,7 +384,7 @@ async function loadStatementsFromMigrations(options: DatabaseTestOptions): Promi
 }
 
 async function resolveMigrationPatterns(
-  connection: ConnectionSettings<BunPgDriver>,
+  connection: ConnectionSettings,
 ): Promise<string[]> {
   if (connection.migrationPath) {
     return [connection.migrationPath];
@@ -302,6 +397,59 @@ async function resolveMigrationPatterns(
   }
 
   return [];
+}
+
+function resolveTestDatabaseName(options?: DatabaseTestOptions): string | undefined {
+  const envFile = process.env.BUN_TEST_FILE || process.env.BUN_TEST_FILE_PATH;
+  const filePath = options?.entityFile ?? envFile ?? findTestFileFromStack();
+
+  if (!filePath) {
+    return undefined;
+  }
+
+  const base = path
+    .basename(filePath)
+    .replace(/\W+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toLowerCase();
+
+  if (!base) {
+    return undefined;
+  }
+
+  return `mysql_test_${base}`.slice(0, 63);
+}
+
+function findTestFileFromStack(): string | undefined {
+  const stack = new Error().stack?.split('\n') ?? [];
+
+  for (const line of stack) {
+    const match = line.match(/\(([^)]+?\.(?:test|spec)\.[jt]s)(?::\d+:\d+)?\)/)
+      ?? line.match(/at ([^ ]+?\.(?:test|spec)\.[jt]s)(?::\d+:\d+)?/);
+
+    if (match?.[1]) {
+      return match[1].replace(/^file:\/\//, '');
+    }
+  }
+
+  return undefined;
+}
+
+async function ensureMysqlDatabase(settings: ConnectionSettings): Promise<void> {
+  if (!settings.database) {
+    return;
+  }
+
+  const defaultMysql = getDefaultConnectionSettings('mysql');
+  const adminSettings: ConnectionSettings = {
+    ...settings,
+    database: defaultMysql.database || 'mysql',
+  };
+  const adminDriver = new BunMysqlDriver(adminSettings);
+
+  await adminDriver.connect();
+  await adminDriver.executeSql(`CREATE DATABASE IF NOT EXISTS \`${settings.database}\``);
+  await adminDriver.disconnect();
 }
 
 async function inferMigrationPathFromConfig(): Promise<string | undefined> {
@@ -408,6 +556,12 @@ function sortMigrationFiles(files: string[]): string[] {
 }
 
 async function prepareSchema(context: DatabaseTestContext, schema: string): Promise<void> {
+  const dbType = context.getDbType();
+
+  if (dbType === 'mysql') {
+    return;
+  }
+
   await context.executeSql(buildCreateSchemaStatement(schema));
   await ensureSearchPath(context, schema);
 }
