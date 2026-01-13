@@ -150,8 +150,12 @@ export abstract class BaseEntity {
     if (this.$_isPersisted) {
       qb.update(this._changedValues);
       qb.setInstance(this)
-        // @ts-ignore
-        qb.where({id: this._oldValues.id})
+      // Use cached primary key property name instead of hardcoded 'id'
+      const storage = EntityStorage.getInstance();
+      const options = storage.get(this.constructor);
+      const pkName = options?._primaryKeyPropertyName || 'id';
+      // @ts-ignore
+      qb.where({ [pkName]: this._oldValues[pkName] })
     } else {
       qb.insert(this._oldValues)
     }
@@ -166,13 +170,27 @@ export abstract class BaseEntity {
     this._changedValues = {}
   }
 
-    /**
-     * Determines whether the current object has been persisted after the last modification.
-     *
-     * @return {boolean} Returns true if the object has been persisted, otherwise false.
-     */
+  /**
+   * Determines whether the current object has been persisted after the last modification.
+   *
+   * @return {boolean} Returns true if the object has been persisted, otherwise false.
+   */
   public isPersisted() {
     return this.$_isPersisted;
+  }
+
+  /**
+   * Removes this entity from the database.
+   * Uses cached primary key property name instead of hardcoded 'id'.
+   */
+  public async remove() {
+    const qb = this.createQueryBuilder();
+    const storage = EntityStorage.getInstance();
+    const options = storage.get(this.constructor);
+    const pkName = options?._primaryKeyPropertyName || 'id';
+    // @ts-ignore
+    qb.delete().where({ [pkName]: this._oldValues[pkName] });
+    await qb.execute();
   }
 
   public toJSON(): Record<string, any> {

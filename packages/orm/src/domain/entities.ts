@@ -27,6 +27,10 @@ export type Options = {
   tableName: string;
   hooks?: { type: string; propertyName: string }[];
   schema?: string;
+
+  // Cache de metadata da primary key (computado uma vez no registro)
+  _primaryKeyPropertyName?: string;  // Nome da propriedade TypeScript (ex: "uuid", "productId")
+  _primaryKeyColumnName?: string;    // Nome da coluna no DB (ex: "user_uuid", "product_id")
 };
 
 type IndexColumnMap = Record<string, string>;
@@ -222,6 +226,9 @@ export class EntityStorage {
     const uniques: UniqueDefinition[] = Metadata.get("uniques", entity.target) || [];
     const columnMap = buildIndexColumnMap(properties, relations);
 
+    // Compute primary key cache once during registration
+    const pkInfo = this.computePrimaryKeyInfo(properties);
+
     this.entities.set(entity.target, {
       properties: properties,
       hideProperties: Object.entries(properties)
@@ -233,6 +240,8 @@ export class EntityStorage {
       hooks,
       tableName: entityName,
       ...entity.options,
+      _primaryKeyPropertyName: pkInfo.propertyName,
+      _primaryKeyColumnName: pkInfo.columnName,
     });
   }
 
@@ -242,6 +251,31 @@ export class EntityStorage {
 
   entries() {
     return this.entities.entries();
+  }
+
+  /**
+   * Computa metadados da primary key a partir das propriedades da entidade.
+   * Chamado uma vez durante o registro da entidade para lookups O(1).
+   * @private
+   */
+  private computePrimaryKeyInfo(properties: { [key: string]: Property }): {
+    propertyName: string;
+    columnName: string;
+  } {
+    for (const prop in properties) {
+      if (properties[prop].options.isPrimary) {
+        return {
+          propertyName: prop,
+          columnName: properties[prop].options.columnName,
+        };
+      }
+    }
+
+    // Fallback para 'id' (backward compatibility)
+    return {
+      propertyName: 'id',
+      columnName: 'id',
+    };
   }
 
   static getInstance() {

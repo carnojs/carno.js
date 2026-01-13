@@ -18,7 +18,7 @@ export class SqlJoinManager<T> {
     private modelTransformer: ModelTransformer,
     private getOriginalColumnsCallback: () => string[],
     private getAliasCallback: (tableName: string) => string,
-  ) {}
+  ) { }
 
   private quoteId(identifier: string): string {
     const q = this.driver.getIdentifierQuote();
@@ -82,7 +82,7 @@ export class SqlJoinManager<T> {
   }
 
   applyJoin(relationShip: Relationship<any>, value: FilterQuery<any>, alias: string): string {
-    const {tableName, schema} = this.getTableName();
+    const { tableName, schema } = this.getTableName();
     const {
       tableName: joinTableName,
       schema: joinSchema,
@@ -313,6 +313,11 @@ export class SqlJoinManager<T> {
 
   private getFkKey(relationShip: Relationship<any>): string {
     if (typeof relationShip.fkKey === 'undefined') {
+      // Use cached primary key column name from the related entity instead of hardcoded 'id'
+      const relatedEntity = this.entityStorage.get(relationShip.entity() as Function);
+      if (relatedEntity) {
+        return relatedEntity._primaryKeyColumnName || 'id';
+      }
       return 'id';
     }
 
@@ -353,17 +358,11 @@ export class SqlJoinManager<T> {
   private getTableName(): { tableName: string; schema: string } {
     const tableName = this.entity.tableName || (this.model as Function).name.toLowerCase();
     const schema = this.entity.schema || 'public';
-    return {tableName, schema};
+    return { tableName, schema };
   }
 
   private getPrimaryKey(): string {
-    for (const prop in this.entity.properties) {
-      if (this.entity.properties[prop].options.isPrimary) {
-        return prop;
-      }
-    }
-
-    return 'id';
+    return this.entity._primaryKeyPropertyName || 'id';
   }
 
   private formatValue(value: any): string {
