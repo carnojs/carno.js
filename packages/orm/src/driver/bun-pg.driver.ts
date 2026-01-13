@@ -22,7 +22,7 @@ export class BunPgDriver extends BunDriverBase implements DriverInterface {
     return 'postgres';
   }
 
-  protected getIdentifierQuote(): string {
+  public getIdentifierQuote(): string {
     return '"';
   }
 
@@ -58,7 +58,8 @@ export class BunPgDriver extends BunDriverBase implements DriverInterface {
     statement: Statement<any>,
     result: any,
     sql: string,
-    startTime: number
+    startTime: number,
+    context: any
   ): Promise<{ query: any; startTime: number; sql: string }> {
     return {
       query: { rows: Array.isArray(result) ? result : [] },

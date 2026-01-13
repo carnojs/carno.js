@@ -1,4 +1,4 @@
-import { FilterQuery, Relationship } from '../driver/driver.interface';
+import { DriverInterface, FilterQuery, Relationship } from '../driver/driver.interface';
 import { EntityStorage } from '../domain/entities';
 import { SqlConditionBuilder } from './sql-condition-builder';
 
@@ -8,7 +8,22 @@ export class SqlSubqueryBuilder {
   constructor(
     private entityStorage: EntityStorage,
     private getConditionBuilder: () => SqlConditionBuilder<any>,
+    private driver: DriverInterface,
   ) {}
+
+  private quoteId(identifier: string): string {
+    const q = this.driver.getIdentifierQuote();
+
+    return `${q}${identifier}${q}`;
+  }
+
+  private qualifyTable(schema: string, tableName: string): string {
+    if (this.driver.dbType === 'mysql') {
+      return this.quoteId(tableName);
+    }
+
+    return `${this.quoteId(schema)}.${this.quoteId(tableName)}`;
+  }
 
   buildExistsSubquery(
     relationship: Relationship<any>,
@@ -72,11 +87,16 @@ export class SqlSubqueryBuilder {
     const relatedPkKey = this.getRelatedPrimaryKey(relationship);
 
     if (relationship.relation === 'one-to-many') {
-      return `${subqueryAlias}."${fkKey}" = ${outerAlias}."${outerPkKey}"`;
+      const fk = this.quoteId(fkKey);
+      const pk = this.quoteId(outerPkKey);
+
+      return `${subqueryAlias}.${fk} = ${outerAlias}.${pk}`;
     }
 
-    const outerFk = relationship.columnName as string;
-    return `${outerAlias}."${outerFk}" = ${subqueryAlias}."${relatedPkKey}"`;
+    const outerFk = this.quoteId(relationship.columnName as string);
+    const relatedPk = this.quoteId(relatedPkKey);
+
+    return `${outerAlias}.${outerFk} = ${subqueryAlias}.${relatedPk}`;
   }
 
   private getOuterPrimaryKey(relationship: Relationship<any>, outerModel?: Function): string {
@@ -125,12 +145,14 @@ export class SqlSubqueryBuilder {
 
     if (!entity) {
       const name = (relationship.entity() as Function).name.toLowerCase();
-      return `public.${name}`;
+
+      return this.qualifyTable('public', name);
     }
 
     const schema = entity.schema || 'public';
     const tableName = entity.tableName || (relationship.entity() as Function).name.toLowerCase();
-    return `${schema}."${tableName}"`;
+
+    return this.qualifyTable(schema, tableName);
   }
 
   private generateAlias(): string {

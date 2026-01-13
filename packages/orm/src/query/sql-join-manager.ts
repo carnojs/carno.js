@@ -20,6 +20,20 @@ export class SqlJoinManager<T> {
     private getAliasCallback: (tableName: string) => string,
   ) {}
 
+  private quoteId(identifier: string): string {
+    const q = this.driver.getIdentifierQuote();
+
+    return `${q}${identifier}${q}`;
+  }
+
+  private qualifyTable(schema: string, tableName: string): string {
+    if (this.driver.dbType === 'mysql') {
+      return this.quoteId(tableName);
+    }
+
+    return `${this.quoteId(schema)}.${this.quoteId(tableName)}`;
+  }
+
   addJoinForRelationshipPath(relationshipPath: string): void {
     const relationshipNames = relationshipPath.split('.');
     let currentEntity = this.entity;
@@ -111,13 +125,16 @@ export class SqlJoinManager<T> {
 
   private buildJoinOn(relationShip: Relationship<any>, alias: string, joinAlias: string, originPrimaryKey: string): string {
     let on = '';
+    const fkKey = this.quoteId(this.getFkKey(relationShip));
+    const pk = this.quoteId(originPrimaryKey);
 
     switch (relationShip.relation) {
       case "one-to-many":
-        on = `${joinAlias}."${this.getFkKey(relationShip)}" = ${alias}."${originPrimaryKey}"`;
+        on = `${joinAlias}.${fkKey} = ${alias}.${pk}`;
         break;
       case "many-to-one":
-        on = `${alias}."${relationShip.columnName as string}" = ${joinAlias}."${this.getFkKey(relationShip)}"`;
+        const col = this.quoteId(relationShip.columnName as string);
+        on = `${alias}.${col} = ${joinAlias}.${fkKey}`;
         break;
     }
 
@@ -171,7 +188,7 @@ export class SqlJoinManager<T> {
     this.statements.selectJoin.push({
       statement: 'select',
       columns: this.getOriginalColumnsCallback().filter(column => column.startsWith(`${relationShip.propertyKey as string}`)).map(column => column.split('.')[1]) || [],
-      table: `"${joinSchema || 'public'}"."${joinTableName}"`,
+      table: this.qualifyTable(joinSchema || 'public', joinTableName),
       alias: joinAlias,
       where: joinWhere,
       joinProperty: relationShip.propertyKey as string,
@@ -218,18 +235,23 @@ export class SqlJoinManager<T> {
   }
 
   private updateJoinWhere(join: any, ids: any): void {
+    const fkCol = this.quoteId(join.fkKey);
+
     if (join.where) {
-      join.where = `${join.where} AND ${join.alias}."${join.fkKey}" IN (${ids})`;
+      join.where = `${join.where} AND ${join.alias}.${fkCol} IN (${ids})`;
     } else {
-      join.where = `${join.alias}."${join.fkKey}" IN (${ids})`;
+      join.where = `${join.alias}.${fkCol} IN (${ids})`;
     }
   }
 
   private updateJoinColumns(join: any): void {
     if (join.columns && join.columns.length > 0) {
-      join.columns = (join.columns.map(
-        (column: string) => `${join.alias}."${column}" as "${join.alias}_${column}"`,
-      ) as any[]);
+      join.columns = (join.columns.map((column: string) => {
+        const col = this.quoteId(column);
+        const aliasedCol = this.quoteId(`${join.alias}_${column}`);
+
+        return `${join.alias}.${col} as ${aliasedCol}`;
+      }) as any[]);
     } else {
       join.columns = this.columnManager.getColumnsForEntity(join.joinEntity, join.alias) as any;
     }

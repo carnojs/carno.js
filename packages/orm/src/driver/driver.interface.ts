@@ -7,6 +7,8 @@ export interface DriverInterface {
   connectionString: string;
   readonly dbType: "postgres" | "mysql";
 
+  getIdentifierQuote(): string;
+
   executeStatement(
     statement: Statement<any>
   ): Promise<{ query: any; startTime: number; sql: string }>;

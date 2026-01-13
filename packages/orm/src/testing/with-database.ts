@@ -5,47 +5,58 @@ import {Metadata} from '@carno.js/core';
 import {EntityStorage} from '../domain/entities';
 import {Orm} from '../orm';
 import {OrmService} from '../orm.service';
-import {BunPgDriver} from '../driver/bun-pg.driver';
-import {ConnectionSettings} from '../driver/driver.interface';
+import {ConnectionSettings, DriverInterface} from '../driver/driver.interface';
 import {ormSessionContext} from '../orm-session-context';
 import {ENTITIES} from '../constants';
 import type {Logger} from '../logger';
+import {
+  DriverType,
+  getDefaultConnectionSettings,
+  getDriverClass,
+  getDriverType,
+} from '../driver/driver-factory';
 
 export type DatabaseTestContext = {
-  orm: Orm<BunPgDriver>;
+  orm: Orm<DriverInterface>;
   executeSql: (sql: string) => Promise<{ rows: unknown[] }>;
+  driverType: DriverType;
+  getDbType: () => 'postgres' | 'mysql';
 };
 
 export type DatabaseTestOptions = {
   schema?: string;
   entityFile?: string;
   logger?: Logger;
-  connection?: Partial<ConnectionSettings<BunPgDriver>>;
+  connection?: Partial<ConnectionSettings>;
 };
 
 type DatabaseSession = {
-  orm: Orm<BunPgDriver>;
+  orm: Orm<DriverInterface>;
   schema: string;
   storage: EntityStorage;
+  driverType: DriverType;
 };
 
 type DatabaseTestRoutine = (context: DatabaseTestContext) => Promise<void>;
 
 const DEFAULT_SCHEMA = 'public';
 
-const DEFAULT_CONNECTION: ConnectionSettings<BunPgDriver> = {
-  host: 'localhost',
-  port: 5432,
-  database: 'postgres',
-  username: 'postgres',
-  password: 'postgres',
-  driver: BunPgDriver,
-};
+function getDefaultConnection(): ConnectionSettings {
+  const driverType = getDriverType();
+  const driverClass = getDriverClass(driverType);
+  const settings = getDefaultConnectionSettings(driverType);
+
+  return {
+    ...settings,
+    driver: driverClass,
+  };
+}
 
 type CachedSession = {
-  orm: Orm<BunPgDriver>;
+  orm: Orm<DriverInterface>;
   schema: string;
   storage: EntityStorage;
+  driverType: DriverType;
 };
 
 const sessionCache = new Map<string, CachedSession>();
@@ -53,6 +64,8 @@ const sessionCache = new Map<string, CachedSession>();
 function getCacheKey(options: DatabaseTestOptions): string {
   const connection = resolveConnection(options.connection);
   const entitySignature = resolveEntitySignature();
+  const driverType = getDriverType();
+
   return JSON.stringify({
     host: connection.host,
     port: connection.port,
@@ -61,6 +74,7 @@ function getCacheKey(options: DatabaseTestOptions): string {
     entityFile: options.entityFile,
     migrationPath: connection.migrationPath,
     entitySignature,
+    driverType,
   });
 }
 
@@ -115,12 +129,13 @@ export async function withDatabase(
       orm: session.orm,
       schema: session.schema,
       storage: session.storage,
+      driverType: session.driverType,
     };
     sessionCache.set(cacheKey, cachedSession);
   }
 
   await runWithSession(cachedSession, async () => {
-    const context = buildContext(cachedSession.orm);
+    const context = buildContext(cachedSession.orm, cachedSession.driverType);
 
     await dropAndRecreateSchema(context, cachedSession.schema);
     await prepareSchema(context, cachedSession.schema);
@@ -130,16 +145,17 @@ export async function withDatabase(
 }
 
 async function createSession(options: DatabaseTestOptions): Promise<DatabaseSession> {
-  const orm: Orm<BunPgDriver> = new Orm<BunPgDriver>();
+  const orm: Orm<DriverInterface> = new Orm<DriverInterface>();
   const storage = new EntityStorage();
+  const driverType = getDriverType();
 
   await initializeOrm(orm, storage, options);
 
-  return {orm, schema: options.schema ?? DEFAULT_SCHEMA, storage};
+  return {orm, schema: options.schema ?? DEFAULT_SCHEMA, storage, driverType};
 }
 
 async function initializeOrm(
-  orm: Orm<BunPgDriver>,
+  orm: Orm<DriverInterface>,
   storage: EntityStorage,
   options: DatabaseTestOptions,
 ): Promise<void> {
@@ -169,34 +185,58 @@ async function runWithSession(
 }
 
 function resolveConnection(
-  overrides: Partial<ConnectionSettings<BunPgDriver>> | undefined,
-): ConnectionSettings<BunPgDriver> {
+  overrides: Partial<ConnectionSettings> | undefined,
+): ConnectionSettings {
+  const defaultConnection = getDefaultConnection();
+
   if (!overrides) {
-    return DEFAULT_CONNECTION;
+    return defaultConnection;
   }
 
   return {
-    ...DEFAULT_CONNECTION,
+    ...defaultConnection,
     ...overrides,
-    driver: overrides.driver ?? BunPgDriver,
+    driver: overrides.driver ?? defaultConnection.driver,
   };
 }
 
-function buildContext(orm: Orm<BunPgDriver>): DatabaseTestContext {
+function buildContext(orm: Orm<DriverInterface>, driverType: DriverType): DatabaseTestContext {
   return {
     orm,
     executeSql: (sql: string) => executeSql(orm, sql),
+    driverType,
+    getDbType: () => orm.driverInstance?.dbType || 'postgres',
   };
 }
 
-async function executeSql(orm: Orm<BunPgDriver>, sql: string): Promise<{ rows: unknown[] }> {
+async function executeSql(orm: Orm<DriverInterface>, sql: string): Promise<{ rows: unknown[] }> {
   if (!orm.driverInstance) {
     throw new Error('Database driver not initialized. Call withDatabase() before executing SQL.');
   }
 
-  const result = await orm.driverInstance.executeSql(sql);
+  let adaptedSql = sql;
+
+  if (orm.driverInstance.dbType === 'mysql') {
+    adaptedSql = adaptSqlForMysql(sql);
+  }
+
+  const result = await orm.driverInstance.executeSql(adaptedSql);
 
   return {rows: Array.isArray(result) ? result : []};
+}
+
+function adaptSqlForMysql(sql: string): string {
+  let adapted = sql;
+
+  adapted = adapted.replace(/SERIAL\s+PRIMARY\s+KEY/gi, 'INT AUTO_INCREMENT PRIMARY KEY');
+  adapted = adapted.replace(/SERIAL/gi, 'INT AUTO_INCREMENT');
+  adapted = adapted.replace(/NOW\(\)/gi, 'CURRENT_TIMESTAMP');
+  adapted = adapted.replace(/boolean/gi, 'TINYINT(1)');
+  adapted = adapted.replace(/TRUE/gi, '1');
+  adapted = adapted.replace(/FALSE/gi, '0');
+  adapted = adapted.replace(/"([^"]+)"/g, '`$1`');
+
+  return adapted;
 }
 
 async function createTables(context: DatabaseTestContext, statements: string[]): Promise<void> {
@@ -216,7 +256,31 @@ async function executeStatements(context: DatabaseTestContext, statements: strin
 }
 
 async function dropAndRecreateSchema(context: DatabaseTestContext, schema: string): Promise<void> {
+  const dbType = context.getDbType();
+
+  if (dbType === 'mysql') {
+    await cleanupMysqlDatabase(context);
+
+    return;
+  }
+
   await context.executeSql(`DROP SCHEMA IF EXISTS ${schema} CASCADE; CREATE SCHEMA ${schema};`);
+}
+
+async function cleanupMysqlDatabase(context: DatabaseTestContext): Promise<void> {
+  await context.executeSql('SET FOREIGN_KEY_CHECKS = 0');
+
+  const result = await context.executeSql(
+    `SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'`
+  );
+
+  for (const row of result.rows as any[]) {
+    const tableName = row.table_name || row.TABLE_NAME;
+
+    await context.executeSql(`DROP TABLE IF EXISTS \`${tableName}\``);
+  }
+
+  await context.executeSql('SET FOREIGN_KEY_CHECKS = 1');
 }
 
 type WithDatabaseArgs = {
@@ -289,7 +353,7 @@ async function loadStatementsFromMigrations(options: DatabaseTestOptions): Promi
 }
 
 async function resolveMigrationPatterns(
-  connection: ConnectionSettings<BunPgDriver>,
+  connection: ConnectionSettings,
 ): Promise<string[]> {
   if (connection.migrationPath) {
     return [connection.migrationPath];
@@ -408,6 +472,12 @@ function sortMigrationFiles(files: string[]): string[] {
 }
 
 async function prepareSchema(context: DatabaseTestContext, schema: string): Promise<void> {
+  const dbType = context.getDbType();
+
+  if (dbType === 'mysql') {
+    return;
+  }
+
   await context.executeSql(buildCreateSchemaStatement(schema));
   await ensureSearchPath(context, schema);
 }

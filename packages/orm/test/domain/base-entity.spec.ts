@@ -12,7 +12,7 @@ class UserTest extends BaseEntity {
     @Property()
     createdAt: Date = new Date();
 
-    @Property({onUpdate: () => new Date()})
+    @Property({ onUpdate: () => new Date() })
     updatedAt: Date;
 }
 
@@ -45,7 +45,7 @@ class UserCamel extends BaseEntity {
     @Property()
     emailUser: string;
 
-    @Property({columnName: 'date'})
+    @Property({ columnName: 'date' })
     createdAt: Date;
 
     @ManyToOne(() => Address)
@@ -154,7 +154,7 @@ describe('Creation, update and deletion of entities', () => {
             id: 1,
         })
 
-        const result = await User.findOne({id: 1});
+        const result = await User.findOne({ id: 1 });
 
         expect(result).toBeInstanceOf(User);
         expect(result).toEqual(user!);
@@ -170,10 +170,10 @@ describe('Creation, update and deletion of entities', () => {
         user!.email = 'updated@test.com';
         await user!.save();
 
-        const result = await User.findOne({id: 1});
+        const result = await User.findOne({ id: 1 });
         expect(result!.email).toEqual('updated@test.com')
         expect(mockLogger).toHaveBeenCalledTimes(3);
-        expect((mockLogger as jest.Mock).mock.calls[1][0]).toStartWith("SQL: UPDATE public.user as u1 SET email = 'updated@test.com' WHERE (u1.id = 1)");
+        expect((mockLogger as jest.Mock).mock.calls[1][0]).toStartWith("SQL: UPDATE \"public\".\"user\" as u1 SET email = 'updated@test.com' WHERE (u1.id = 1)");
     });
 
     test('should a find relationship', async () => {
@@ -201,7 +201,7 @@ describe('Creation, update and deletion of entities', () => {
 
     test('when findOrFail but not found, throw error', async () => {
         expect(async () => {
-            await User.findOneOrFail({id: 1})
+            await User.findOneOrFail({ id: 1 })
         }).toThrow()
         expect(mockLogger).toHaveBeenCalledTimes(1);
         expect((mockLogger as jest.Mock).mock.calls[0][0]).toStartWith("SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (u1.id = 1) LIMIT 1");
@@ -346,8 +346,8 @@ describe('Creation, update and deletion of entities', () => {
 
         const result = await User.findOneOrFail({
             $or: [
-                {id: 1},
-                {email: 'test_error@test.com'},
+                { id: 1 },
+                { email: 'test_error@test.com' },
             ],
         });
 
@@ -361,8 +361,8 @@ describe('Creation, update and deletion of entities', () => {
 
         const result = await User.findOneOrFail({
             $and: [
-                {id: 1},
-                {email: 'test@test.com'},
+                { id: 1 },
+                { email: 'test@test.com' },
             ],
         });
 
@@ -394,7 +394,7 @@ describe('Creation, update and deletion of entities', () => {
             addresses: {
                 id: 1,
             },
-        }, {fields: ['id', 'addresses.id']});
+        }, { fields: ['id', 'addresses.id'] });
 
         expect(result.id).toEqual(user.id);
         expect(result.email).toBeUndefined();
@@ -421,7 +421,7 @@ describe('Creation, update and deletion of entities', () => {
             },
         }, {
             fields: ['id', 'addresses.id'],
-            orderBy: {id: 'DESC', addresses: {address: 'DESC', userOwner: 'DESC'}},
+            orderBy: { id: 'DESC', addresses: { address: 'DESC', userOwner: 'DESC' } },
         });
 
         // Then
@@ -456,7 +456,7 @@ describe('Creation, update and deletion of entities', () => {
             fields: ['id'],
             offset: 1,
             limit: 1,
-            orderBy: {id: 'ASC'},
+            orderBy: { id: 'ASC' },
         });
 
         expect(result[0].id).toEqual(user2.id);
@@ -466,7 +466,7 @@ describe('Creation, update and deletion of entities', () => {
 
     test('When use a querybuilder', async () => {
         const created = await app.createQueryBuilder<User>(User)
-            .insert({id: 1, email: 'test@test.com'})
+            .insert({ id: 1, email: 'test@test.com' })
             .executeAndReturnFirst()
 
         expect(created).toBeInstanceOf(User);
@@ -548,7 +548,7 @@ describe('Creation, update and deletion of entities', () => {
             addresses: {
                 id: 3,
             },
-        }, {fields: ['id', 'addresses.id'], loadStrategy: 'select'});
+        }, { fields: ['id', 'addresses.id'], loadStrategy: 'select' });
 
         expect(result).toBeInstanceOf(User);
         expect(result!.id).toEqual(user.id);
