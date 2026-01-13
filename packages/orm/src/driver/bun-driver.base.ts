@@ -120,7 +120,11 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
     }
 
     if (value instanceof Date) {
-      return `'${value.toISOString()}'`;
+      const formatted = this.dbType === "mysql"
+        ? this.formatDateForMysql(value)
+        : value.toISOString();
+
+      return `'${formatted}'`;
     }
 
     switch (typeof value) {
@@ -139,6 +143,14 @@ export abstract class BunDriverBase implements Partial<DriverInterface> {
 
   protected escapeIdentifier(identifier: string): string {
     return `"${identifier}"`;
+  }
+
+  protected formatDateForMysql(value: Date): string {
+    return value
+      .toISOString()
+      .replace('T', ' ')
+      .replace('Z', '')
+      .replace(/\.\d{3}/, '');
   }
 
   protected buildWhereClause(where: string | undefined): string {

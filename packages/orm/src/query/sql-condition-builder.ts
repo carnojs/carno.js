@@ -1,4 +1,4 @@
-import { FilterQuery, Relationship, Statement } from '../driver/driver.interface';
+import { DriverInterface, FilterQuery, Relationship, Statement } from '../driver/driver.interface';
 import { EntityStorage, Options } from '../domain/entities';
 import { ValueObject } from '../common/value-object';
 import { extendsFrom } from '../utils';
@@ -24,6 +24,7 @@ export class SqlConditionBuilder<T> {
     private entityStorage: EntityStorage,
     private applyJoinCallback: ApplyJoinCallback,
     private statements: Statement<T>,
+    private driver: DriverInterface,
   ) {}
 
   setSubqueryBuilder(subqueryBuilder: SqlSubqueryBuilder): void {
@@ -221,7 +222,19 @@ export class SqlConditionBuilder<T> {
   }
 
   private formatDate(value: Date): string {
-    return `'${value.toISOString()}'`;
+    const formatted = this.driver.dbType === 'mysql'
+      ? this.formatDateForMysql(value)
+      : value.toISOString();
+
+    return `'${formatted}'`;
+  }
+
+  private formatDateForMysql(value: Date): string {
+    return value
+      .toISOString()
+      .replace('T', ' ')
+      .replace('Z', '')
+      .replace(/\.\d{3}/, '');
   }
 
   private isNullish(value: any): boolean {

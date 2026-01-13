@@ -9,6 +9,7 @@ import {ConnectionSettings, DriverInterface} from '../driver/driver.interface';
 import {ormSessionContext} from '../orm-session-context';
 import {ENTITIES} from '../constants';
 import type {Logger} from '../logger';
+import {BunMysqlDriver} from '../driver/bun-mysql.driver';
 import {
   DriverType,
   getDefaultConnectionSettings,
@@ -41,10 +42,15 @@ type DatabaseTestRoutine = (context: DatabaseTestContext) => Promise<void>;
 
 const DEFAULT_SCHEMA = 'public';
 
-function getDefaultConnection(): ConnectionSettings {
+function getDefaultConnection(options?: DatabaseTestOptions): ConnectionSettings {
   const driverType = getDriverType();
   const driverClass = getDriverClass(driverType);
   const settings = getDefaultConnectionSettings(driverType);
+  const databaseName = resolveTestDatabaseName(options);
+
+  if (driverType === 'mysql' && databaseName) {
+    settings.database = databaseName;
+  }
 
   return {
     ...settings,
@@ -62,7 +68,7 @@ type CachedSession = {
 const sessionCache = new Map<string, CachedSession>();
 
 function getCacheKey(options: DatabaseTestOptions): string {
-  const connection = resolveConnection(options.connection);
+  const connection = resolveConnection(options.connection, options);
   const entitySignature = resolveEntitySignature();
   const driverType = getDriverType();
 
@@ -169,7 +175,11 @@ async function initializeOrm(
   }
 
   const service = new OrmService(orm, storage, options.entityFile);
-  const connection = resolveConnection(options.connection);
+  const connection = resolveConnection(options.connection, options);
+
+  if (getDriverType() === 'mysql') {
+    await ensureMysqlDatabase(connection);
+  }
 
   await service.onInit(connection);
 }
@@ -186,8 +196,9 @@ async function runWithSession(
 
 function resolveConnection(
   overrides: Partial<ConnectionSettings> | undefined,
+  options?: DatabaseTestOptions,
 ): ConnectionSettings {
-  const defaultConnection = getDefaultConnection();
+  const defaultConnection = getDefaultConnection(options);
 
   if (!overrides) {
     return defaultConnection;
@@ -227,14 +238,34 @@ async function executeSql(orm: Orm<DriverInterface>, sql: string): Promise<{ row
 
 function adaptSqlForMysql(sql: string): string {
   let adapted = sql;
+  const enumTypes: Record<string, string> = {};
+
+  adapted = adapted.replace(
+    /CREATE\s+TYPE\s+"?([A-Za-z0-9_]+)"?\s+AS\s+ENUM\s*\(([^;]+)\);?/gi,
+    (_match, typeName: string, values: string) => {
+      enumTypes[typeName] = `ENUM(${values})`;
+      return '';
+    },
+  );
 
   adapted = adapted.replace(/SERIAL\s+PRIMARY\s+KEY/gi, 'INT AUTO_INCREMENT PRIMARY KEY');
   adapted = adapted.replace(/SERIAL/gi, 'INT AUTO_INCREMENT');
+  adapted = adapted.replace(/\buuid\b/gi, 'CHAR(36)');
+  adapted = adapted.replace(/TIMESTAMPTZ/gi, 'TIMESTAMP');
   adapted = adapted.replace(/NOW\(\)/gi, 'CURRENT_TIMESTAMP');
   adapted = adapted.replace(/boolean/gi, 'TINYINT(1)');
   adapted = adapted.replace(/TRUE/gi, '1');
   adapted = adapted.replace(/FALSE/gi, '0');
+  adapted = adapted.replace(
+    /'(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})\.\d{3}Z'/g,
+    "'$1 $2'",
+  );
   adapted = adapted.replace(/"([^"]+)"/g, '`$1`');
+
+  for (const [typeName, enumDefinition] of Object.entries(enumTypes)) {
+    const typePattern = new RegExp(`\\b${typeName}\\b`, 'g');
+    adapted = adapted.replace(typePattern, enumDefinition);
+  }
 
   return adapted;
 }
@@ -333,7 +364,7 @@ function normalizeGlobPattern(pattern: string): string {
 }
 
 async function loadStatementsFromMigrations(options: DatabaseTestOptions): Promise<string[]> {
-  const connection = resolveConnection(options.connection);
+  const connection = resolveConnection(options.connection, options);
   const patterns = await resolveMigrationPatterns(connection);
 
   if (patterns.length < 1) {
@@ -366,6 +397,59 @@ async function resolveMigrationPatterns(
   }
 
   return [];
+}
+
+function resolveTestDatabaseName(options?: DatabaseTestOptions): string | undefined {
+  const envFile = process.env.BUN_TEST_FILE || process.env.BUN_TEST_FILE_PATH;
+  const filePath = options?.entityFile ?? envFile ?? findTestFileFromStack();
+
+  if (!filePath) {
+    return undefined;
+  }
+
+  const base = path
+    .basename(filePath)
+    .replace(/\W+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toLowerCase();
+
+  if (!base) {
+    return undefined;
+  }
+
+  return `mysql_test_${base}`.slice(0, 63);
+}
+
+function findTestFileFromStack(): string | undefined {
+  const stack = new Error().stack?.split('\n') ?? [];
+
+  for (const line of stack) {
+    const match = line.match(/\(([^)]+?\.(?:test|spec)\.[jt]s)(?::\d+:\d+)?\)/)
+      ?? line.match(/at ([^ ]+?\.(?:test|spec)\.[jt]s)(?::\d+:\d+)?/);
+
+    if (match?.[1]) {
+      return match[1].replace(/^file:\/\//, '');
+    }
+  }
+
+  return undefined;
+}
+
+async function ensureMysqlDatabase(settings: ConnectionSettings): Promise<void> {
+  if (!settings.database) {
+    return;
+  }
+
+  const defaultMysql = getDefaultConnectionSettings('mysql');
+  const adminSettings: ConnectionSettings = {
+    ...settings,
+    database: defaultMysql.database || 'mysql',
+  };
+  const adminDriver = new BunMysqlDriver(adminSettings);
+
+  await adminDriver.connect();
+  await adminDriver.executeSql(`CREATE DATABASE IF NOT EXISTS \`${settings.database}\``);
+  await adminDriver.disconnect();
 }
 
 async function inferMigrationPathFromConfig(): Promise<string | undefined> {

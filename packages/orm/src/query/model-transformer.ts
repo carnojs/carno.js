@@ -5,7 +5,7 @@ import { extendsFrom } from '../utils';
 import { IdentityMapIntegration } from '../identity-map';
 
 export class ModelTransformer {
-  constructor(private entityStorage: EntityStorage) {}
+  constructor(private entityStorage: EntityStorage) { }
 
   transform<T>(model: any, statement: Statement<any>, data: any): T {
     const { instanceMap, cachedAliases } = this.createInstances(model, statement, data);
@@ -194,7 +194,29 @@ export class ModelTransformer {
       return;
     }
 
-    entity[key] = value;
+    entity[key] = this.normalizePropertyValue(property, value);
+  }
+
+  // @todo refactor for performance
+  private normalizePropertyValue(property: any, value: any): any {
+    if (value === null || value === undefined) {
+      return value;
+    }
+
+    if (property?.type === Boolean) {
+      if (value === 1 || value === '1' || value === true || value === 'true') {
+        return true;
+      }
+      if (value === 0 || value === '0' || value === false || value === 'false') {
+        return false;
+      }
+    }
+
+    if (property?.type === Date && !(value instanceof Date)) {
+      return new Date(value);
+    }
+
+    return value;
   }
 
   private findPropertyByColumnName(

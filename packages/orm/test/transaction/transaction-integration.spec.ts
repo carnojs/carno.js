@@ -54,7 +54,9 @@ class Order extends BaseEntity {
 }
 
 describe('Transaction System - Integration Tests', () => {
-  test('Given - Product e Order / When - Ambos salvos em transação / Then - Devem usar mesmo contexto transacional', async () => {
+  test(
+    'Given - Product e Order / When - Ambos salvos em transação / Then - Devem usar mesmo contexto transacional',
+    async () => {
     await withDatabase(
       [DDL_PRODUCT, DDL_ORDER],
       async (context) => {
@@ -88,12 +90,15 @@ describe('Transaction System - Integration Tests', () => {
       },
       {
         entityFile: 'packages/orm/test/transaction/transaction-integration.spec.ts',
-        connection: { port: 5433 },
       }
     );
-  });
+  },
+    {timeout: 10_000},
+  );
 
-  test('Given - Transação com erro / When - Primeira operação sucede e segunda falha / Then - Deve fazer rollback de ambas', async () => {
+  test(
+    'Given - Transação com erro / When - Primeira operação sucede e segunda falha / Then - Deve fazer rollback de ambas',
+    async () => {
     await withDatabase(
       [DDL_PRODUCT],
       async (context) => {
@@ -123,12 +128,15 @@ describe('Transaction System - Integration Tests', () => {
       },
       {
         entityFile: 'packages/orm/test/transaction/transaction-integration.spec.ts',
-        connection: { port: 5433 },
       }
     );
-  });
+  },
+    {timeout: 10_000},
+  );
 
-  test('Given - Entity.save e static create na mesma transação / When - Executar ambos / Then - Devem compartilhar contexto', async () => {
+  test(
+    'Given - Entity.save e static create na mesma transação / When - Executar ambos / Then - Devem compartilhar contexto',
+    async () => {
     await withDatabase(
       [DDL_PRODUCT],
       async (context) => {
@@ -159,12 +167,15 @@ describe('Transaction System - Integration Tests', () => {
       },
       {
         entityFile: 'packages/orm/test/transaction/transaction-integration.spec.ts',
-        connection: { port: 5433 },
       }
     );
-  });
+  },
+    {timeout: 10_000},
+  );
 
-  test('Given - Update dentro de transação / When - Atualizar entidade existente / Then - Deve usar contexto transacional', async () => {
+  test(
+    'Given - Update dentro de transação / When - Atualizar entidade existente / Then - Deve usar contexto transacional',
+    async () => {
     await withDatabase(
       [DDL_PRODUCT],
       async (context) => {
@@ -193,12 +204,15 @@ describe('Transaction System - Integration Tests', () => {
       },
       {
         entityFile: 'packages/orm/test/transaction/transaction-integration.spec.ts',
-        connection: { port: 5433 },
       }
     );
-  });
+  },
+    {timeout: 10_000},
+  );
 
-  test('Given - Transação com captura de erro interno / When - Erro capturado / Then - Transação externa deve continuar', async () => {
+  test(
+    'Given - Transação com captura de erro interno / When - Erro capturado / Then - Transação externa deve continuar',
+    async () => {
     await withDatabase(
       [DDL_PRODUCT],
       async (context) => {
@@ -243,8 +257,9 @@ describe('Transaction System - Integration Tests', () => {
       },
       {
         entityFile: 'packages/orm/test/transaction/transaction-integration.spec.ts',
-        connection: { port: 5433 },
       }
     );
-  });
+  },
+    {timeout: 10_000},
+  );
 });

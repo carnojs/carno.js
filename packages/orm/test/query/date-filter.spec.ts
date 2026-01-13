@@ -65,7 +65,11 @@ describe('Date comparison filters', () => {
     expect(result[0].id).toBe(1)
     expect(mockLogger).toHaveBeenCalled()
     const logged = (mockLogger as jest.Mock).mock.calls[0][0]
-    expect(logged).toContain("<= '2025-11-02T22:37:00.040Z'")
+    if (app?.driverInstance?.dbType === 'mysql') {
+      expect(logged).toContain("<= '2025-11-02 22:37:00'")
+    } else {
+      expect(logged).toContain("<= '2025-11-02T22:37:00.040Z'")
+    }
   })
 
   test('Given flashcards with nullable review date When filtering by null Then it returns only null rows', async () => {

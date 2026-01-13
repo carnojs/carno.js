@@ -154,8 +154,8 @@ describe('Repository Pattern', () => {
     await execute(`
       INSERT INTO "course" ("name", "description", "is_active", "created_at")
       VALUES
-      ('Course Alpha', 'Alpha description', true, '2024-06-01T00:00:00.000Z'),
-      ('Course Beta', 'Beta description', true, '2024-07-01T00:00:00.000Z');
+      ('Course Alpha', 'Alpha description', true, '2024-06-01 00:00:00'),
+      ('Course Beta', 'Beta description', true, '2024-07-01 00:00:00');
     `);
   };
 

@@ -88,7 +88,8 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     }
 
     const cols = statement.columns.join(', ').replaceAll(`${statement.alias}.`, '');
-    const selectSql = `SELECT ${cols} FROM ${statement.table} WHERE id = ${insertId}`;
+    const idValue = this.toDatabaseValue(insertId);
+    const selectSql = `SELECT ${cols} FROM ${statement.table} WHERE id = ${idValue}`;
     const selectResult = await context.unsafe(selectSql);
 
     return {

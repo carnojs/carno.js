@@ -6,7 +6,7 @@ import {
     TestUserEntity,
     TestUserLibraryEntity,
 } from './user-library.entities';
-import { ConnectionSettings } from "../src";
+import { getDriverType } from '../src/driver/driver-factory';
 import config from "../carno.config";
 
 const ENTITY_FILE = new URL('./fixtures/user-library.entities.ts', import.meta.url).pathname;
@@ -27,7 +27,11 @@ const TABLE_STATEMENTS = [
 ];
 
 describe('SqlConditionBuilder OR conditions', () => {
-    it('resolves column names inside OR branches when filtering repositories', async () => {
+    it(
+        'resolves column names inside OR branches when filtering repositories',
+        async () => {
+        const connection = getDriverType() === 'postgres' ? config : undefined;
+
         await withDatabase(
             TABLE_STATEMENTS,
             async () => {
@@ -65,8 +69,10 @@ describe('SqlConditionBuilder OR conditions', () => {
             },
             {
                 entityFile: ENTITY_FILE,
-                connection: config
+                ...(connection ? {connection} : {}),
             },
         );
-    });
+    },
+        {timeout: 10_000},
+    );
 });

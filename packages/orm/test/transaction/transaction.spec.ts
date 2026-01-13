@@ -69,7 +69,6 @@ describe('Transaction System', () => {
       },
       {
         entityFile: 'packages/orm/test/transaction/transaction.spec.ts',
-        connection: { port: 5433 },
       }
     );
   });
@@ -103,7 +102,6 @@ describe('Transaction System', () => {
       },
       {
         entityFile: 'packages/orm/test/transaction/transaction.spec.ts',
-        connection: { port: 5433 },
       }
     );
   });
@@ -132,7 +130,6 @@ describe('Transaction System', () => {
       },
       {
         entityFile: 'packages/orm/test/transaction/transaction.spec.ts',
-        connection: { port: 5433 },
       }
     );
   });
@@ -159,7 +156,6 @@ describe('Transaction System', () => {
       },
       {
         entityFile: 'packages/orm/test/transaction/transaction.spec.ts',
-        connection: { port: 5433 },
       }
     );
   });
@@ -195,7 +191,6 @@ describe('Transaction System', () => {
       },
       {
         entityFile: 'packages/orm/test/transaction/transaction.spec.ts',
-        connection: { port: 5433 },
       }
     );
   });

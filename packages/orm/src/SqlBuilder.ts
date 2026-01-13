@@ -85,6 +85,7 @@ export class SqlBuilder<T> {
       this.entityStorage,
       applyJoinWrapper,
       this.statements,
+      this.driver,
     );
 
     const subqueryBuilder = new SqlSubqueryBuilder(

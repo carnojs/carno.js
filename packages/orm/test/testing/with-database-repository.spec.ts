@@ -65,7 +65,6 @@ describe('withDatabase with Repository and camelCase properties', () => {
       },
       {
         entityFile: 'packages/orm/test/testing/with-database-repository.spec.ts',
-        connection: { port: 5433 },
       }
     );
   });
@@ -95,7 +94,6 @@ describe('withDatabase with Repository and camelCase properties', () => {
       },
       {
         entityFile: 'packages/orm/test/testing/with-database-repository.spec.ts',
-        connection: { port: 5433 },
       }
     );
   });
@@ -129,7 +127,6 @@ describe('withDatabase with Repository and camelCase properties', () => {
       },
       {
         entityFile: 'packages/orm/test/testing/with-database-repository.spec.ts',
-        connection: { port: 5433 },
       }
     );
   });
@@ -156,7 +153,6 @@ describe('withDatabase with Repository and camelCase properties', () => {
       },
       {
         entityFile: 'packages/orm/test/testing/with-database-repository.spec.ts',
-        connection: { port: 5433 },
       }
     );
   });

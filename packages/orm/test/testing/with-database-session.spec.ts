@@ -19,7 +19,6 @@ const ENTITY_FILE = 'packages/orm/test/testing/with-database-session.spec.ts';
 
 const SESSION_OPTIONS = {
   entityFile: ENTITY_FILE,
-  connection: {port: 5433},
 };
 
 @Entity({tableName: 'session_probe'})

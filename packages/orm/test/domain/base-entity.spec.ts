@@ -53,6 +53,27 @@ class UserCamel extends BaseEntity {
 }
 
 describe('Creation, update and deletion of entities', () => {
+    function expectLoggedSql(
+        callIndex: number,
+        expected: { postgres: string; mysql: string },
+    ): void {
+        const prefix = app.driverInstance?.dbType === 'mysql'
+            ? expected.mysql
+            : expected.postgres;
+
+        expect((mockLogger as jest.Mock).mock.calls[callIndex][0]).toStartWith(prefix);
+    }
+
+    function expectLoggedSqlContains(
+        loggedSql: string,
+        expected: { postgres: string; mysql: string },
+    ): void {
+        const fragment = app.driverInstance?.dbType === 'mysql'
+            ? expected.mysql
+            : expected.postgres;
+
+        expect(loggedSql).toContain(fragment);
+    }
 
     const DLL = `
         CREATE TABLE "user"
@@ -123,9 +144,11 @@ describe('Creation, update and deletion of entities', () => {
         });
 
         expect(user).toBeInstanceOf(User);
-        console.log((mockLogger as jest.Mock).mock.calls[0])
         expect(mockLogger).toHaveBeenCalledTimes(1);
-        expect((mockLogger as jest.Mock).mock.calls[0][0]).toStartWith("SQL: INSERT INTO \"public\".\"user\" (\"email\", \"id\") VALUES ('test@test.com', 1) RETURNING \"id\" as \"u1_id\", \"email\" as \"u1_email\" ");
+        expectLoggedSql(0, {
+            postgres: "SQL: INSERT INTO \"public\".\"user\" (\"email\", \"id\") VALUES ('test@test.com', 1) RETURNING \"id\" as \"u1_id\", \"email\" as \"u1_email\" ",
+            mysql: "SQL: INSERT INTO `user` (`email`, `id`) VALUES ('test@test.com', 1)",
+        });
     });
 
     test('should create a entity by new instance', async () => {
@@ -145,7 +168,10 @@ describe('Creation, update and deletion of entities', () => {
 
         expect(user).toBeInstanceOf(User);
         expect(mockLogger).toHaveBeenCalledTimes(1);
-        expect((mockLogger as jest.Mock).mock.calls[0][0]).toStartWith("SQL: INSERT INTO \"public\".\"user\" (\"email\", \"id\") VALUES ('test@test.com', 1) RETURNING \"id\" as \"u1_id\", \"email\" as \"u1_email\" ");
+        expectLoggedSql(0, {
+            postgres: "SQL: INSERT INTO \"public\".\"user\" (\"email\", \"id\") VALUES ('test@test.com', 1) RETURNING \"id\" as \"u1_id\", \"email\" as \"u1_email\" ",
+            mysql: "SQL: INSERT INTO `user` (`email`, `id`) VALUES ('test@test.com', 1)",
+        });
     });
 
     test('should a find a entity', async () => {
@@ -159,7 +185,10 @@ describe('Creation, update and deletion of entities', () => {
         expect(result).toBeInstanceOf(User);
         expect(result).toEqual(user!);
         expect(mockLogger).toHaveBeenCalledTimes(2);
-        expect((mockLogger as jest.Mock).mock.calls[1][0]).toStartWith("SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (u1.id = 1) LIMIT 1");
+        expectLoggedSql(1, {
+            postgres: "SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (u1.id = 1) LIMIT 1",
+            mysql: "SQL: SELECT u1.`id` as `u1_id`, u1.`email` as `u1_email` FROM `user` u1 WHERE (u1.id = 1) LIMIT 1",
+        });
     });
 
     test('should a update a entity', async () => {
@@ -173,7 +202,10 @@ describe('Creation, update and deletion of entities', () => {
         const result = await User.findOne({ id: 1 });
         expect(result!.email).toEqual('updated@test.com')
         expect(mockLogger).toHaveBeenCalledTimes(3);
-        expect((mockLogger as jest.Mock).mock.calls[1][0]).toStartWith("SQL: UPDATE \"public\".\"user\" as u1 SET email = 'updated@test.com' WHERE (u1.id = 1)");
+        expectLoggedSql(1, {
+            postgres: "SQL: UPDATE \"public\".\"user\" as u1 SET email = 'updated@test.com' WHERE (u1.id = 1)",
+            mysql: "SQL: UPDATE `user` as u1 SET email = 'updated@test.com' WHERE (u1.id = 1)",
+        });
     });
 
     test('should a find relationship', async () => {
@@ -204,7 +236,10 @@ describe('Creation, update and deletion of entities', () => {
             await User.findOneOrFail({ id: 1 })
         }).toThrow()
         expect(mockLogger).toHaveBeenCalledTimes(1);
-        expect((mockLogger as jest.Mock).mock.calls[0][0]).toStartWith("SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (u1.id = 1) LIMIT 1");
+        expectLoggedSql(0, {
+            postgres: "SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (u1.id = 1) LIMIT 1",
+            mysql: "SQL: SELECT u1.`id` as `u1_id`, u1.`email` as `u1_email` FROM `user` u1 WHERE (u1.id = 1) LIMIT 1",
+        });
     })
 
     test('When create a entity, return the created entity', async () => {
@@ -241,7 +276,10 @@ describe('Creation, update and deletion of entities', () => {
         expect(user.id).toEqual(id);
         expect(user.email).toEqual(email);
         expect(mockLogger).toHaveBeenCalledTimes(2);
-        expect((mockLogger as jest.Mock).mock.calls[1][0]).toStartWith("SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (u1.id = 1 AND u1.email = 'test@test.com') LIMIT 1");
+        expectLoggedSql(1, {
+            postgres: "SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (u1.id = 1 AND u1.email = 'test@test.com') LIMIT 1",
+            mysql: "SQL: SELECT u1.`id` as `u1_id`, u1.`email` as `u1_email` FROM `user` u1 WHERE (u1.id = 1 AND u1.email = 'test@test.com') LIMIT 1",
+        });
     });
 
     test('When search with $ne operator', async () => {
@@ -264,7 +302,10 @@ describe('Creation, update and deletion of entities', () => {
         expect(user.id).toEqual(id);
         expect(user.email).toEqual(email);
         expect(mockLogger).toHaveBeenCalledTimes(2);
-        expect((mockLogger as jest.Mock).mock.calls[1][0]).toStartWith("SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (u1.id != 2 AND u1.email = 'test@test.com') LIMIT 1");
+        expectLoggedSql(1, {
+            postgres: "SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (u1.id != 2 AND u1.email = 'test@test.com') LIMIT 1",
+            mysql: "SQL: SELECT u1.`id` as `u1_id`, u1.`email` as `u1_email` FROM `user` u1 WHERE (u1.id != 2 AND u1.email = 'test@test.com') LIMIT 1",
+        });
     });
 
     test('When search with $gt and $lt operator', async () => {
@@ -287,7 +328,10 @@ describe('Creation, update and deletion of entities', () => {
         expect(user.id).toEqual(id);
         expect(user.email).toEqual(email);
         expect(mockLogger).toHaveBeenCalledTimes(2);
-        expect((mockLogger as jest.Mock).mock.calls[1][0]).toStartWith("SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (u1.id > 0 AND u1.id < 2) LIMIT 1");
+        expectLoggedSql(1, {
+            postgres: "SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (u1.id > 0 AND u1.id < 2) LIMIT 1",
+            mysql: "SQL: SELECT u1.`id` as `u1_id`, u1.`email` as `u1_email` FROM `user` u1 WHERE (u1.id > 0 AND u1.id < 2) LIMIT 1",
+        });
     });
 
     test('When search with $gte and $lte operator', async () => {
@@ -310,7 +354,10 @@ describe('Creation, update and deletion of entities', () => {
         expect(user.id).toEqual(id);
         expect(user.email).toEqual(email);
         expect(mockLogger).toHaveBeenCalledTimes(2);
-        expect((mockLogger as jest.Mock).mock.calls[1][0]).toStartWith("SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (u1.id >= 1 AND u1.id <= 1) LIMIT 1");
+        expectLoggedSql(1, {
+            postgres: "SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (u1.id >= 1 AND u1.id <= 1) LIMIT 1",
+            mysql: "SQL: SELECT u1.`id` as `u1_id`, u1.`email` as `u1_email` FROM `user` u1 WHERE (u1.id >= 1 AND u1.id <= 1) LIMIT 1",
+        });
     });
 
     test('When search with $in operator', async () => {
@@ -324,7 +371,10 @@ describe('Creation, update and deletion of entities', () => {
 
         expect(result).toEqual(user);
         expect(mockLogger).toHaveBeenCalledTimes(2);
-        expect((mockLogger as jest.Mock).mock.calls[1][0]).toStartWith("SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (u1.id IN (1, 2)) LIMIT 1");
+        expectLoggedSql(1, {
+            postgres: "SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (u1.id IN (1, 2)) LIMIT 1",
+            mysql: "SQL: SELECT u1.`id` as `u1_id`, u1.`email` as `u1_email` FROM `user` u1 WHERE (u1.id IN (1, 2)) LIMIT 1",
+        });
     });
 
     test('When search with $nin operator', async () => {
@@ -338,7 +388,10 @@ describe('Creation, update and deletion of entities', () => {
 
         expect(result).toEqual(user);
         expect(mockLogger).toHaveBeenCalledTimes(2);
-        expect((mockLogger as jest.Mock).mock.calls[1][0]).toStartWith("SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (u1.id NOT IN (2)) LIMIT 1");
+        expectLoggedSql(1, {
+            postgres: "SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (u1.id NOT IN (2)) LIMIT 1",
+            mysql: "SQL: SELECT u1.`id` as `u1_id`, u1.`email` as `u1_email` FROM `user` u1 WHERE (u1.id NOT IN (2)) LIMIT 1",
+        });
     });
 
     test('When search with $or operator', async () => {
@@ -353,7 +406,10 @@ describe('Creation, update and deletion of entities', () => {
 
         expect(result).toEqual(user);
         expect(mockLogger).toHaveBeenCalledTimes(2);
-        expect((mockLogger as jest.Mock).mock.calls[1][0]).toStartWith("SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (((u1.id = 1) OR (u1.email = 'test_error@test.com'))) LIMIT 1");
+        expectLoggedSql(1, {
+            postgres: "SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (((u1.id = 1) OR (u1.email = 'test_error@test.com'))) LIMIT 1",
+            mysql: "SQL: SELECT u1.`id` as `u1_id`, u1.`email` as `u1_email` FROM `user` u1 WHERE (((u1.id = 1) OR (u1.email = 'test_error@test.com'))) LIMIT 1",
+        });
     });
 
     test('When search with $and operator', async () => {
@@ -368,7 +424,10 @@ describe('Creation, update and deletion of entities', () => {
 
         expect(result).toEqual(user);
         expect(mockLogger).toHaveBeenCalledTimes(2);
-        expect((mockLogger as jest.Mock).mock.calls[1][0]).toStartWith("SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (((u1.id = 1) AND (u1.email = 'test@test.com'))) LIMIT 1");
+        expectLoggedSql(1, {
+            postgres: "SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1 WHERE (((u1.id = 1) AND (u1.email = 'test@test.com'))) LIMIT 1",
+            mysql: "SQL: SELECT u1.`id` as `u1_id`, u1.`email` as `u1_email` FROM `user` u1 WHERE (((u1.id = 1) AND (u1.email = 'test@test.com'))) LIMIT 1",
+        });
     });
 
     test('When find all', async () => {
@@ -378,7 +437,10 @@ describe('Creation, update and deletion of entities', () => {
 
         expect(result).toEqual([user]);
         expect(mockLogger).toHaveBeenCalledTimes(2);
-        expect((mockLogger as jest.Mock).mock.calls[1][0]).toStartWith("SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1");
+        expectLoggedSql(1, {
+            postgres: "SQL: SELECT u1.\"id\" as \"u1_id\", u1.\"email\" as \"u1_email\" FROM \"public\".\"user\" u1",
+            mysql: "SQL: SELECT u1.`id` as `u1_id`, u1.`email` as `u1_email` FROM `user` u1",
+        });
     });
 
     test('When find with columns defined', async () => {
@@ -401,7 +463,10 @@ describe('Creation, update and deletion of entities', () => {
         expect(result.addresses[0].id).toEqual(address.id);
         expect(result.addresses[0].address).toBeUndefined();
         expect(mockLogger).toHaveBeenCalledTimes(3);
-        expect((mockLogger as jest.Mock).mock.calls[2][0]).toStartWith("SQL: SELECT u1.\"id\" as u1_id, a1.\"id\" as a1_id FROM \"public\".\"user\" u1 LEFT JOIN public.address a1 ON a1.\"user_owner\" = u1.\"id\" WHERE ((a1.id = 1))");
+        expectLoggedSql(2, {
+            postgres: "SQL: SELECT u1.\"id\" as u1_id, a1.\"id\" as a1_id FROM \"public\".\"user\" u1 LEFT JOIN public.address a1 ON a1.\"user_owner\" = u1.\"id\" WHERE ((a1.id = 1))",
+            mysql: "SQL: SELECT u1.`id` as u1_id, a1.`id` as a1_id FROM `user` u1 LEFT JOIN `address` a1 ON a1.`user_owner` = u1.`id` WHERE ((a1.id = 1))",
+        });
     })
 
     test('When find with orderBy defined', async () => {
@@ -427,7 +492,10 @@ describe('Creation, update and deletion of entities', () => {
         // Then
         expect(result.id).toEqual(user.id);
         expect(mockLogger).toHaveBeenCalledTimes(3);
-        expect((mockLogger as jest.Mock).mock.calls[2][0]).toStartWith("SQL: SELECT u1.\"id\" as u1_id, a1.\"id\" as a1_id FROM \"public\".\"user\" u1 LEFT JOIN public.address a1 ON a1.\"user_owner\" = u1.\"id\" WHERE ((a1.id = 1)) ORDER BY u1.\"id\" DESC, a1.\"address\" DESC, a1.\"user_owner\" DESC");
+        expectLoggedSql(2, {
+            postgres: "SQL: SELECT u1.\"id\" as u1_id, a1.\"id\" as a1_id FROM \"public\".\"user\" u1 LEFT JOIN public.address a1 ON a1.\"user_owner\" = u1.\"id\" WHERE ((a1.id = 1)) ORDER BY u1.\"id\" DESC, a1.\"address\" DESC, a1.\"user_owner\" DESC",
+            mysql: "SQL: SELECT u1.`id` as u1_id, a1.`id` as a1_id FROM `user` u1 LEFT JOIN `address` a1 ON a1.`user_owner` = u1.`id` WHERE ((a1.id = 1)) ORDER BY u1.`id` DESC, a1.`address` DESC, a1.`user_owner` DESC",
+        });
     })
 
     test('When find with limit defined', async () => {
@@ -442,7 +510,10 @@ describe('Creation, update and deletion of entities', () => {
         expect(result.length).toEqual(1)
         expect(result[0].id).toEqual(user.id);
         expect(mockLogger).toHaveBeenCalledTimes(2);
-        expect((mockLogger as jest.Mock).mock.calls[1][0]).toStartWith("SQL: SELECT u1.\"id\" as u1_id FROM \"public\".\"user\" u1 LIMIT 1");
+        expectLoggedSql(1, {
+            postgres: "SQL: SELECT u1.\"id\" as u1_id FROM \"public\".\"user\" u1 LIMIT 1",
+            mysql: "SQL: SELECT u1.`id` as u1_id FROM `user` u1 LIMIT 1",
+        });
     })
 
     test('When find with offset defined', async () => {
@@ -461,7 +532,10 @@ describe('Creation, update and deletion of entities', () => {
 
         expect(result[0].id).toEqual(user2.id);
         expect(mockLogger).toHaveBeenCalledTimes(3);
-        expect((mockLogger as jest.Mock).mock.calls[2][0]).toStartWith("SQL: SELECT u1.\"id\" as u1_id FROM \"public\".\"user\" u1 ORDER BY u1.\"id\" ASC OFFSET 1 LIMIT 1");
+        expectLoggedSql(2, {
+            postgres: "SQL: SELECT u1.\"id\" as u1_id FROM \"public\".\"user\" u1 ORDER BY u1.\"id\" ASC OFFSET 1 LIMIT 1",
+            mysql: "SQL: SELECT u1.`id` as u1_id FROM `user` u1 ORDER BY u1.`id` ASC LIMIT 1, 1",
+        });
     })
 
     test('When use a querybuilder', async () => {
@@ -492,11 +566,14 @@ describe('Creation, update and deletion of entities', () => {
 
         Entity()(UserTest)
         const created = await UserTest.create({})
+        const expectedDate = app.driverInstance?.dbType === 'mysql'
+            ? new Date(Math.floor(dateNow.getTime() / 1000) * 1000)
+            : dateNow;
 
         expect(created).toBeInstanceOf(UserTest);
         expect(created!.id).toHaveLength(36);
-        expect(created!.createdAt).toEqual(dateNow);
-        expect(created!.updatedAt).toEqual(dateNow);
+        expect(created!.createdAt).toEqual(expectedDate);
+        expect(created!.updatedAt).toEqual(expectedDate);
     })
 
     test('When have a column with value-object', async () => {
@@ -558,8 +635,14 @@ describe('Creation, update and deletion of entities', () => {
         expect(result!.addresses[0].address).toBeUndefined();
         expect(mockLogger).toHaveBeenCalledTimes(4);
         expect(mockLogger).not.toHaveBeenCalledTimes(5)
-        expect((mockLogger as jest.Mock).mock.calls[2][0]).toStartWith("SQL: SELECT u1.\"id\" as u1_id FROM \"public\".\"user\" u1 LIMIT 1");
-        expect((mockLogger as jest.Mock).mock.calls[3][0]).toStartWith("SQL: SELECT a1.\"id\" as \"a1_id\" FROM \"public\".\"address\" a1 WHERE (a1.id = 3) AND a1.\"user_owner\" IN (1)");
+        expectLoggedSql(2, {
+            postgres: "SQL: SELECT u1.\"id\" as u1_id FROM \"public\".\"user\" u1 LIMIT 1",
+            mysql: "SQL: SELECT u1.`id` as u1_id FROM `user` u1 LIMIT 1",
+        });
+        expectLoggedSql(3, {
+            postgres: "SQL: SELECT a1.\"id\" as \"a1_id\" FROM \"public\".\"address\" a1 WHERE (a1.id = 3) AND a1.\"user_owner\" IN (1)",
+            mysql: "SQL: SELECT a1.`id` as `a1_id` FROM `address` a1 WHERE (a1.id = 3) AND a1.`user_owner` IN (1)",
+        });
     })
 
     test('When have a property camelCase', async () => {
@@ -718,8 +801,8 @@ describe('Creation, update and deletion of entities', () => {
         expect(mockLogger).toHaveBeenCalledTimes(1);
 
         const loggedSql = (mockLogger as jest.Mock).mock.calls[0][0];
-        expect(loggedSql).toContain('u1."date"');
-        expect(loggedSql).toContain('u1."email_user"');
+        expectLoggedSqlContains(loggedSql, { postgres: 'u1."date"', mysql: 'u1.`date`' });
+        expectLoggedSqlContains(loggedSql, { postgres: 'u1."email_user"', mysql: 'u1.`email_user`' });
         expect(loggedSql).not.toContain('u1."createdAt"');
         expect(loggedSql).not.toContain('u1."emailUser"');
     });
