@@ -62,7 +62,8 @@ The `cache` option accepts the following values:
 - **`number`**: The Time To Live (TTL) in milliseconds. The result will be cached for this duration.
 - **`true`**: The result will be cached indefinitely (or until the cache driver evicts it).
 - **`Date`**: The result will be cached until the specified date.
-- **`undefined` / `false`**: Caching is disabled for this query (default).
+- **`false`**: Explicitly disable caching for this query (bypass cache).
+- **`undefined`**: Same as false (default), unless default caching is configured globally in the future.
 
 ## How it Works
 
@@ -73,4 +74,24 @@ When caching is enabled for a query:
 4. If not found, the query is executed against the database.
 5. The result is stored in the cache with the specified TTL.
 
-> **Note**: Currently, the ORM caches are namespaced by table, but automatic invalidation on write operations is not enabled by default. You should use caching primarily for data that doesn't change frequently or where eventual consistency is acceptable.
+## Cache Invalidation
+
+By default, the ORM **automatically invalidates** the cache for a table whenever a write operation (INSERT, UPDATE, DELETE) is performed on that table. This ensures that subsequent queries fetch fresh data.
+
+### Disabling Automatic Invalidation
+
+If you prefer to manage cache invalidation manually or want to persist stale data for performance reasons, you can disable this behavior globally in your `carno.config.ts` or connection settings.
+
+```typescript
+const app = new Carno()
+  .use(CarnoOrm, {
+    connection: {
+      // ... other settings
+      cache: {
+        invalidateCacheOnWrite: false // Disable auto-invalidation
+      }
+    }
+  });
+```
+
+When `invalidateCacheOnWrite` is set to `false`, write operations will NOT clear the cache. You will need to wait for the TTL to expire or manually invalidate the cache using the CacheService.
