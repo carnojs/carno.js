@@ -236,7 +236,7 @@ describe('ORM Cache System', () => {
     });
   });
 
-  
+
   describe('Cache with Date (cache: Date)', () => {
     test('should cache query result until Date expires', async () => {
       // Given
@@ -415,8 +415,8 @@ describe('ORM Cache System', () => {
     });
   });
 
-  describe('Cache persistence (no auto-invalidation)', () => {
-    test('should NOT invalidate cache on create (stale data)', async () => {
+  describe('Cache Invalidation', () => {
+    test('should invalidate cache on create', async () => {
       // Given - First query to cache empty result
       resetQueryCounter();
       const firstQuery = await productRepo.find({
@@ -427,7 +427,7 @@ describe('ORM Cache System', () => {
       expect(firstQuery.length).toBe(0);
       const queriesAfterFirst = getQueryCount();
 
-      // When - Create new product (cache is NOT invalidated)
+      // When - Create new product (cache IS invalidated)
       await productRepo.create({
         name: 'New Product',
         price: 250,
@@ -436,7 +436,7 @@ describe('ORM Cache System', () => {
 
       resetQueryCounter();
 
-      // Then - Should return cached result (stale data)
+      // Then - Should return fresh result
       const secondQuery = await productRepo.find({
         where: { isAvailable: true },
         cache: 5000,
@@ -444,12 +444,12 @@ describe('ORM Cache System', () => {
 
       const queriesAfterSecond = getQueryCount();
 
-      expect(secondQuery.length).toBe(0);
+      expect(secondQuery.length).toBe(1);
       expect(queriesAfterFirst).toBe(1);
-      expect(queriesAfterSecond).toBe(0);
+      expect(queriesAfterSecond).toBe(1);
     });
 
-    test('should NOT invalidate cache on update (stale data)', async () => {
+    test('should invalidate cache on update', async () => {
       // Given
       resetQueryCounter();
       const product = await productRepo.create({
@@ -466,7 +466,7 @@ describe('ORM Cache System', () => {
       expect(firstQuery!.name).toBe('Original Name');
       const queriesAfterFirst = getQueryCount();
 
-      // When - Update product (cache is NOT invalidated)
+      // When - Update product (cache IS invalidated)
       await productRepo.updateById(product.id, {
         name: 'Updated Name',
       });
@@ -481,12 +481,12 @@ describe('ORM Cache System', () => {
       const queriesAfterSecond = getQueryCount();
 
       expect(secondQuery).toBeDefined();
-      expect(secondQuery!.name).toBe('Original Name');
+      expect(secondQuery!.name).toBe('Updated Name');
       expect(queriesAfterFirst).toBe(1);
-      expect(queriesAfterSecond).toBe(0);
+      expect(queriesAfterSecond).toBe(1);
     });
 
-    test('should NOT invalidate cache on delete (stale data)', async () => {
+    test('should invalidate cache on delete', async () => {
       // Given
       resetQueryCounter();
       const product = await productRepo.create({
@@ -503,7 +503,7 @@ describe('ORM Cache System', () => {
       expect(firstQuery).toBeDefined();
       const queriesAfterFirst = getQueryCount();
 
-      // When - Delete product (cache is NOT invalidated)
+      // When - Delete product (cache IS invalidated)
       await productRepo.deleteById(product.id);
 
       resetQueryCounter();
@@ -515,10 +515,9 @@ describe('ORM Cache System', () => {
 
       const queriesAfterSecond = getQueryCount();
 
-      expect(secondQuery).toBeDefined();
-      expect(secondQuery!.name).toBe('To Delete');
+      expect(secondQuery).toBeUndefined();
       expect(queriesAfterFirst).toBe(1);
-      expect(queriesAfterSecond).toBe(0);
+      expect(queriesAfterSecond).toBe(1);
     });
   });
 
@@ -573,7 +572,7 @@ describe('ORM Cache System', () => {
 
       const queriesAfterFirst = getQueryCount();
 
-      // Insert new product (cache is NOT invalidated)
+      // Insert new product (cache IS invalidated)
       await productRepo.create({
         name: `Product 10`,
         price: 10,
@@ -581,7 +580,7 @@ describe('ORM Cache System', () => {
 
       resetQueryCounter();
 
-      // Second call - should return cached result (stale data)
+      // Second call - should return fresh result
       const secondCall = await productRepo.find({
         limit: 2,
         offset: 1,
@@ -591,11 +590,23 @@ describe('ORM Cache System', () => {
 
       const queriesAfterSecond = getQueryCount();
 
-      // Then - Should return cached data (same as first call)
+      // Then - Should return fresh data (3 items now)
       expect(firstCall.length).toBe(2);
       expect(secondCall.length).toBe(2);
+      expect(secondCall[1].id).toBe(3); // offset 1, so 2, 3
+      // Wait, limit is 2, offset 1.
+      // IDs: 1, 2, 3, 4, 5.
+      // First call (offset 1, limit 2): [2, 3]
+      // Add 10. IDs: 1, 2, 3, 4, 5, 10.
+      // Second call (offset 1, limit 2): [2, 3] -> Actually order by ID ASC, so it should be same unless the insert affects the window.
+      // Insert ID will be auto-incremented.
+      // If we insert a new product, it will have a higher ID.
+      // If we query with limit/offset on ID ASC, the new item appears at the end.
+      // So the result set for offset 1 limit 2 (items 2 and 3) might NOT change if we just add one at the end.
+      // However, the CACHE KEY should be invalidated.
+      // So queriesAfterSecond should be 1.
       expect(queriesAfterFirst).toBe(1);
-      expect(queriesAfterSecond).toBe(0);
+      expect(queriesAfterSecond).toBe(1);
     });
 
     test('should respect different cache keys for different limits', async () => {

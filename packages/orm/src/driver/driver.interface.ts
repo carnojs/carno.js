@@ -128,7 +128,7 @@ export interface DriverInterface {
 
 export type ValueOrInstance<T> = T extends ValueObject<any, any>
   ? // @ts-ignore
-    T | T["value"]
+  T | T["value"]
   : NonNullable<T>;
 
 export type SnapshotConstraintInfo = {
@@ -139,6 +139,7 @@ export type SnapshotConstraintInfo = {
 
 export interface CacheSettings {
   maxKeysPerTable?: number;
+  invalidateCacheOnWrite?: boolean;
 }
 
 export interface ConnectionSettings<
@@ -353,16 +354,16 @@ export type Primary<T> = T extends {
 }
   ? ReadonlyPrimary<PK>
   : T extends {
-      _id?: infer PK;
-    }
+    _id?: infer PK;
+  }
   ? ReadonlyPrimary<PK> | string
   : T extends {
-      uuid?: infer PK;
-    }
+    uuid?: infer PK;
+  }
   ? ReadonlyPrimary<PK>
   : T extends {
-      id?: infer PK;
-    }
+    id?: infer PK;
+  }
   ? ReadonlyPrimary<PK>
   : never;
 export type PrimaryProperty<T> = T extends {
@@ -370,16 +371,16 @@ export type PrimaryProperty<T> = T extends {
 }
   ? PK
   : T extends {
-      _id?: any;
-    }
+    _id?: any;
+  }
   ? "_id" | string
   : T extends {
-      uuid?: any;
-    }
+    uuid?: any;
+  }
   ? "uuid"
   : T extends {
-      id?: any;
-    }
+    id?: any;
+  }
   ? "id"
   : never;
 export type IPrimaryKeyValue =
@@ -388,8 +389,8 @@ export type IPrimaryKeyValue =
   | bigint
   | Date
   | {
-      toHexString(): string;
-    };
+    toHexString(): string;
+  };
 export type IPrimaryKey<T extends IPrimaryKeyValue = IPrimaryKeyValue> = T;
 export type OperatorMap<T> = {
   $and?: Query<T>[];
@@ -422,8 +423,8 @@ export type Scalar =
   | RegExp
   | Uint8Array
   | {
-      toHexString(): string;
-    };
+    toHexString(): string;
+  };
 // TODO: revise
 export type ExpandProperty<T> = T extends Reference<infer U>
   ? NonNullable<U>
@@ -437,14 +438,14 @@ export type ExpandScalar<T> =
   | (T extends string ? T | RegExp : T extends Date ? Date | string : T);
 type ExpandObject<T> = T extends object
   ? T extends Scalar
-    ? never
-    : {
-        // @ts-ignore
-        -readonly [K in keyof T as ExcludeFunctions<T, K>]?:
-          | Query<ExpandProperty<T[K]>>
-          | FilterValue<ExpandProperty<T[K]>>
-          | null;
-      }
+  ? never
+  : {
+    // @ts-ignore
+    -readonly [K in keyof T as ExcludeFunctions<T, K>]?:
+    | Query<ExpandProperty<T[K]>>
+    | FilterValue<ExpandProperty<T[K]>>
+    | null;
+  }
   : never;
 export type EntityProps<T> = {
   // @ts-ignore
@@ -452,8 +453,8 @@ export type EntityProps<T> = {
 };
 export type Query<T> = T extends object
   ? T extends Scalar
-    ? never
-    : FilterQuery<T>
+  ? never
+  : FilterQuery<T>
   : FilterValue<T>;
 export type FilterValue2<T> = T | ExpandScalar<T> | Primary<T>;
 export type FilterValue<T> =
@@ -484,8 +485,8 @@ export type Relationship<T> = {
 export type Cast<T, R> = T extends R ? T : R;
 export type IsUnknown<T> = T extends unknown
   ? unknown extends T
-    ? true
-    : never
+  ? true
+  : never
   : never;
 type Loadable<T extends object> =
   | Collection<T, any>
@@ -515,20 +516,20 @@ export type AutoPath<
   ? string
   : P extends any
   ? (P & `${string}.` extends never ? P : P & `${string}.`) extends infer Q
-    ? Q extends `${infer A}.${infer B}`
-      ? A extends StringKeys<O, E>
-        ? `${A}.${AutoPath<Defined<GetStringKey<O, A, E>>, B, E, Prev[D]>}`
-        : never
-      : Q extends StringKeys<O, E>
-      ?
-          | (Defined<GetStringKey<O, Q, E>> extends unknown
-              ? Exclude<P, `${string}.`>
-              : never)
-          | (StringKeys<Defined<GetStringKey<O, Q, E>>, E> extends never
-              ? never
-              : `${Q}.`)
-      : keyof ExtractType<O>
-    : never
+  ? Q extends `${infer A}.${infer B}`
+  ? A extends StringKeys<O, E>
+  ? `${A}.${AutoPath<Defined<GetStringKey<O, A, E>>, B, E, Prev[D]>}`
+  : never
+  : Q extends StringKeys<O, E>
+  ?
+  | (Defined<GetStringKey<O, Q, E>> extends unknown
+    ? Exclude<P, `${string}.`>
+    : never)
+  | (StringKeys<Defined<GetStringKey<O, Q, E>>, E> extends never
+    ? never
+    : `${Q}.`)
+  : keyof ExtractType<O>
+  : never
   : never;
 
 export declare enum QueryOrder {
@@ -564,10 +565,10 @@ export type EntityField<T, P extends string = never> = AutoPath<T, P, "*">;
 export interface FindOptions<T, P extends string = never> {
   load?: readonly AutoPath<T, P>[];
   orderBy?:
-    | (QueryOrderMap<T> & {
-        0?: never;
-      })
-    | QueryOrderMap<T>[];
+  | (QueryOrderMap<T> & {
+    0?: never;
+  })
+  | QueryOrderMap<T>[];
   cache?: boolean | number | Date;
   limit?: number;
   offset?: number;

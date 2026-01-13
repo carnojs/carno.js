@@ -254,6 +254,10 @@ export class SqlBuilder<T> {
       return false;
     }
 
+    if (this.statements.cache === false) {
+      return false;
+    }
+
     if (this.statements.cache instanceof Date) {
       return this.statements.cache.getTime() > Date.now();
     }
@@ -317,6 +321,10 @@ export class SqlBuilder<T> {
       await this.setCachedResult(result);
     }
 
+    if (this.isWriteOperation()) {
+      await this.invalidateCache();
+    }
+
     return result;
   }
 
@@ -327,6 +335,13 @@ export class SqlBuilder<T> {
 
   private async invalidateCache(): Promise<void> {
     if (!this.cacheManager) {
+      return;
+    }
+
+    const cacheConfig = Orm.getInstance().connection.cache;
+    const shouldInvalidate = cacheConfig?.invalidateCacheOnWrite ?? true;
+
+    if (!shouldInvalidate) {
       return;
     }
 
