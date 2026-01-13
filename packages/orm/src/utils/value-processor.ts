@@ -20,8 +20,7 @@ export class ValueProcessor {
       }
 
       if (ValueProcessor.isBaseEntity(values[value])) {
-        // @ts-ignore
-        newValue[columnName] = (values[value] as BaseEntity).id;
+        newValue[columnName] = ValueProcessor.extractPrimaryKeyValue(values[value] as BaseEntity);
         continue;
       }
 
@@ -46,8 +45,7 @@ export class ValueProcessor {
       }
 
       if (ValueProcessor.isBaseEntity(values[value])) {
-        // @ts-ignore
-        newValue[columnName] = (values[value] as BaseEntity).id;
+        newValue[columnName] = ValueProcessor.extractPrimaryKeyValue(values[value] as BaseEntity);
         continue;
       }
 
@@ -123,5 +121,16 @@ export class ValueProcessor {
 
   private static isBaseEntity(value: any): boolean {
     return value instanceof BaseEntity;
+  }
+
+  /**
+   * Extracts the primary key value from an entity using cached metadata.
+   * Supports custom primary keys that are not named 'id'.
+   */
+  private static extractPrimaryKeyValue(entity: BaseEntity): any {
+    const entityStorage = EntityStorage.getInstance();
+    const options = entityStorage.get(entity.constructor);
+    const pkName = options?._primaryKeyPropertyName || 'id';
+    return (entity as any)[pkName];
   }
 }

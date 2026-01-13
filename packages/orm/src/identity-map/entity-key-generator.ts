@@ -28,20 +28,7 @@ export class EntityKeyGenerator {
 
   private getPrimaryKeyName(entityClass: Function): string {
     const options = this.entityStorage.get(entityClass);
-
-    if (!options) {
-      return 'id';
-    }
-
-    for (const prop in options.properties) {
-      const property = options.properties[prop];
-
-      if (property.options.isPrimary) {
-        return prop;
-      }
-    }
-
-    return 'id';
+    return options?._primaryKeyPropertyName || 'id';
   }
 
   private serializePrimaryKey(pk: any): string {

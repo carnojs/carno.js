@@ -127,13 +127,8 @@ export class ModelTransformer {
   }
 
   private findPrimaryKeyProperty(options: Options): any {
-    for (const prop in options.properties) {
-      if (options.properties[prop].options.isPrimary) {
-        return options.properties[prop];
-      }
-    }
-
-    return null;
+    const pkPropertyName = options._primaryKeyPropertyName || 'id';
+    return options.properties[pkPropertyName] || null;
   }
 
   private buildOptionsMap(instanceMap: Record<string, any>): Map<string, Options> {

@@ -147,7 +147,7 @@ export class SqlBuilder<T> {
   }
 
   insert(values: Partial<{ [K in keyof T]: ValueOrInstance<T[K]> }>): SqlBuilder<T> {
-    const {tableName, schema} = this.getTableName();
+    const { tableName, schema } = this.getTableName();
     const processedValues = ValueProcessor.processForInsert(values, this.entity);
     this.statements.statement = 'insert';
     this.statements.instance = ValueProcessor.createInstance(processedValues, this.model, 'insert');
@@ -162,7 +162,7 @@ export class SqlBuilder<T> {
   }
 
   update(values: Partial<{ [K in keyof T]: ValueOrInstance<T[K]> }>): SqlBuilder<T> {
-    const {tableName, schema} = this.getTableName();
+    const { tableName, schema } = this.getTableName();
     const processedValues = ValueProcessor.processForUpdate(values, this.entity);
     this.statements.statement = 'update';
     this.statements.alias = this.getAlias(tableName);
@@ -173,7 +173,7 @@ export class SqlBuilder<T> {
   }
 
   delete(): SqlBuilder<T> {
-    const {tableName, schema} = this.getTableName();
+    const { tableName, schema } = this.getTableName();
 
     this.statements.statement = 'delete';
     this.statements.alias = this.getAlias(tableName);
@@ -189,7 +189,7 @@ export class SqlBuilder<T> {
 
     const newWhere = {};
     for (const key in where) {
-      if (where[key] instanceof Object){
+      if (where[key] instanceof Object) {
         newWhere[key] = where[key];
         continue;
       }
@@ -241,20 +241,13 @@ export class SqlBuilder<T> {
   }
 
   count(): SqlBuilder<T> {
-    const {tableName, schema} = this.getTableName();
+    const { tableName, schema } = this.getTableName();
     this.statements.statement = 'count';
     this.statements.alias = this.getAlias(tableName);
     this.statements.table = this.qualifyTable(schema, tableName);
     return this;
   }
 
-  private getPrimaryKeyColumnName(entity: Options): string {
-    // Logic to resolve the entity primary key column name
-    // Replace this with your own logic based on your project structure
-    // For example, if the primary key is always 'id', you can return 'id'.
-    // If the logic becomes more complex, add a method on Options to resolve the primary key.
-    return 'id';
-  }
 
   private shouldUseCache(): boolean {
     if (this.statements.statement !== 'select') {
@@ -451,9 +444,10 @@ export class SqlBuilder<T> {
     for (const row of rows) {
       const models = this.modelTransformer.transform(this.model, this.statements, row);
       this.afterHooks(models);
-      await this.joinManager.handleSelectJoin(row, models);
       results.push(models);
     }
+
+    await this.joinManager.handleSelectJoinBatch(rows, results);
 
     return results as any;
   }
@@ -507,8 +501,8 @@ export class SqlBuilder<T> {
 
     for (const join of this.statements.join) {
       if (join.joinAlias === targetAlias) {
-        const parentModel = join.originAlias === this.statements.alias! 
-          ? model 
+        const parentModel = join.originAlias === this.statements.alias!
+          ? model
           : this.findNestedModel(model, join.originAlias);
 
         return parentModel?.[join.joinProperty];
@@ -587,8 +581,8 @@ export class SqlBuilder<T> {
 
         const uniqueModels = this.removeDuplicatesByPrimaryKey(joinedModels, join.joinEntity);
 
-        const targetModel = join.originAlias === this.statements.alias! 
-          ? model 
+        const targetModel = join.originAlias === this.statements.alias!
+          ? model
           : this.findNestedModel(model, join.originAlias);
 
         if (targetModel) {
@@ -604,7 +598,7 @@ export class SqlBuilder<T> {
       return models;
     }
 
-    const primaryKey = this.getPrimaryKeyNameForEntity(entity);
+    const primaryKey = entity._primaryKeyPropertyName || 'id';
     const seen = new Set();
     const unique: any[] = [];
 
@@ -620,17 +614,9 @@ export class SqlBuilder<T> {
   }
 
   private getPrimaryKeyName(): string {
-    return this.getPrimaryKeyNameForEntity(this.entity);
+    return this.entity._primaryKeyPropertyName || 'id';
   }
 
-  private getPrimaryKeyNameForEntity(entity: Options): string {
-    for (const prop in entity.properties) {
-      if (entity.properties[prop].options.isPrimary) {
-        return prop;
-      }
-    }
-    return 'id';
-  }
 
   async executeCount(): Promise<number> {
     const result = await this.execute();
@@ -734,7 +720,7 @@ export class SqlBuilder<T> {
   private getTableName() {
     const tableName = this.entity.tableName || (this.model as Function).name.toLowerCase();
     const schema = this.entity.schema || 'public';
-    return {tableName, schema};
+    return { tableName, schema };
   }
 
   private t(value: any) {
