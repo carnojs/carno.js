@@ -444,9 +444,10 @@ export class SqlBuilder<T> {
     for (const row of rows) {
       const models = this.modelTransformer.transform(this.model, this.statements, row);
       this.afterHooks(models);
-      await this.joinManager.handleSelectJoin(row, models);
       results.push(models);
     }
+
+    await this.joinManager.handleSelectJoinBatch(rows, results);
 
     return results as any;
   }

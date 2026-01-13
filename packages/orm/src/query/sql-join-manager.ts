@@ -118,6 +118,16 @@ export class SqlJoinManager<T> {
     return models as any;
   }
 
+  async handleSelectJoinBatch(entities: any[], models: any[]): Promise<void> {
+    if (!this.statements.selectJoin || this.statements.selectJoin.length === 0) {
+      return;
+    }
+
+    for (const join of this.statements.selectJoin.reverse()) {
+      await this.processSelectJoinBatch(join, entities, models);
+    }
+  }
+
   getPathForSelectJoin(selectJoin: Statement<any>): string[] | null {
     const path = this.getPathForSelectJoinRecursive(selectJoin);
     return path.reverse();
@@ -216,6 +226,41 @@ export class SqlJoinManager<T> {
     this.logger.debug(`SQL: ${child.sql} [${Date.now() - child.startTime}ms]`);
 
     this.attachJoinResults(join, child, models);
+  }
+
+  private async processSelectJoinBatch(join: any, entities: any[], models: any[]): Promise<void> {
+    const allIds = new Set<any>();
+
+    for (let i = 0; i < entities.length; i++) {
+      const ids = this.getIds(join, entities[i], models[i]);
+
+      if (Array.isArray(ids)) {
+        ids.forEach(id => {
+          if (id !== undefined && id !== null) {
+            allIds.add(id);
+          }
+        });
+      } else if (ids !== undefined && ids !== null) {
+        allIds.add(ids);
+      }
+    }
+
+    if (allIds.size === 0) {
+      return;
+    }
+    const idsString = Array.from(allIds)
+      .map((id: any) => this.formatValue(id))
+      .join(', ');
+
+    this.updateJoinWhere(join, idsString);
+    this.updateJoinColumns(join);
+
+    const result = await this.driver.executeStatement(join);
+    this.logger.debug(`SQL (BATCHED): ${result.sql} [${Date.now() - result.startTime}ms]`);
+
+    for (let i = 0; i < entities.length; i++) {
+      this.attachJoinResults(join, result, models[i]);
+    }
   }
 
   private getIds(join: any, entities: any, models: any): any {
