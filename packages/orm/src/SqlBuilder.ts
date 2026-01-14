@@ -157,6 +157,8 @@ export class SqlBuilder<T> {
       this.withDefaultValues(processedValues, this.entity),
       this.entity,
     );
+    // Store primary key column name for drivers that need it (e.g., MySQL)
+    this.statements.primaryKeyColumnName = this.entity._primaryKeyColumnName || 'id';
     this.reflectToValues();
     return this;
   }

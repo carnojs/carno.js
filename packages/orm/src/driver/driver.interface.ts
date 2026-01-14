@@ -233,6 +233,7 @@ export type Statement<T> = {
   joinProperty?: string;
   fkKey?: string;
   primaryKey?: string;
+  primaryKeyColumnName?: string;
   originAlias?: string;
   originProperty?: string;
   joinEntity?: Function;

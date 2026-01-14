@@ -11,8 +11,8 @@
     "compile": "npm run build",
     "pretest": "docker-compose up -d",
     "test": "npm run test:postgres && npm run test:mysql",
-    "test:postgres": "cross-env DB_DRIVER=postgres bun test",
-    "test:mysql": "cross-env DB_DRIVER=mysql bun test",
+    "test:postgres": "cross-env DB_DRIVER=postgres bun test packages/orm",
+    "test:mysql": "cross-env DB_DRIVER=mysql bun test packages/orm",
     "posttest": "docker-compose down"
   },
   "devDependencies": {

@@ -68,10 +68,11 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
     }
 
     let insertId: number | undefined;
+    const primaryKeyColumnName = statement.primaryKeyColumnName || 'id';
 
     // Check if ID was manually provided in the values
-    if (statement.values && statement.values.id) {
-      insertId = statement.values.id;
+    if (statement.values && statement.values[primaryKeyColumnName]) {
+      insertId = statement.values[primaryKeyColumnName];
     } else {
       // For AUTO_INCREMENT, use LAST_INSERT_ID()
       const lastIdResult = await context.unsafe('SELECT LAST_INSERT_ID() as id');
@@ -89,7 +90,7 @@ export class BunMysqlDriver extends BunDriverBase implements DriverInterface {
 
     const cols = statement.columns.join(', ').replaceAll(`${statement.alias}.`, '');
     const idValue = this.toDatabaseValue(insertId);
-    const selectSql = `SELECT ${cols} FROM ${statement.table} WHERE id = ${idValue}`;
+    const selectSql = `SELECT ${cols} FROM ${statement.table} WHERE \`${primaryKeyColumnName}\` = ${idValue}`;
     const selectResult = await context.unsafe(selectSql);
 
     return {
