@@ -2,15 +2,27 @@
 sidebar_position: 6
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Logging
 
 Logging is handled by the dedicated `@carno.js/logger` package, which provides a high-performance, structured logging system.
 
 ## Installation
 
-```bash
-bun add @carno.js/logger
-```
+<Tabs groupId="os">
+  <TabItem value="mac" label="macOS / Linux">
+    ```bash
+    bun add @carno.js/logger
+    ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+    ```bash
+    bun add "@carno.js/logger"
+    ```
+  </TabItem>
+</Tabs>
 
 ## Basic Usage
 

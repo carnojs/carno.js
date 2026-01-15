@@ -2,15 +2,27 @@
 sidebar_position: 1
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Queue
 
 Carno.js integrates [BullMQ](https://docs.bullmq.io/) for robust background job processing.
 
 ## Installation
 
-```bash
-bun install @carno.js/queue
-```
+<Tabs groupId="os">
+  <TabItem value="mac" label="macOS / Linux">
+    ```bash
+    bun install @carno.js/queue
+    ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+    ```bash
+    bun install "@carno.js/queue"
+    ```
+  </TabItem>
+</Tabs>
 
 ## Setup
 

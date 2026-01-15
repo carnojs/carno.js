@@ -60,9 +60,16 @@ Carno.js is built from the ground up for the **Bun** runtime. It focuses on raw 
 
 ### Installation
 
-```bash
-bun add @carno.js/core
-```
+<table>
+  <tr>
+    <th>macOS / Linux</th>
+    <th>Windows (Bun)</th>
+  </tr>
+  <tr>
+    <td><pre><code>bun add @carno.js/core</code></pre></td>
+    <td><pre><code>bun add "@carno.js/core"</code></pre></td>
+  </tr>
+</table>
 
 ### Configuration
 

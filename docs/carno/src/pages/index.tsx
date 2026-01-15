@@ -1,4 +1,4 @@
-﻿﻿import type { ReactNode } from 'react';
+﻿﻿import { useState, type ReactNode } from 'react';
 import clsx from 'clsx';
 import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
@@ -85,12 +85,37 @@ function BenchmarkSection() {
 }
 
 function InstallSection() {
+  const [os, setOs] = useState<'mac' | 'windows'>('mac');
+  const installCommand = os === 'windows'
+    ? 'bun add "@carno.js/core"'
+    : 'bun add @carno.js/core';
+
   return (
     <section className={styles.installSection}>
       <div className="container">
         <Heading as="h2" className={styles.sectionTitle}>🚀 Get Started in Seconds</Heading>
+        <div className={styles.installTabs} role="tablist" aria-label="Installation tabs">
+          <button
+            className={clsx(styles.installTab, os === 'mac' && styles.installTabActive)}
+            onClick={() => setOs('mac')}
+            role="tab"
+            aria-selected={os === 'mac'}
+            type="button"
+          >
+            macOS / Linux
+          </button>
+          <button
+            className={clsx(styles.installTab, os === 'windows' && styles.installTabActive)}
+            onClick={() => setOs('windows')}
+            role="tab"
+            aria-selected={os === 'windows'}
+            type="button"
+          >
+            Windows
+          </button>
+        </div>
         <div className={styles.installCode}>
-          <code>bun add @carno.js/core</code>
+          <code>{installCommand}</code>
         </div>
       </div>
     </section>
