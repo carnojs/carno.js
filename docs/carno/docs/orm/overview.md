@@ -2,6 +2,9 @@
 sidebar_position: 1
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # ORM Overview
 
 `@carno.js/orm` is a lightweight, Data Mapper-style ORM built for Bun. It supports PostgreSQL and MySQL.
@@ -12,9 +15,18 @@ Unlike many other Node.js ORMs, Carno ORM **does not rely on external query buil
 
 ## Installation
 
-```bash
-bun install @carno.js/orm
-```
+<Tabs groupId="os">
+  <TabItem value="mac" label="macOS / Linux">
+    ```bash
+    bun install @carno.js/orm
+    ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+    ```bash
+    bun install "@carno.js/orm"
+    ```
+  </TabItem>
+</Tabs>
 
 ## Configuration
 

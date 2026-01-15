@@ -2,6 +2,9 @@
 sidebar_position: 2
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Installation & Setup
 
 Get your Carno.js application running in minutes.
@@ -25,9 +28,18 @@ bun init
 
 Install the core package:
 
-```bash
-bun install @carno.js/core
-```
+<Tabs groupId="os">
+  <TabItem value="mac" label="macOS / Linux">
+    ```bash
+    bun install @carno.js/core
+    ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+    ```bash
+    bun install "@carno.js/core"
+    ```
+  </TabItem>
+</Tabs>
 
 ## Step 3: Configure TypeScript
 
@@ -74,10 +86,20 @@ You should see: `Server running on port 3000`.
 
 Carno.js is modular. You can add ORM, Queue, Schedule, and CLI capabilities as plugins or dev tools.
 
-```bash
-bun install @carno.js/orm @carno.js/queue @carno.js/schedule
-bun install -d @carno.js/cli
-```
+<Tabs groupId="os">
+  <TabItem value="mac" label="macOS / Linux">
+    ```bash
+    bun install @carno.js/orm @carno.js/queue @carno.js/schedule
+    bun install -d @carno.js/cli
+    ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+    ```bash
+    bun install "@carno.js/orm" "@carno.js/queue" "@carno.js/schedule"
+    bun install -d "@carno.js/cli"
+    ```
+  </TabItem>
+</Tabs>
 
 Update your `src/index.ts` to use them. For example, adding an ORM module:
 

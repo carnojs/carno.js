@@ -2,6 +2,9 @@
 sidebar_position: 2
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # CLI
 
 The Carno.js CLI provides essential tools for managing your application, including database migrations and route inspection.
@@ -12,15 +15,34 @@ The CLI is distributed as a separate package. You can install it as a developmen
 
 ### Using Bun (Recommended)
 
-```bash
-bun add -d @carno.js/cli
-```
+<Tabs groupId="os">
+  <TabItem value="mac" label="macOS / Linux">
+    ```bash
+    bun add -d @carno.js/cli
+    ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+    ```bash
+    bun add -d "@carno.js/cli"
+    ```
+  </TabItem>
+</Tabs>
 
 ### Using npm
 
-```bash
-npm install -D @carno.js/cli
-```
+<Tabs groupId="os">
+  <TabItem value="mac" label="macOS / Linux">
+    ```bash
+    npm install -D @carno.js/cli
+    ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+    ```bash
+    npm install -D "@carno.js/cli"
+    ```
+  </TabItem>
+</Tabs>
+
 
 ## Usage
 

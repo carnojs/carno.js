@@ -28,6 +28,8 @@ The framework relies heavily on TypeScript decorators to provide a declarative a
 | **`@carno.js/cli`** | Command Line Interface for migrations and tools. | `bun install -d @carno.js/cli` |
 | **`@carno.js/logger`**| Fast and flexible logging solution. | `bun install @carno.js/logger` |
 
+> **Windows:** Wrap scoped package names in double quotes, for example `bun install "@carno.js/core"`.
+
 ## Modularity & Clean Code
 
 Carno.js is built with modularity in mind. Instead of a large monolithic configuration, you are encouraged to split your logic into independent **Plugins**. This keeps your codebase organized and your features decoupled.

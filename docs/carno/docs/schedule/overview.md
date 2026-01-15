@@ -2,15 +2,27 @@
 sidebar_position: 1
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Schedule
 
 Schedule recurring tasks easily using Cron expressions, intervals, or timeouts.
 
 ## Installation
 
-```bash
-bun install @carno.js/schedule
-```
+<Tabs groupId="os">
+  <TabItem value="mac" label="macOS / Linux">
+    ```bash
+    bun install @carno.js/schedule
+    ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+    ```bash
+    bun install "@carno.js/schedule"
+    ```
+  </TabItem>
+</Tabs>
 
 ## Setup
 

@@ -2,6 +2,9 @@
 sidebar_position: 9
 ---
 
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
 # Migrations
 
 Migrations allow you to evolve your database schema safely and share changes with your team.
@@ -27,9 +30,18 @@ export default config;
 
 To use the migration commands, you need to install the Carno CLI. See the [CLI Documentation](../cli.md) for detailed installation and usage instructions.
 
-```bash
-bun install -d @carno.js/cli
-```
+<Tabs groupId="os">
+  <TabItem value="mac" label="macOS / Linux">
+    ```bash
+    bun install -d @carno.js/cli
+    ```
+  </TabItem>
+  <TabItem value="windows" label="Windows">
+    ```bash
+    bun install -d "@carno.js/cli"
+    ```
+  </TabItem>
+</Tabs>
 
 ## CLI Commands
 

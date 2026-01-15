@@ -269,11 +269,42 @@
   margin-bottom: 1.5rem;
 }
 
+.installTabs {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.35rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 999px;
+  width: fit-content;
+  margin: 0 auto 1.5rem;
+}
+
+.installTab {
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  padding: 0.5rem 1.2rem;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.installTabActive {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.installTab:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
 .installCode {
   background: rgba(0, 0, 0, 0.25);
   display: inline-block;
   padding: 1rem 2.5rem;
   border-radius: 12px;
+  margin-top: 0.25rem;
   font-size: 1.35rem;
   font-family: 'Fira Code', 'SF Mono', Monaco, monospace;
   color: white;
