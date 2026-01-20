@@ -16,25 +16,60 @@
     "baseUrl": ".",
     "skipLibCheck": true,
     "paths": {
-      "@carno.js/core": ["./packages/core"],
-      "@carno.js/core/*": ["./packages/core/src/*"],
-      "@carno.js/schedule": ["./packages/schedule"],
-      "@carno.js/schedule/*": ["./packages/schedule/src/*"],
-      "@carno.js/orm": ["./packages/orm"],
-      "@carno.js/orm/*": ["./packages/orm/src/*"],
-      "@carno.js/swagger": ["./packages/swagger"],
-      "@carno.js/swagger/*": ["./packages/swagger/src/*"],
-      "@carno.js/queue": ["./packages/queue"],
-      "@carno.js/queue/*": ["./packages/queue/src/*"]
+      "@carno.js/core": [
+        "./packages/core"
+      ],
+      "@carno.js/core/*": [
+        "./packages/core/src/*"
+      ],
+      "@carno.js/schedule": [
+        "./packages/schedule"
+      ],
+      "@carno.js/schedule/*": [
+        "./packages/schedule/src/*"
+      ],
+      "@carno.js/orm": [
+        "./packages/orm"
+      ],
+      "@carno.js/orm/*": [
+        "./packages/orm/src/*"
+      ],
+      "@carno.js/queue": [
+        "./packages/queue"
+      ],
+      "@carno.js/queue/*": [
+        "./packages/queue/src/*"
+      ],
+      "@carno.js/static": [
+        "./packages/static"
+      ],
+      "@carno.js/static/*": [
+        "./packages/static/src/*"
+      ],
+      "@carno.js/logger": [
+        "./packages/logger"
+      ],
+      "@carno.js/logger/*": [
+        "./packages/logger/src/*"
+      ]
     },
-    "types": ["bun-types"]
+    "types": [
+      "bun-types"
+    ]
   },
   "files": [],
   "references": [
-    { "path": "./packages/core" },
-    { "path": "./packages/orm" },
-    { "path": "./packages/schedule" },
-    { "path": "./packages/swagger" },
-    { "path": "./packages/queue" }
+    {
+      "path": "./packages/core"
+    },
+    {
+      "path": "./packages/orm"
+    },
+    {
+      "path": "./packages/schedule"
+    },
+    {
+      "path": "./packages/queue"
+    }
   ]
 }
