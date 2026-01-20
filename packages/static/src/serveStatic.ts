@@ -5,10 +5,6 @@ import { getCachedFileResponse, isProductionMode } from './config';
 import type { ResolvedConfig } from './types';
 import * as path from 'path';
 
-/**
- * Core logic for serving static files.
- * Used by both StaticPlugin (route closure) and StaticController (class wrapper).
- */
 export async function serveStatic(ctx: Context, config: ResolvedConfig): Promise<Response> {
     // Extract path from URL (remove prefix)
     let requestPath = ctx.path;

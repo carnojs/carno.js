@@ -294,6 +294,19 @@ describe('StaticPlugin', () => {
 
                 expect(res.status).toBe(404);
             });
+
+            it('should serve index.html when accessing prefix without trailing slash', async () => {
+                app = await createApp({
+                    root: FIXTURES_DIR,
+                    alwaysStatic: false,
+                    prefix: '/assets'
+                }, port);
+
+                const res = await fetch(`http://127.0.0.1:${port}/assets`);
+
+                expect(res.status).toBe(200);
+                expect(await res.text()).toContain('Hello from static!');
+            });
         });
     });
 

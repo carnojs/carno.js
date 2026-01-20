@@ -55,10 +55,12 @@ export class StaticPlugin {
         } else {
             // Development: Use wildcard route with closure to capture config
             // This supports multiple plugins with different configs
+            // Development: Use wildcard route with closure to capture config
+            // This supports multiple plugins with different configs
             const routePath = normalizePath(path.join(pluginConfig.prefix, '*'));
 
             // Dynamic handler captures 'pluginConfig' in closure
-            plugin.route('GET', routePath, async (req: Request) => {
+            const handler = async (req: Request) => {
                 const { Context } = require('@carno.js/core');
                 const { serveStatic } = require('./serveStatic');
 
@@ -66,7 +68,14 @@ export class StaticPlugin {
                 const ctx = new Context(req, (req as any).params || {});
 
                 return serveStatic(ctx, pluginConfig);
-            });
+            };
+
+            plugin.route('GET', routePath, handler);
+
+            // Also register the exact prefix path matches (without wildcard)
+            if (pluginConfig.prefix !== '/' && pluginConfig.prefix !== '') {
+                plugin.route('GET', pluginConfig.prefix, handler);
+            }
         }
 
         return plugin;
