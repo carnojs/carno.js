@@ -1,0 +1,37 @@
+{
+    "name": "@carno.js/static",
+    "version": "1.0.0",
+    "description": "Static file serving plugin for Carno.js with maximum performance",
+    "type": "commonjs",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "exports": {
+        "./package.json": "./package.json",
+        ".": {
+            "require": "./dist/index.js",
+            "default": "./dist/index.js"
+        }
+    },
+    "scripts": {
+        "compile": "rm -rf ./dist tsconfig.tsbuildinfo && tsc --build --force",
+        "build": "tsc --build --force",
+        "test": "bun test",
+        "prepublishOnly": "bun run build"
+    },
+    "dependencies": {},
+    "peerDependencies": {
+        "@carno.js/core": "^1.0.0"
+    },
+    "author": "",
+    "license": "MIT",
+    "publishConfig": {
+        "access": "public"
+    },
+    "keywords": [
+        "carno",
+        "carno.js",
+        "static",
+        "files",
+        "bun"
+    ]
+}

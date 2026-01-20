@@ -109,7 +109,7 @@ export class Carno {
 
     /**
      * Use a Carno plugin.
-     * Imports controllers, services and global middlewares from another Carno instance.
+     * Imports controllers, services, middlewares, and routes from another Carno instance.
      */
     use(plugin: Carno): this {
         // Import controllers from plugin
@@ -140,6 +140,21 @@ export class Carno {
         // Import middlewares registered via .middlewares() on the plugin
         if (plugin._middlewares.length > 0) {
             this._middlewares.push(...plugin._middlewares);
+        }
+
+        // Import routes registered via .route() or .addRoutes() on the plugin
+        for (const [path, methods] of Object.entries(plugin.routes)) {
+            if (!this.routes[path]) {
+                this.routes[path] = {};
+            }
+
+            // Merge methods for this path
+            if (typeof methods === 'object' && methods !== null && !(methods instanceof Response)) {
+                Object.assign(this.routes[path], methods);
+            } else {
+                // Single handler (Response or Function) - preserve it
+                this.routes[path] = methods;
+            }
         }
 
         return this;
@@ -183,6 +198,59 @@ export class Carno {
     controllers(controllerClass: (new (...args: any[]) => any) | (new (...args: any[]) => any)[]): this {
         const items = Array.isArray(controllerClass) ? controllerClass : [controllerClass];
         this._controllers.push(...items);
+        return this;
+    }
+
+    /**
+     * Register a route programmatically.
+     * Useful for plugins that need to register routes without controllers.
+     * 
+     * @example
+     * ```ts
+     * app.route('GET', '/health', () => ({ status: 'ok' }));
+     * app.route('POST', '/webhook', async (ctx) => {
+     *   const data = await ctx.parseBody();
+     *   return { received: true };
+     * });
+     * ```
+     */
+    route(method: string, path: string, handler: Response | Function): this {
+        const normalizedMethod = method.toUpperCase();
+
+        if (!this.routes[path]) {
+            this.routes[path] = {};
+        }
+
+        this.routes[path][normalizedMethod] = handler;
+        return this;
+    }
+
+    /**
+     * Bulk register multiple routes at once.
+     * 
+     * @example
+     * ```ts
+     * app.addRoutes({
+     *   '/api/users': {
+     *     'GET': () => ({ users: [] }),
+     *     'POST': (ctx) => ({ created: true })
+     *   },
+     *   '/api/health': {
+     *     'GET': () => ({ status: 'ok' })
+     *   }
+     * });
+     * ```
+     */
+    addRoutes(routes: Record<string, Record<string, Response | Function>>): this {
+        for (const [path, methods] of Object.entries(routes)) {
+            if (!this.routes[path]) {
+                this.routes[path] = {};
+            }
+
+            for (const [method, handler] of Object.entries(methods)) {
+                this.routes[path][method.toUpperCase()] = handler;
+            }
+        }
         return this;
     }
 
