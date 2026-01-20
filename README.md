@@ -54,6 +54,7 @@ Carno.js is built from the ground up for the **Bun** runtime. It focuses on raw 
 | **@carno.js/orm** | Lightweight ORM for PostgreSQL and MySQL |
 | **@carno.js/queue** | Background job processing via BullMQ |
 | **@carno.js/schedule** | Cron, Interval, and Timeout task scheduling |
+| **@carno.js/static** | High-performance static file serving |
 | **@carno.js/cli** | Command Line Interface for migrations and tools |
 
 ## Quick Start

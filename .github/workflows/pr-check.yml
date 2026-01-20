@@ -46,6 +46,7 @@ jobs:
           MYSQL_DATABASE: test
           MYSQL_USER: test
           MYSQL_PASSWORD: test
+        command: --max-connections=200
         ports:
           - 3307:3306
         options: >-

@@ -53,6 +53,11 @@ const sidebars: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Static Files',
+      items: ['static/overview'],
+    },
+    {
+      type: 'category',
       label: 'Testing',
       items: ['testing/overview'],
     },
