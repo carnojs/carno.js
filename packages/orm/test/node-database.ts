@@ -139,11 +139,28 @@ async function ensureMysqlDatabase(
     ...settings,
     database: settings.database || 'mysql',
   };
-  const adminDriver = new BunMysqlDriver(adminSettings);
 
-  await adminDriver.connect();
-  await adminDriver.executeSql(`CREATE DATABASE IF NOT EXISTS \`${databaseName}\``);
-  await adminDriver.disconnect();
+  let lastError: any;
+
+  // Retry up to 5 times with exponential backoff
+  for (let i = 0; i < 5; i++) {
+    const adminDriver = new BunMysqlDriver(adminSettings);
+    try {
+      await adminDriver.connect();
+      await adminDriver.executeSql(`CREATE DATABASE IF NOT EXISTS \`${databaseName}\``);
+      await adminDriver.disconnect();
+      return;
+    } catch (err: any) {
+      lastError = err;
+      // Close connection if it was opened but failed during query
+      try { await adminDriver.disconnect(); } catch { }
+
+      // Wait 1s, 2s, 4s, 8s...
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+    }
+  }
+
+  throw lastError || new Error('Failed to ensure MySQL database');
 }
 
 function adaptSqlForMysql(sql: string): string {

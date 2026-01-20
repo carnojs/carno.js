@@ -46,7 +46,6 @@ jobs:
           MYSQL_DATABASE: test
           MYSQL_USER: test
           MYSQL_PASSWORD: test
-        command: --max-connections=200
         ports:
           - 3307:3306
         options: >-
@@ -58,6 +57,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Configure MySQL
+        run: |
+          sudo apt-get install -y mysql-client
+          mysql -h 127.0.0.1 -P 3307 -u root -proot -e 'SET GLOBAL max_connections = 500;'
 
       - name: Install Bun
         uses: oven-sh/setup-bun@v1
