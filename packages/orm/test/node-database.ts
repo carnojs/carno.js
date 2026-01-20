@@ -37,12 +37,26 @@ export async function startDatabase(entityFile: string | undefined = undefined) 
     await ensureMysqlDatabase(settings, databaseName);
   }
 
-  await service.onInit({
-    ...settings,
-    database: databaseName ?? settings.database,
-    driver,
-    max: 10,
-  });
+  // Retry service init
+  let initError: any;
+  for (let i = 0; i < 3; i++) {
+    try {
+      await service.onInit({
+        ...settings,
+        database: databaseName ?? settings.database,
+        driver,
+        max: 2, // Reduced from 10 to prevent CI connection exhaustion
+      });
+      return;
+    } catch (err: any) {
+      initError = err;
+      // Wait before retry
+      await new Promise(resolve => setTimeout(resolve, 500 * Math.pow(2, i)));
+    }
+  }
+
+  console.error('Failed to initialize database service:', initError);
+  throw initError;
 }
 
 export async function purgeDatabase(schema: string = 'public') {
