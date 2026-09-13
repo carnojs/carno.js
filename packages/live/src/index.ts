@@ -25,6 +25,8 @@ export type { LiveConfig } from './config';
 export { ConnectionScopeResolver } from './transport/scope-resolver';
 export type { LiveHandshake, LiveScopeResolver } from './transport/scope-resolver';
 export type { LiveExecutionContext, LiveInputs, LiveResourceExecutor, LiveScope } from './resource/types';
+export { defaultScopeWarning } from './scope-warning';
+export type { DefaultScopeWarningInput } from './scope-warning';
 
 // Authorization
 export { AllowAllAuthorizer, authKeysOf, isAuthKey } from './auth/authorizer';

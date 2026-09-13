@@ -25,6 +25,7 @@ import { SocketTransport } from './transport/SocketTransport';
 import { SseTransport } from './transport/SseTransport';
 import { createSseRoutes } from './transport/sse-routes';
 import { LIVE_CONNECTION_HEADER, LIVE_TOKEN_HEADER } from './shared/protocol';
+import { defaultScopeWarning } from './scope-warning';
 
 export interface LivePluginOptions {
     /** Controllers holding @Live() handlers. Validated at bootstrap. */
@@ -35,6 +36,15 @@ export interface LivePluginOptions {
      * builder, so a second plugin silently wins and orphans the first.
      */
     gateways?: (new (...args: any[]) => any)[];
+    /**
+     * Turns a handshake into the principal and tenant that key an instance.
+     *
+     * Left out, the default `ConnectionScopeResolver` makes the connection id
+     * the principal, so every `private` resource gets one instance per
+     * connection and the boot logs say so. Passing
+     * `new ConnectionScopeResolver()` explicitly is how an application states
+     * that per-connection instances are what it wants, and silences that.
+     */
     scopeResolver?: LiveScopeResolver;
     /**
      * Decides whether a connection may hold a subscription, and is re-asked
@@ -200,6 +210,19 @@ export class LivePlugin {
             }
 
             teachEtag?.(resources.livePaths());
+
+            // Both halves of the per-connection trap are known only here: the
+            // resolver comes from the options, the resources from the scan the
+            // loop above just finished.
+            const scopeWarning = defaultScopeWarning({
+                privateResourceIds: resources.idsShared('private'),
+                usingDefaultResolver: options.scopeResolver === undefined,
+                maxInstancesPerNode: config.maxInstancesPerNode
+            });
+
+            if (scopeWarning) {
+                console.warn(scopeWarning);
+            }
 
             if (options.pgNotify) {
                 const driver = Orm.getInstance().driverInstance;

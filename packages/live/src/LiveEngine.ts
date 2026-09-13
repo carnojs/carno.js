@@ -66,6 +66,17 @@ export class LiveEngine {
     /** connectionId → instanceId → decision. Cleared when an `auth:` key fires. */
     private readonly authorized = new Map<string, Map<string, boolean>>();
 
+    /**
+     * Permits for concurrent computes, and whoever is queued for one.
+     *
+     * Every compute runs the resource's route and so its queries, against a
+     * database pool far smaller than any fan-out. This caps them where the
+     * query actually happens, so overlapping flushes and the dirty-retry path
+     * are held to the same bound as a flush.
+     */
+    private inFlight = 0;
+    private readonly waiting: (() => void)[] = [];
+
     private flushTimer: ReturnType<typeof setTimeout> | null = null;
     private unsubscribeBus: (() => void) | null = null;
     private recomputes = 0;
@@ -103,6 +114,16 @@ export class LiveEngine {
             if (instance.dropTimer) {
                 clearTimeout(instance.dropTimer);
             }
+        }
+
+        // Let whoever is queued for a permit through: they finish the compute
+        // they already started, rather than awaiting a release that stopping
+        // means will never come. Each one is counted as it goes, so the
+        // release it makes on the way out balances and a restarted engine
+        // does not begin below zero.
+        while (this.waiting.length > 0) {
+            this.inFlight++;
+            this.waiting.shift()!();
         }
     }
 
@@ -471,7 +492,19 @@ export class LiveEngine {
         inputs: LiveInputs,
         scope: LiveScope
     ): Promise<LiveInstance> {
-        const { data, deps } = await this.resources.compute(resource, inputs, { scope });
+        // The same permit as a recompute: a burst of first subscriptions is
+        // as many queries as a fan-out is, and hits the same pool.
+        await this.acquirePermit();
+
+        let data: unknown;
+        let deps;
+
+        try {
+            ({ data, deps } = await this.resources.compute(resource, inputs, { scope }));
+        } finally {
+            this.releasePermit();
+        }
+
         this.recomputes++;
         this.graph.setDependencies(instanceId, deps);
 
@@ -559,16 +592,51 @@ export class LiveEngine {
 
         this.metrics.instances(this.instances.size);
 
-        for (let i = 0; i < batch.length; i += this.config.fanoutQueueThreshold) {
-            const slice = batch.slice(i, i + this.config.fanoutQueueThreshold);
-            await Promise.all(slice.map(instanceId => this.recompute(instanceId)));
+        // A bounded pool, not `Promise.all` over a slice of five hundred. The
+        // permits taken in `runCompute` are what cap the queries; this is what
+        // keeps a fan-out of fifty thousand from materializing fifty thousand
+        // pending promises just to hold them.
+        const workers = Math.min(Math.max(1, this.config.maxConcurrentRecomputes), batch.length);
+        const yieldEvery = Math.max(1, this.config.fanoutQueueThreshold);
+        let next = 0;
+        let finished = 0;
 
-            if (i + this.config.fanoutQueueThreshold < batch.length) {
-                // Yield between slices so a large fan-out does not monopolize
-                // the loop and stall unrelated requests.
-                await new Promise(resolve => setTimeout(resolve, 0));
+        const run = async (): Promise<void> => {
+            while (next < batch.length) {
+                await this.recompute(batch[next++]!);
+                finished++;
+
+                if (finished % yieldEvery === 0) {
+                    // Yield so a large fan-out does not monopolize the loop
+                    // and stall unrelated requests.
+                    await new Promise(resolve => setTimeout(resolve, 0));
+                }
             }
+        };
+
+        await Promise.all(Array.from({ length: workers }, () => run()));
+    }
+
+    /** A permit to run one compute, now or when one frees up. */
+    private acquirePermit(): Promise<void> {
+        if (this.inFlight < Math.max(1, this.config.maxConcurrentRecomputes)) {
+            this.inFlight++;
+            return Promise.resolve();
         }
+
+        return new Promise<void>(resolve => this.waiting.push(resolve));
+    }
+
+    /** Hand the permit straight to the next waiter, so the count never dips. */
+    private releasePermit(): void {
+        const next = this.waiting.shift();
+
+        if (next) {
+            next();
+            return;
+        }
+
+        this.inFlight--;
     }
 
     private recompute(instanceId: string): Promise<void> {
@@ -598,6 +666,10 @@ export class LiveEngine {
     }
 
     private async runCompute(instance: LiveInstance): Promise<void> {
+        // Taken before the clock starts, so `live.recompute.ms` keeps meaning
+        // the compute rather than the wait for a free connection.
+        await this.acquirePermit();
+
         const startedAt = performance.now();
         let data: unknown;
         let deps;
@@ -616,6 +688,10 @@ export class LiveEngine {
 
             await this.broadcast(instance, sid => ({ t: 'stale', sid, reason: (error as Error).message }));
             return;
+        } finally {
+            // Only the compute is held: the hash, the diff and the fan-out
+            // below need no connection.
+            this.releasePermit();
         }
 
         this.recomputes++;

@@ -90,8 +90,16 @@ with the gateway classes supplied in `gateways`.
 ### Scope resolution
 
 The default scope resolver treats every WebSocket connection as its own
-principal. This is a safe default, but it means that two connections from the
-same user do not share a `private` instance.
+principal. Nothing can leak between connections, which is why it is the
+default, but it prices the engine in connections rather than in data: two tabs
+of the same user are two instances, and a dashboard watched by 5,000 people is
+5,000 instances, each with its own compute, its own diff and its own query.
+
+Both halves of that are known at bootstrap — no resolver configured, and at
+least one `private` resource registered — so the plugin reports it in the boot
+logs and names the resources concerned. Passing
+`scopeResolver: new ConnectionScopeResolver()` explicitly states that
+per-connection instances are the intent, and silences the warning.
 
 Applications that authenticate the WebSocket handshake can provide a resolver:
 
@@ -290,6 +298,22 @@ shared bucket.
 Sharing is an optimization, not an authorization policy. A `public` resource
 must return the same authorized content for every connection that can receive
 it. Do not mark user-specific or permission-sensitive data as public.
+
+### What the default costs
+
+`private` is the default because it cannot leak, not because it is the cheaper
+choice. Its instance count grows with connections, while `tenant` grows with
+tenants and `public` is one instance per distinct set of inputs for the whole
+process — both of those grow with the data. For anything that is not personal,
+such as catalogues, public dashboards, status panels and leaderboards, declare
+`public` or `tenant` and state the sharing deliberately rather than inheriting
+the safe default.
+
+The difference is a ceiling, not only a bill. `LiveConfig.maxInstancesPerNode`
+defaults to 50,000 and a subscription past it is refused with
+`node_at_capacity`. Ten `private` resources watched by 5,000 connections reach
+that ceiling; the same ten declared `public` hold one instance per distinct set
+of inputs no matter how many connections watch them.
 
 ## How invalidation works
 
@@ -623,9 +647,18 @@ fan-out, patch size, and connection counts before changing them in production.
 | `maxInputBytes` | `8192` | Maximum UTF-8 size of canonicalized subscription inputs |
 | `unsubGraceMs` | `5000` | Delay before an unused server instance is dropped |
 | `maxPendingPatches` | `32` | Consecutive backpressured sends before sending a snapshot |
-| `fanoutQueueThreshold` | `500` | Number of instances processed in one recompute slice before yielding |
+| `fanoutQueueThreshold` | `500` | Recomputes finished in one run before the event loop is yielded back |
+| `maxConcurrentRecomputes` | `4` | Recomputes allowed to run at once, across every path |
 | `maxInstancesPerConnection` | `64` | Maximum live instances held by one connection |
 | `maxInstancesPerNode` | `50000` | Maximum live instances held by the process |
+
+`maxConcurrentRecomputes` is the one to revisit alongside the database. Every
+recompute runs its resource's route, and so its queries; Bun's SQL pool
+defaults to ten connections. Raising the limit past the pool buys no
+parallelism -- the driver queues the excess either way -- it only puts live
+queries in front of the ordinary HTTP requests competing for the same
+connections. The default leaves most of the pool for them. Raise it with the
+pool, not with the fan-out.
 
 The client has separate reconnect settings:
 

@@ -13,8 +13,19 @@ export interface LiveConfig {
     unsubGraceMs: number;
     /** Consecutive back-pressured sends before collapsing to a snapshot. */
     maxPendingPatches: number;
-    /** Above this fan-out, recompute is queued instead of run inline. */
+    /** Recomputes finished in one run before the loop is yielded back. */
     fanoutQueueThreshold: number;
+    /**
+     * Recomputes allowed to run at once, across every path.
+     *
+     * Each one executes the resource's route, and so its queries. Raising it
+     * past the database pool buys no parallelism -- the driver queues the
+     * excess either way -- it only puts live queries in front of the ordinary
+     * HTTP requests competing for the same connections. The default sits well
+     * under Bun's pool default of 10; raise it with the pool, not with the
+     * fan-out.
+     */
+    maxConcurrentRecomputes: number;
     /** Ceiling on live instances held by a single connection. */
     maxInstancesPerConnection: number;
     /** Ceiling on live instances held by this process. */
@@ -36,6 +47,7 @@ export const DEFAULT_LIVE_CONFIG: LiveConfig = {
     unsubGraceMs: 5000,
     maxPendingPatches: 32,
     fanoutQueueThreshold: 500,
+    maxConcurrentRecomputes: 4,
     maxInstancesPerConnection: 64,
     maxInstancesPerNode: 50000,
     ssePath: '/live/sse',

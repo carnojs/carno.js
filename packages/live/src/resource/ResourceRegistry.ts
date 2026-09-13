@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { CONTROLLER_META, PARAMS_META, ROUTES_META, type ParamMetadata } from '@carno.js/core';
 import type { Dependency } from '../graph/types';
-import { LIVE_META, type LiveMeta } from '../metadata';
+import { LIVE_META, type LiveMeta, type LiveShared } from '../metadata';
 import { dependencyContext } from './dependency-context';
 import type {
     LiveExecutionContext,
@@ -141,6 +141,13 @@ export class ResourceRegistry {
 
     ids(): string[] {
         return [...this.resources.keys()];
+    }
+
+    /** Ids declared with this sharing mode, in registration order. */
+    idsShared(shared: LiveShared): string[] {
+        return [...this.resources.values()]
+            .filter(resource => resource.meta.shared === shared)
+            .map(resource => resource.id);
     }
 
     /** Every live route, as the HTTP layer addresses it. */
