@@ -3,10 +3,12 @@ import { app, execute, purgeDatabase, startDatabase } from '../node-database';
 import {
   BaseEntity,
   Entity,
+  ManyToOne,
   PrimaryKey,
   Property,
   Repository,
 } from '../../src';
+import type { Ref } from '../../src';
 import { Tenant } from '../../src/decorators/tenant.decorator';
 import { tenantContext } from '../../src/tenant/tenant-context';
 
@@ -25,6 +27,22 @@ const DDL_INVOICES = `
     "id" SERIAL PRIMARY KEY,
     "amount" integer NOT NULL DEFAULT 0,
     "tenant_id" varchar(64) NOT NULL
+  );
+`;
+
+const DDL_STORES = `
+  CREATE TABLE "tenant_store" (
+    "id" SERIAL PRIMARY KEY,
+    "name" varchar(255) NOT NULL
+  );
+`;
+
+// The tenant discriminator here is a FK column, not a scalar.
+const DDL_ORDERS = `
+  CREATE TABLE "tenant_order" (
+    "id" SERIAL PRIMARY KEY,
+    "total" integer NOT NULL DEFAULT 0,
+    "store_id" integer NOT NULL REFERENCES "tenant_store" ("id")
   );
 `;
 
@@ -84,6 +102,37 @@ class TenantInvoice extends BaseEntity {
   tenantId: string;
 }
 
+@Entity({ tableName: 'tenant_store' })
+class TenantStore extends BaseEntity {
+  @PrimaryKey()
+  id: number;
+
+  @Property()
+  name: string;
+}
+
+// The tenant discriminator is a relation. The property is named `store`, the
+// way any other relation would be named: the column `store_id` is the
+// decorator's job to derive, not the author's.
+@Entity({ tableName: 'tenant_order' })
+class TenantOrder extends BaseEntity {
+  @PrimaryKey()
+  id: number;
+
+  @Property()
+  total: number;
+
+  @Tenant()
+  @ManyToOne(() => TenantStore)
+  store: Ref<TenantStore>;
+}
+
+class OrderRepository extends Repository<TenantOrder> {
+  constructor() {
+    super(TenantOrder);
+  }
+}
+
 class PostRepository extends Repository<TenantPost> {
   constructor() {
     super(TenantPost);
@@ -102,12 +151,16 @@ describe('Tenant Isolation', () => {
   let postRepo: PostRepository;
   let invoiceRepo: InvoiceRepository;
   let sharedRepo: SharedConfigRepository;
+  let orderRepo: OrderRepository;
 
   beforeEach(async () => {
     await startDatabase();
     await execute(DDL_POSTS);
     await execute(DDL_INVOICES);
     await execute(DDL_SHARED);
+    await execute(DDL_STORES);
+    await execute(DDL_ORDERS);
+    orderRepo = new OrderRepository();
     postRepo = new PostRepository();
     invoiceRepo = new InvoiceRepository();
     sharedRepo = new SharedConfigRepository();
@@ -396,6 +449,30 @@ describe('Tenant Isolation', () => {
       const { Metadata } = await import('@carno.js/core');
       const { TENANT_PROPERTY } = await import('../../src/constants');
       expect(Metadata.get(TENANT_PROPERTY, TenantInvoice)).toBe('tenantId');
+    });
+  });
+
+  // ── Tenant on a many-to-one relation ──────────────────────────────────────
+
+  describe('tenant discriminator on a @ManyToOne relation', () => {
+    test('SELECT scopes by the relation FK column, not the property name', async () => {
+      await execute(`INSERT INTO "tenant_store" ("id","name") VALUES (1,'Store One'),(2,'Store Two')`);
+      await execute(`INSERT INTO "tenant_order" ("total","store_id") VALUES (10,1),(20,1),(30,2)`);
+
+      const ordersForStore1 = await tenantContext.run(1, () => orderRepo.find({ where: {} as any }));
+
+      expect(ordersForStore1).toHaveLength(2);
+      expect(ordersForStore1.map((o: any) => o.total).sort((a: number, b: number) => a - b)).toEqual([10, 20]);
+    });
+
+    test('INSERT fills the relation FK column from the active tenant', async () => {
+      await execute(`INSERT INTO "tenant_store" ("id","name") VALUES (1,'Store One'),(2,'Store Two')`);
+
+      await tenantContext.run(2, () => orderRepo.create({ total: 99 } as any));
+
+      const rows = await execute(`SELECT "total","store_id" FROM "tenant_order"`);
+      expect(rows.rows).toHaveLength(1);
+      expect(Number(rows.rows[0].store_id)).toBe(2);
     });
   });
 });

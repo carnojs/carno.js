@@ -474,7 +474,9 @@ export class SqlBuilder<T> {
       const tenantField = Metadata.get(TENANT_PROPERTY, this.model) as string | undefined;
       if (tenantField) {
         const metadata = Metadata.get(PROPERTIES_METADATA, this.model) || {};
-        const column = metadata[tenantField]?.options?.columnName || tenantField;
+        const column = this.entity._metadataIndex?.columnByProperty.get(tenantField)
+          || metadata[tenantField]?.options?.columnName
+          || tenantField;
 
         const tenantValue = typeof tenantId === 'string'
           ? `'${escapeString(tenantId, this.driver.dbType === 'mysql')}'`
