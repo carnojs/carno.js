@@ -1,6 +1,6 @@
 {
   "name": "@carno.js/live",
-  "version": "1.8.1",
+  "version": "1.8.2",
   "description": "Server-owned reactive state for Carno.js: live resources, dependency-graph invalidation, and framework-native client stores",
   "type": "commonjs",
   "main": "dist/index.js",
